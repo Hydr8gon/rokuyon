@@ -17,32 +17,10 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <wx/wx.h>
+#include <cstdint>
 
-#include "../memory.h"
-
-class ryApp: public wxApp
+namespace Memory
 {
-    private:
-        bool OnInit();
-};
-
-bool ryApp::OnInit()
-{
-    // Make a useless window because there's nothing else to show :)
-    SetAppName("rokuyon");
-    wxFrame *frame = new wxFrame(nullptr, wxID_ANY, "rokuyon");
-    frame->Show(true);
-
-    // Test some memory stuff
-    Memory::read<uint32_t>(0xA4400000);
-    Memory::write<uint8_t>(0x4900000, 0);
-    Memory::write<uint32_t>(0x80000000, 0x12345678);
-    uint8_t msb = Memory::read<uint8_t>(0x80000000);
-    printf("MSB of 0x12345678: 0x%X\n", msb);
-
-    return true;
+    template <typename T> T read(uint32_t address);
+    template <typename T> void write(uint32_t address, T value);
 }
-
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
