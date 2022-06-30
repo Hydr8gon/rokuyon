@@ -17,7 +17,15 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ry_app.h"
+#ifndef CORE_H
+#define CORE_H
 
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
+#include <string>
+
+namespace Core
+{
+    bool bootRom(const std::string &path);
+    void stop();
+}
+
+#endif // CORE_H

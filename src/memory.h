@@ -17,10 +17,17 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#ifndef MEMORY_H
+#define MEMORY_H
+
 #include <cstdint>
 
 namespace Memory
 {
+    void reset();
+
     template <typename T> T read(uint32_t address);
     template <typename T> void write(uint32_t address, T value);
 }
+
+#endif // MEMORY_H

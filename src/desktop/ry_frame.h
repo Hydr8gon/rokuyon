@@ -17,7 +17,21 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ry_app.h"
+#ifndef RY_FRAME_H
+#define RY_FRAME_H
 
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
+#include <wx/wx.h>
+
+class ryFrame: public wxFrame
+{
+    public:
+        ryFrame();
+
+    private:
+        void loadRom(wxCommandEvent &event);
+        void quit(wxCommandEvent &event);
+
+        wxDECLARE_EVENT_TABLE();
+};
+
+#endif // RY_FRAME_H

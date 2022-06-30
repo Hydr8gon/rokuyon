@@ -17,7 +17,20 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ry_app.h"
+#include "vr4300.h"
+#include "memory.h"
 
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
+static uint32_t programCounter;
+
+void VR4300::reset()
+{
+    // Reset the interpreter to its initial state
+    programCounter = 0x84000040; // IPL3
+}
+
+void VR4300::runOpcode()
+{
+    uint32_t opcode = Memory::read<uint32_t>(programCounter);
+    printf("Unknown opcode: 0x%08X @ 0x%X\n", opcode, programCounter);
+    exit(0);
+}

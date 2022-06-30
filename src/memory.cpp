@@ -18,10 +18,19 @@
 */
 
 #include <cstdio>
+#include <cstring>
 
 #include "memory.h"
 
 static uint8_t rdram[0x400000]; // 4MB RDRAM
+static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
+
+void Memory::reset()
+{
+    // Reset the memory to its initial state
+    memset(rdram,  0, sizeof(rdram));
+    memset(rspMem, 0, sizeof(rspMem));
+}
 
 namespace Registers
 {
@@ -43,17 +52,19 @@ template uint32_t Memory::read(uint32_t address);
 template uint64_t Memory::read(uint32_t address);
 template <typename T> T Memory::read(uint32_t address)
 {
-    // Mirror the kseg0 and kseg1 spaces
-    if ((address & 0xC0000000) == 0x80000000)
-        address &= 0x1FFFFFFF;
-
     uint8_t *data = nullptr;
 
     // Get a pointer to readable N64 memory based on the address
-    if (address < 0x400000)
-        data = &rdram[address & 0x3FFFFF];
-    else if (address >= 0x3F00000 && address < 0x4900000)
-        return Registers::read<T>(address);
+    if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
+    {
+        address &= 0x1FFFFFFF; // Mirror
+        if (address < 0x400000) // RDRAM
+            data = &rdram[address & 0x3FFFFF];
+        else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
+            data = &rspMem[address & 0x1FFF];
+        else if (address >= 0x3F00000 && address < 0x4900000) // Registers
+            return Registers::read<T>(address);
+    }
 
     if (data != nullptr)
     {
@@ -74,17 +85,19 @@ template void Memory::write(uint32_t address, uint32_t value);
 template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
-    // Mirror the kseg0 and kseg1 spaces
-    if ((address & 0xC0000000) == 0x80000000)
-        address &= 0x1FFFFFFF;
-
     uint8_t *data = nullptr;
 
     // Get a pointer to writable N64 memory based on the address
-    if (address < 0x400000)
-        data = &rdram[address & 0x3FFFFF];
-    else if (address >= 0x3F00000 && address < 0x4900000)
-        return Registers::write<T>(address, value);
+    if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
+    {
+        address &= 0x1FFFFFFF; // Mirror
+        if (address < 0x400000) // RDRAM
+            data = &rdram[address & 0x3FFFFF];
+        else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
+            data = &rspMem[address & 0x1FFF];
+        else if (address >= 0x3F00000 && address < 0x4900000) // Registers
+            return Registers::write<T>(address, value);
+    }
 
     if (data != nullptr)
     {

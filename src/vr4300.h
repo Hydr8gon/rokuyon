@@ -17,7 +17,15 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ry_app.h"
+#ifndef VR4300_H
+#define VR4300_H
 
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
+#include <string>
+
+namespace VR4300
+{
+    void reset();
+    void runOpcode();
+}
+
+#endif // VR4300_H

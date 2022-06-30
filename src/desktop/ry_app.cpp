@@ -18,6 +18,18 @@
 */
 
 #include "ry_app.h"
+#include "../core.h"
 
-// Let wxWidgets handle the main function
-wxIMPLEMENT_APP(ryApp);
+bool ryApp::OnInit()
+{
+    // Create and show the app's frame
+    SetAppName("rokuyon");
+    wxFrame *frame = new ryFrame();
+    return true;
+}
+
+int ryApp::OnExit()
+{
+    Core::stop();
+    return wxApp::OnExit();
+}
