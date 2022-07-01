@@ -23,6 +23,7 @@
 #include "core.h"
 #include "memory.h"
 #include "pi.h"
+#include "vi.h"
 #include "vr4300.h"
 
 bool Core::running;
@@ -40,6 +41,7 @@ bool Core::bootRom(const std::string &path)
     // Stop and reset the emulator
     Core::stop();
     Memory::reset();
+    VI::reset();
 
     // Open the specified ROM file if it exists
     FILE *file = fopen(path.c_str(), "rb");

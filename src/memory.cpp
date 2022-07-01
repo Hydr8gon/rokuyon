@@ -22,6 +22,7 @@
 
 #include "memory.h"
 #include "pi.h"
+#include "vi.h"
 
 static uint8_t rdram[0x400000]; // 4MB RDRAM
 static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
@@ -46,6 +47,7 @@ namespace Registers
         // Write to an I/O register if one exists at the given address
         switch (address)
         {
+            case 0x4400004: return VI::writeOrigin(value);   // VI_ORIGIN
             case 0x4600000: return PI::writeDramAddr(value); // PI_DRAM_ADDR
             case 0x4600004: return PI::writeCartAddr(value); // PI_CART_ADDR
             case 0x460000C: return PI::writeWrLen(value);    // PI_WR_LEN

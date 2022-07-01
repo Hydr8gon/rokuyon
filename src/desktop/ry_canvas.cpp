@@ -19,7 +19,7 @@
 
 #include "ry_canvas.h"
 #include "../core.h"
-#include "../memory.h"
+#include "../vi.h"
 
 wxBEGIN_EVENT_TABLE(ryCanvas, wxGLCanvas)
 EVT_PAINT(ryCanvas::draw)
@@ -60,11 +60,8 @@ void ryCanvas::draw(wxPaintEvent &event)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Draw a hacky, hardcoded framebuffer
-    static uint32_t framebuffer[320 * 240];
-    for (size_t i = 0; i < 320 * 240; i++)
-        framebuffer[i] = Memory::read<uint32_t>(0x80100000 + (i << 2));
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 320, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, framebuffer);
+    // Get the framebuffer as a texture
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 320, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, VI::getFramebuffer());
 
     // Submit the polygon vertices
     glBegin(GL_QUADS);
