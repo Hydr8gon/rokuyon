@@ -27,14 +27,29 @@ namespace VR4300
     void reset();
     void runOpcode();
 
+    void j(uint32_t opcode);
+    void jal(uint32_t opcode);
+    void beq(uint32_t opcode);
     void bne(uint32_t opcode);
+    void addi(uint32_t opcode);
+    void addiu(uint32_t opcode);
     void andi(uint32_t opcode);
     void ori(uint32_t opcode);
     void lui(uint32_t opcode);
+    void beql(uint32_t opcode);
+    void bnel(uint32_t opcode);
+    void daddi(uint32_t opcode);
+    void daddiu(uint32_t opcode);
+    void lb(uint32_t opcode);
     void lw(uint32_t opcode);
+    void lbu(uint32_t opcode);
+    void lwu(uint32_t opcode);
     void sw(uint32_t opcode);
     void sll(uint32_t opcode);
     void jr(uint32_t opcode);
+    void jalr(uint32_t opcode);
+    void add(uint32_t opcode);
+    void addu(uint32_t opcode);
     void unk(uint32_t opcode);
 }
 

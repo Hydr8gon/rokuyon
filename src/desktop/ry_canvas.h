@@ -17,23 +17,32 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RY_APP_H
-#define RY_APP_H
+#ifndef RY_CANVAS_H
+#define RY_CANVAS_H
 
-#include "ry_frame.h"
+#include <wx/wx.h>
+#include <wx/glcanvas.h>
 
-class ryApp: public wxApp
+class ryFrame;
+
+class ryCanvas: public wxGLCanvas
 {
+    public:
+        ryCanvas(wxFrame *frame);
+
     private:
         wxFrame *frame;
-        wxTimer *timer;
+        wxGLContext *context;
 
-        bool OnInit();
-        int  OnExit();
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t x = 0;
+        uint32_t y = 0;
 
-        void update(wxTimerEvent &event);
+        void draw(wxPaintEvent &event);
+        void resize(wxSizeEvent &event);
 
         wxDECLARE_EVENT_TABLE();
 };
 
-#endif // RY_APP_H
+#endif // RY_CANVAS_H

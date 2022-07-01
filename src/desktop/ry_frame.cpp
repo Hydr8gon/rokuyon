@@ -18,6 +18,7 @@
 */
 
 #include "ry_frame.h"
+#include "ry_canvas.h"
 #include "../core.h"
 
 enum FrameEvent
@@ -29,6 +30,7 @@ enum FrameEvent
 wxBEGIN_EVENT_TABLE(ryFrame, wxFrame)
 EVT_MENU(LOAD_ROM, ryFrame::loadRom)
 EVT_MENU(QUIT,     ryFrame::quit)
+EVT_CLOSE(ryFrame::close)
 wxEND_EVENT_TABLE()
 
 ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
@@ -44,7 +46,16 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
     menuBar->Append(fileMenu, "&File");
     SetMenuBar(menuBar);
 
+    // Show the window
+    SetBackgroundColour(*wxBLACK);
+    Centre();
     Show(true);
+
+    // Set up a canvas for drawing the framebuffer
+    ryCanvas *canvas = new ryCanvas(this);
+    wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
+    sizer->Add(canvas, 1, wxEXPAND);
+    SetSizer(sizer);
 }
 
 void ryFrame::loadRom(wxCommandEvent &event)
@@ -59,4 +70,11 @@ void ryFrame::quit(wxCommandEvent &event)
 {
     // Close the program
     Close(true);
+}
+
+void ryFrame::close(wxCloseEvent &event)
+{
+    // Stop emulation before exiting
+    Core::stop();
+    event.Skip(true);
 }

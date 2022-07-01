@@ -25,13 +25,13 @@
 #include "pi.h"
 #include "vr4300.h"
 
-static bool running;
+bool Core::running;
 static std::thread *thread;
 
 static void run()
 {
     // Run the CPU until stopped
-    while (running)
+    while (Core::running)
         VR4300::runOpcode();
 }
 

@@ -20,16 +20,36 @@
 #include "ry_app.h"
 #include "../core.h"
 
+enum AppEvent
+{
+    UPDATE = 1
+};
+
+wxBEGIN_EVENT_TABLE(ryApp, wxApp)
+EVT_TIMER(UPDATE, ryApp::update)
+wxEND_EVENT_TABLE()
+
 bool ryApp::OnInit()
 {
     // Create and show the app's frame
     SetAppName("rokuyon");
-    wxFrame *frame = new ryFrame();
+    frame = new ryFrame();
+
+    // Set up the update timer
+    timer = new wxTimer(this, UPDATE);
+    timer->Start(6);
+
     return true;
 }
 
 int ryApp::OnExit()
 {
-    Core::stop();
+    timer->Stop();
     return wxApp::OnExit();
+}
+
+void ryApp::update(wxTimerEvent &event)
+{
+    // Continuously refresh the frame
+    frame->Refresh();
 }

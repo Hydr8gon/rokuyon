@@ -24,6 +24,8 @@
 
 namespace Core
 {
+    extern bool running;
+
     bool bootRom(const std::string &path);
     void stop();
 }

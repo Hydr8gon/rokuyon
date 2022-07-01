@@ -30,6 +30,7 @@ class ryFrame: public wxFrame
     private:
         void loadRom(wxCommandEvent &event);
         void quit(wxCommandEvent &event);
+        void close(wxCloseEvent &event);
 
         wxDECLARE_EVENT_TABLE();
 };
