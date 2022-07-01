@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "memory.h"
+#include "pi.h"
 
 static uint8_t rdram[0x400000]; // 4MB RDRAM
 static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
@@ -34,14 +35,22 @@ void Memory::reset()
 
 namespace Registers
 {
-    template <typename T> T read(uint32_t address)
+    uint32_t read(uint32_t address)
     {
         printf("Unknown register read: 0x%X\n", address);
         return 0;
     }
 
-    template <typename T> void write(uint32_t address, T value)
+    void write(uint32_t address, uint32_t value)
     {
+        // Write to an I/O register if one exists at the given address
+        switch (address)
+        {
+            case 0x4600000: return PI::writeDramAddr(value); // PI_DRAM_ADDR
+            case 0x4600004: return PI::writeCartAddr(value); // PI_CART_ADDR
+            case 0x460000C: return PI::writeWrLen(value);    // PI_WR_LEN
+        }
+
         printf("Unknown register write: 0x%X\n", address);
     }
 }
@@ -63,7 +72,7 @@ template <typename T> T Memory::read(uint32_t address)
         else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
             data = &rspMem[address & 0x1FFF];
         else if (address >= 0x3F00000 && address < 0x4900000) // Registers
-            return Registers::read<T>(address);
+            return Registers::read(address);
     }
 
     if (data != nullptr)
@@ -96,7 +105,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
         else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
             data = &rspMem[address & 0x1FFF];
         else if (address >= 0x3F00000 && address < 0x4900000) // Registers
-            return Registers::write<T>(address, value);
+            return Registers::write(address, value);
     }
 
     if (data != nullptr)

@@ -22,6 +22,7 @@
 
 #include "core.h"
 #include "memory.h"
+#include "pi.h"
 #include "vr4300.h"
 
 static bool running;
@@ -36,12 +37,9 @@ static void run()
 
 bool Core::bootRom(const std::string &path)
 {
-    // Ensure emulation is stopped
-    stop();
-
-    // Reset the system components
+    // Stop and reset the emulator
+    Core::stop();
     Memory::reset();
-    VR4300::reset();
 
     // Open the specified ROM file if it exists
     FILE *file = fopen(path.c_str(), "rb");
@@ -52,7 +50,9 @@ bool Core::bootRom(const std::string &path)
     fread(data, sizeof(uint8_t), 0x1000, file);
     for (size_t i = 0; i < 0x1000; i++)
         Memory::write<uint8_t>(0x84000000 + i, data[i]);
-    fclose(file);
+
+    PI::reset(file);
+    VR4300::reset();
 
     // Start the emulation thread
     running = true;

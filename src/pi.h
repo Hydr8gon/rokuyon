@@ -17,25 +17,19 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef VR4300_H
-#define VR4300_H
+#ifndef PI_H
+#define PI_H
 
-#include <string>
+#include <cstdint>
+#include <cstdio>
 
-namespace VR4300
+namespace PI
 {
-    void reset();
-    void runOpcode();
+    void reset(FILE *file);
 
-    void bne(uint32_t opcode);
-    void andi(uint32_t opcode);
-    void ori(uint32_t opcode);
-    void lui(uint32_t opcode);
-    void lw(uint32_t opcode);
-    void sw(uint32_t opcode);
-    void sll(uint32_t opcode);
-    void jr(uint32_t opcode);
-    void unk(uint32_t opcode);
+    void writeDramAddr(uint32_t value);
+    void writeCartAddr(uint32_t value);
+    void writeWrLen(uint32_t value);
 }
 
-#endif // VR4300_H
+#endif // PI_H
