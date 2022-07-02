@@ -17,18 +17,22 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef MEMORY_H
-#define MEMORY_H
+#ifndef PIF_H
+#define PIF_H
 
 #include <cstdint>
 #include <cstdio>
 
-namespace Memory
+namespace PIF
 {
-    void reset();
+    extern uint8_t memory[0x800];
 
-    template <typename T> T read(uint32_t address);
-    template <typename T> void write(uint32_t address, T value);
+    void reset(FILE *pifFile);
+    void runCommand();
+
+    void verifyChecksum(int bit);
+    void clearMemory(int bit);
+    void unknownCmd(int bit);
 }
 
-#endif // MEMORY_H
+#endif // PIF_H

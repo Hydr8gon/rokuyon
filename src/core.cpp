@@ -22,6 +22,7 @@
 #include "core.h"
 #include "memory.h"
 #include "pi.h"
+#include "pif.h"
 #include "vi.h"
 #include "vr4300.h"
 
@@ -47,9 +48,10 @@ int Core::bootRom(const std::string &path)
 
     // Stop and reset the emulator
     Core::stop();
-    Memory::reset(pifFile);
-    VI::reset();
+    Memory::reset();
     PI::reset(romFile);
+    PIF::reset(pifFile);
+    VI::reset();
     VR4300::reset();
 
     // Start the emulation thread

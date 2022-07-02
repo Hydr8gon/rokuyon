@@ -22,22 +22,17 @@
 
 #include "memory.h"
 #include "pi.h"
+#include "pif.h"
 #include "vi.h"
 
 static uint8_t rdram[0x400000]; // 4MB RDRAM
 static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
-static uint8_t pifMem[0x800];   // 2KB-64B PIF ROM + 64B PIF RAM
 
-void Memory::reset(FILE *pifFile)
+void Memory::reset()
 {
-    // Load the PIF ROM into memory
-    fread(pifMem, sizeof(uint8_t), 0x7C0, pifFile);
-    fclose(pifFile);
-
     // Clear the remaining memory locations
     memset(rdram,  0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
-    memset(&pifMem[0x7C0], 0, 0x40);
 }
 
 namespace Registers
@@ -80,17 +75,17 @@ template <typename T> T Memory::read(uint32_t address)
     // Get a pointer to readable N64 memory based on the address
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
     {
-        address &= 0x1FFFFFFF; // Mirror
-        if (address < 0x400000) // RDRAM
-            data = &rdram[address & 0x3FFFFF];
-        else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
-            data = &rspMem[address & 0x1FFF];
-        else if (address >= 0x10000000 && address < 0x10000000 + std::min(PI::romSize, 0xFC00000U)) // Cart ROM
-            data = &PI::rom[address - 0x10000000];
-        else if (address >= 0x1FC00000 && address < 0x1FC00800) // PIF ROM/RAM
-            data = &pifMem[address & 0x7FF];
-        else if (address >= 0x3F00000 && address < 0x4900000) // Registers
-            return Registers::read(address);
+        uint32_t addr = address & 0x1FFFFFFF; // Mirror
+        if (addr < 0x400000) // RDRAM
+            data = &rdram[addr & 0x3FFFFF];
+        else if (addr >= 0x4000000 && addr < 0x4040000) // RSP DMEM/IMEM
+            data = &rspMem[addr & 0x1FFF];
+        else if (addr >= 0x10000000 && addr < 0x10000000 + std::min(PI::romSize, 0xFC00000U)) // Cart ROM
+            data = &PI::rom[addr - 0x10000000];
+        else if (addr >= 0x3F00000 && addr < 0x4900000) // Registers
+            return Registers::read(addr);
+        else if (addr >= 0x1FC00000 && addr < 0x1FC00800) // PIF ROM/RAM
+            data = &PIF::memory[addr & 0x7FF];
     }
 
     if (data != nullptr)
@@ -112,24 +107,31 @@ template void Memory::write(uint32_t address, uint32_t value);
 template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
-    // TODO: remove this dumb hack that makes IPL2 boot
-    if (address == 0xBFC007FC && value == 0x30)
-        value |= 0x80;
-
     uint8_t *data = nullptr;
 
     // Get a pointer to writable N64 memory based on the address
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
     {
-        address &= 0x1FFFFFFF; // Mirror
-        if (address < 0x400000) // RDRAM
-            data = &rdram[address & 0x3FFFFF];
-        else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
-            data = &rspMem[address & 0x1FFF];
-        else if (address >= 0x1FC007C0 && address < 0x1FC00800) // PIF RAM
-            data = &pifMem[address & 0x7FF];
-        else if (address >= 0x3F00000 && address < 0x4900000) // Registers
-            return Registers::write(address, value);
+        uint32_t addr = address & 0x1FFFFFFF; // Mirror
+        if (addr < 0x400000) // RDRAM
+            data = &rdram[addr & 0x3FFFFF];
+        else if (addr >= 0x4000000 && addr < 0x4040000) // RSP DMEM/IMEM
+            data = &rspMem[addr & 0x1FFF];
+        else if (addr >= 0x3F00000 && addr < 0x4900000) // Registers
+            return Registers::write(addr, value);
+        else if (addr >= 0x1FC007C0 && addr < 0x1FC00800) // PIF RAM
+        {
+            data = &PIF::memory[addr & 0x7FF];
+
+            // Catch writes to the PIF command byte and call the PIF
+            if (addr >= 0x1FC00800 - sizeof(T))
+            {
+                for (size_t i = 0; i < sizeof(T); i++)
+                    data[i] = value >> ((sizeof(T) - 1 - i) * 8);
+                PIF::runCommand();
+                return;
+            }
+        }
     }
 
     if (data != nullptr)

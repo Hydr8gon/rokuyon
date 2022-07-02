@@ -451,19 +451,23 @@ void VR4300::multu(uint32_t opcode)
 void VR4300::div(uint32_t opcode)
 {
     // Divide two signed registers and set the result
-    uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] /
-        (int32_t)registersR[(opcode >> 21) & 0x1F];
-    hi = value >> 32;
-    lo = (uint32_t)value;
+    if (int32_t divisor = registersR[(opcode >> 21) & 0x1F])
+    {
+        uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] / divisor;
+        hi = value >> 32;
+        lo = (uint32_t)value;
+    }
 }
 
 void VR4300::divu(uint32_t opcode)
 {
     // Divide two unsigned registers and set the result
-    uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] /
-        (uint32_t)registersR[(opcode >> 21) & 0x1F];
-    hi = value >> 32;
-    lo = (uint32_t)value;
+    if (uint32_t divisor = registersR[(opcode >> 21) & 0x1F])
+    {
+        uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] / divisor;
+        hi = value >> 32;
+        lo = (uint32_t)value;
+    }
 }
 
 void VR4300::add(uint32_t opcode)
