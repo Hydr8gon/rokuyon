@@ -48,9 +48,9 @@ static void (*regInstrs[0x40])(uint32_t) =
     VR4300::sllv,   VR4300::unk,   VR4300::srlv,   VR4300::srav,   // 0x04-0x07
     VR4300::jr,     VR4300::jalr,  VR4300::unk,    VR4300::unk,    // 0x08-0x0B
     VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x0C-0x0F
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x10-0x13
+    VR4300::mfhi,   VR4300::unk,   VR4300::mflo,   VR4300::unk,    // 0x10-0x13
     VR4300::dsllv,  VR4300::unk,   VR4300::dsrlv,  VR4300::dsrav,  // 0x14-0x17
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x18-0x1B
+    VR4300::mult,   VR4300::multu, VR4300::div,    VR4300::divu,   // 0x18-0x1B
     VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x1C-0x1F
     VR4300::add,    VR4300::addu,  VR4300::sub,    VR4300::subu,   // 0x20-0x23
     VR4300::and_,   VR4300::or_,   VR4300::xor_,   VR4300::nor,    // 0x24-0x27
@@ -77,6 +77,7 @@ static void (*extInstrs[0x20])(uint32_t) =
 
 static uint64_t registersR[33];
 static uint64_t *registersW[32];
+static uint64_t hi, lo;
 static uint32_t programCounter;
 static uint32_t nextOpcode;
 
@@ -88,12 +89,17 @@ void VR4300::reset()
         registersW[i] = &registersR[i];
 
     // Reset the interpreter to its initial state
-    programCounter = 0x84000040; // IPL3
+    hi = lo = 0;
+    programCounter = 0xBFC00000;
     nextOpcode = Memory::read<uint32_t>(programCounter);
 }
 
 void VR4300::runOpcode()
 {
+    // TODO: remove this dumb hack that makes IPL3 boot
+    if (programCounter == 0x800001C4)
+        programCounter += 4;
+
     // Move an opcode through the pipeline
     uint32_t opcode = nextOpcode;
     nextOpcode = Memory::read<uint32_t>(programCounter += 4);
@@ -201,7 +207,7 @@ void VR4300::xori(uint32_t opcode)
 void VR4300::lui(uint32_t opcode)
 {
     // Load a 16-bit immediate into the upper 16 bits of a register
-    *registersW[(opcode >> 16) & 0x1F] = (opcode & 0xFFFF) << 16;
+    *registersW[(opcode >> 16) & 0x1F] = (int16_t)opcode << 16;
 }
 
 void VR4300::beql(uint32_t opcode)
@@ -262,77 +268,77 @@ void VR4300::daddiu(uint32_t opcode)
 void VR4300::lb(uint32_t opcode)
 {
     // Load a signed byte from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int8_t)Memory::read<uint8_t>(address);
 }
 
 void VR4300::lh(uint32_t opcode)
 {
     // Load a signed half-word from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int16_t)Memory::read<uint16_t>(address);
 }
 
 void VR4300::lw(uint32_t opcode)
 {
     // Load a signed word from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int32_t)Memory::read<uint32_t>(address);
 }
 
 void VR4300::lbu(uint32_t opcode)
 {
     // Load a byte from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint8_t>(address);
 }
 
 void VR4300::lhu(uint32_t opcode)
 {
     // Load a half-word from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint16_t>(address);
 }
 
 void VR4300::lwu(uint32_t opcode)
 {
     // Load a word from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint32_t>(address);
 }
 
 void VR4300::sb(uint32_t opcode)
 {
     // Store a byte to memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint8_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
 void VR4300::sh(uint32_t opcode)
 {
     // Store a half-word to memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint16_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
 void VR4300::sw(uint32_t opcode)
 {
     // Store a word to memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
 void VR4300::ld(uint32_t opcode)
 {
     // Load a double-word from memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint64_t>(address);
 }
 
 void VR4300::sd(uint32_t opcode)
 {
     // Store a double-word to memory at base register plus immeditate offset
-    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (opcode & 0xFFFF);
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint64_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
@@ -391,6 +397,18 @@ void VR4300::jalr(uint32_t opcode)
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
+void VR4300::mfhi(uint32_t opcode)
+{
+    // Copy the high word of the mult/div result to a register
+    *registersW[(opcode >> 11) & 0x1F] = hi;
+}
+
+void VR4300::mflo(uint32_t opcode)
+{
+    // Copy the low word of the mult/div result to a register
+    *registersW[(opcode >> 11) & 0x1F] = lo;
+}
+
 void VR4300::dsllv(uint32_t opcode)
 {
     // Shift a register left by a register and store the result
@@ -410,6 +428,42 @@ void VR4300::dsrav(uint32_t opcode)
     // Shift a register right by a register and store the signed result
     uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> registersR[(opcode >> 21) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
+}
+
+void VR4300::mult(uint32_t opcode)
+{
+    // Multiply two signed registers and set the result
+    uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] *
+        (int32_t)registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 32;
+    lo = (uint32_t)value;
+}
+
+void VR4300::multu(uint32_t opcode)
+{
+    // Multiply two unsigned registers and set the result
+    uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] *
+        (uint32_t)registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 32;
+    lo = (uint32_t)value;
+}
+
+void VR4300::div(uint32_t opcode)
+{
+    // Divide two signed registers and set the result
+    uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] /
+        (int32_t)registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 32;
+    lo = (uint32_t)value;
+}
+
+void VR4300::divu(uint32_t opcode)
+{
+    // Divide two unsigned registers and set the result
+    uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] /
+        (uint32_t)registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 32;
+    lo = (uint32_t)value;
 }
 
 void VR4300::add(uint32_t opcode)

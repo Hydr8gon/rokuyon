@@ -17,7 +17,7 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <cstdio>
+#include <algorithm>
 #include <cstring>
 
 #include "memory.h"
@@ -26,18 +26,30 @@
 
 static uint8_t rdram[0x400000]; // 4MB RDRAM
 static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
+static uint8_t pifMem[0x800];   // 2KB-64B PIF ROM + 64B PIF RAM
 
-void Memory::reset()
+void Memory::reset(FILE *pifFile)
 {
-    // Reset the memory to its initial state
+    // Load the PIF ROM into memory
+    fread(pifMem, sizeof(uint8_t), 0x7C0, pifFile);
+    fclose(pifFile);
+
+    // Clear the remaining memory locations
     memset(rdram,  0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
+    memset(&pifMem[0x7C0], 0, 0x40);
 }
 
 namespace Registers
 {
     uint32_t read(uint32_t address)
     {
+        // Read from an I/O register if one exists at the given address
+        switch (address)
+        {
+            case 0x4040010: return 0x00000001; // SP_STATUS
+        }
+
         printf("Unknown register read: 0x%X\n", address);
         return 0;
     }
@@ -73,6 +85,10 @@ template <typename T> T Memory::read(uint32_t address)
             data = &rdram[address & 0x3FFFFF];
         else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
             data = &rspMem[address & 0x1FFF];
+        else if (address >= 0x10000000 && address < 0x10000000 + std::min(PI::romSize, 0xFC00000U)) // Cart ROM
+            data = &PI::rom[address - 0x10000000];
+        else if (address >= 0x1FC00000 && address < 0x1FC00800) // PIF ROM/RAM
+            data = &pifMem[address & 0x7FF];
         else if (address >= 0x3F00000 && address < 0x4900000) // Registers
             return Registers::read(address);
     }
@@ -96,6 +112,10 @@ template void Memory::write(uint32_t address, uint32_t value);
 template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
+    // TODO: remove this dumb hack that makes IPL2 boot
+    if (address == 0xBFC007FC && value == 0x30)
+        value |= 0x80;
+
     uint8_t *data = nullptr;
 
     // Get a pointer to writable N64 memory based on the address
@@ -106,6 +126,8 @@ template <typename T> void Memory::write(uint32_t address, T value)
             data = &rdram[address & 0x3FFFFF];
         else if (address >= 0x4000000 && address < 0x4040000) // RSP DMEM/IMEM
             data = &rspMem[address & 0x1FFF];
+        else if (address >= 0x1FC007C0 && address < 0x1FC00800) // PIF RAM
+            data = &pifMem[address & 0x7FF];
         else if (address >= 0x3F00000 && address < 0x4900000) // Registers
             return Registers::write(address, value);
     }

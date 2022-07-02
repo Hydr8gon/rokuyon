@@ -60,10 +60,25 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
 
 void ryFrame::loadRom(wxCommandEvent &event)
 {
-    // Show the file browser and try to boot the selected ROM
+    // Show the file browser
     wxFileDialog romSelect(this, "Select ROM File", "", "", "N64 ROM files (*.z64)|*.z64", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-    if (romSelect.ShowModal() != wxID_CANCEL && !Core::bootRom((const char*)romSelect.GetPath().mb_str(wxConvUTF8)))
-        wxMessageDialog(this, "Make sure the ROM file is accessible and try again.", "Error Loading ROM", wxICON_NONE).ShowModal();
+
+    // Try to boot the selected ROM and handle errors
+    if (romSelect.ShowModal() != wxID_CANCEL)
+    {
+        switch (Core::bootRom((const char*)romSelect.GetPath().mb_str(wxConvUTF8)))
+        {
+            case 1: // PIF ROM load failed
+                wxMessageDialog(this, "Make sure a valid PIF dump named pif_rom.bin is next to the executable.",
+                    "Error Loading PIF ROM", wxICON_NONE).ShowModal();
+                break;
+
+            case 2: // Cart ROM load failed
+                wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
+                    "Error Loading Cart ROM", wxICON_NONE).ShowModal();
+                break;
+        }
+    }
 }
 
 void ryFrame::quit(wxCommandEvent &event)

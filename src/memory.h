@@ -21,10 +21,11 @@
 #define MEMORY_H
 
 #include <cstdint>
+#include <cstdio>
 
 namespace Memory
 {
-    void reset();
+    void reset(FILE *pifFile);
 
     template <typename T> T read(uint32_t address);
     template <typename T> void write(uint32_t address, T value);

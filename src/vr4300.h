@@ -67,9 +67,15 @@ namespace VR4300
     void srav(uint32_t opcode);
     void jr(uint32_t opcode);
     void jalr(uint32_t opcode);
+    void mfhi(uint32_t opcode);
+    void mflo(uint32_t opcode);
     void dsllv(uint32_t opcode);
     void dsrlv(uint32_t opcode);
     void dsrav(uint32_t opcode);
+    void mult(uint32_t opcode);
+    void multu(uint32_t opcode);
+    void div(uint32_t opcode);
+    void divu(uint32_t opcode);
     void add(uint32_t opcode);
     void addu(uint32_t opcode);
     void sub(uint32_t opcode);

@@ -17,7 +17,6 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <cstdio>
 #include <thread>
 
 #include "core.h"
@@ -36,30 +35,27 @@ static void run()
         VR4300::runOpcode();
 }
 
-bool Core::bootRom(const std::string &path)
+int Core::bootRom(const std::string &path)
 {
+    // Try to open the PIF ROM file
+    FILE *pifFile = fopen("pif_rom.bin", "rb");
+    if (!pifFile) return 1;
+
+    // Try to open the specified ROM file
+    FILE *romFile = fopen(path.c_str(), "rb");
+    if (!romFile) return 2;
+
     // Stop and reset the emulator
     Core::stop();
-    Memory::reset();
+    Memory::reset(pifFile);
     VI::reset();
-
-    // Open the specified ROM file if it exists
-    FILE *file = fopen(path.c_str(), "rb");
-    if (!file) return false;
-
-    // Load the first 4KB of the ROM into RSP DMEM
-    uint8_t data[0x1000];
-    fread(data, sizeof(uint8_t), 0x1000, file);
-    for (size_t i = 0; i < 0x1000; i++)
-        Memory::write<uint8_t>(0x84000000 + i, data[i]);
-
-    PI::reset(file);
+    PI::reset(romFile);
     VR4300::reset();
 
     // Start the emulation thread
     running = true;
     thread = new std::thread(run);
-    return true;
+    return 0;
 }
 
 void Core::stop()

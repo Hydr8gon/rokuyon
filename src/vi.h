@@ -21,7 +21,6 @@
 #define VI_H
 
 #include <cstdint>
-#include <cstdio>
 
 namespace VI
 {

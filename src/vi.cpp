@@ -17,6 +17,8 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
+
 #include "vi.h"
 #include "memory.h"
 

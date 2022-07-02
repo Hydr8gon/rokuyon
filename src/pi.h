@@ -25,7 +25,10 @@
 
 namespace PI
 {
-    void reset(FILE *file);
+    extern uint8_t *rom;
+    extern uint32_t romSize;
+
+    void reset(FILE *romFile);
 
     void writeDramAddr(uint32_t value);
     void writeCartAddr(uint32_t value);
