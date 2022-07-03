@@ -96,10 +96,6 @@ void VR4300::reset()
 
 void VR4300::runOpcode()
 {
-    // TODO: remove this dumb hack that makes IPL3 boot
-    if (programCounter == 0x800001C4)
-        programCounter += 4;
-
     // Move an opcode through the pipeline
     uint32_t opcode = nextOpcode;
     nextOpcode = Memory::read<uint32_t>(programCounter += 4);

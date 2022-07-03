@@ -43,6 +43,7 @@ namespace Registers
         switch (address)
         {
             case 0x4040010: return 0x00000001; // SP_STATUS
+            case 0x470000C: return 0x00000001; // RI_SELECT_REG
         }
 
         printf("Unknown register read: 0x%X\n", address);

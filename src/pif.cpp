@@ -37,6 +37,14 @@ void PIF::reset(FILE *pifFile)
     fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
     fclose(pifFile);
     clearMemory(0);
+
+    // Set the CIC value used for checksums during boot
+    // TODO: check ROM bootcode and set appropriately
+    Memory::write<uint32_t>(0xBFC007E4, 0x00043F3F);
+
+    // Set the memory size to 3MB(?)
+    // TODO: I think IPL3 is supposed to set this, but stubbing RI_SELECT_REG to 1 skips it
+    Memory::write<uint32_t>(0xA0000318, 0x00300000);
 }
 
 void PIF::runCommand()
