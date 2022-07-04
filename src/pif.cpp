@@ -22,13 +22,18 @@
 #include "pif.h"
 #include "memory.h"
 
-uint8_t PIF::memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
+namespace PIF
+{
+    uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
+
+    extern void (*pifCommands[])(int);
+}
 
 // Small command lookup table for PIF command bits
-static void (*pifCommands[7])(int) =
+void (*PIF::pifCommands[7])(int) =
 {
-    PIF::unknownCmd, PIF::unknownCmd,     PIF::unknownCmd, PIF::unknownCmd, // 0-3
-    PIF::unknownCmd, PIF::verifyChecksum, PIF::clearMemory                  // 4-6
+    unknownCmd, unknownCmd,     unknownCmd, unknownCmd, // 0-3
+    unknownCmd, verifyChecksum, clearMemory             // 4-6
 };
 
 void PIF::reset(FILE *pifFile)

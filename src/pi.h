@@ -29,10 +29,8 @@ namespace PI
     extern uint32_t romSize;
 
     void reset(FILE *romFile);
-
-    void writeDramAddr(uint32_t value);
-    void writeCartAddr(uint32_t value);
-    void writeWrLen(uint32_t value);
+    uint32_t read(uint32_t address);
+    void write(uint32_t address, uint32_t value);
 }
 
 #endif // PI_H

@@ -17,69 +17,149 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <cstring>
+
 #include "vr4300.h"
+#include "cp0.h"
 #include "memory.h"
 
-// Immediate-type instruction lookup table, using opcode bits 26-31
-static void (*immInstrs[0x40])(uint32_t) =
+namespace VR4300
 {
-    nullptr,       nullptr,        VR4300::j,     VR4300::jal,   // 0x00-0x03
-    VR4300::beq,   VR4300::bne,    VR4300::blez,  VR4300::bgtz,  // 0x04-0x07
-    VR4300::addi,  VR4300::addiu,  VR4300::slti,  VR4300::sltiu, // 0x08-0x0B
-    VR4300::andi,  VR4300::ori,    VR4300::xori,  VR4300::lui,   // 0x0C-0x0F
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x10-0x13
-    VR4300::beql,  VR4300::bnel,   VR4300::blezl, VR4300::bgtzl, // 0x14-0x17
-    VR4300::daddi, VR4300::daddiu, VR4300::ldl,   VR4300::ldr,   // 0x18-0x1B
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x1C-0x1F
-    VR4300::lb,    VR4300::lh,     VR4300::unk,   VR4300::lw,    // 0x20-0x23
-    VR4300::lbu,   VR4300::lhu,    VR4300::unk,   VR4300::lwu,   // 0x24-0x27
-    VR4300::sb,    VR4300::sh,     VR4300::unk,   VR4300::sw,    // 0x28-0x2B
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x2C-0x2F
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x30-0x33
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::ld,    // 0x34-0x37
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x38-0x3B
-    VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::sd,    // 0x3C-0x3F
+    uint64_t registersR[33];
+    uint64_t *registersW[32];
+    uint64_t hi, lo;
+    uint32_t programCounter;
+    uint32_t nextOpcode;
+
+    extern void (*immInstrs[])(uint32_t);
+    extern void (*regInstrs[])(uint32_t);
+    extern void (*extInstrs[])(uint32_t);
+
+    void j(uint32_t opcode);
+    void jal(uint32_t opcode);
+    void beq(uint32_t opcode);
+    void bne(uint32_t opcode);
+    void blez(uint32_t opcode);
+    void bgtz(uint32_t opcode);
+    void addi(uint32_t opcode);
+    void addiu(uint32_t opcode);
+    void slti(uint32_t opcode);
+    void sltiu(uint32_t opcode);
+    void andi(uint32_t opcode);
+    void ori(uint32_t opcode);
+    void xori(uint32_t opcode);
+    void lui(uint32_t opcode);
+    void beql(uint32_t opcode);
+    void bnel(uint32_t opcode);
+    void blezl(uint32_t opcode);
+    void bgtzl(uint32_t opcode);
+    void daddi(uint32_t opcode);
+    void daddiu(uint32_t opcode);
+    void ldl(uint32_t opcode);
+    void ldr(uint32_t opcode);
+    void lb(uint32_t opcode);
+    void lh(uint32_t opcode);
+    void lw(uint32_t opcode);
+    void lbu(uint32_t opcode);
+    void lhu(uint32_t opcode);
+    void lwu(uint32_t opcode);
+    void sb(uint32_t opcode);
+    void sh(uint32_t opcode);
+    void sw(uint32_t opcode);
+    void ld(uint32_t opcode);
+    void sd(uint32_t opcode);
+
+    void sll(uint32_t opcode);
+    void srl(uint32_t opcode);
+    void sra(uint32_t opcode);
+    void sllv(uint32_t opcode);
+    void srlv(uint32_t opcode);
+    void srav(uint32_t opcode);
+    void jr(uint32_t opcode);
+    void jalr(uint32_t opcode);
+    void mfhi(uint32_t opcode);
+    void mthi(uint32_t opcode);
+    void mflo(uint32_t opcode);
+    void mtlo(uint32_t opcode);
+    void dsllv(uint32_t opcode);
+    void dsrlv(uint32_t opcode);
+    void dsrav(uint32_t opcode);
+    void mult(uint32_t opcode);
+    void multu(uint32_t opcode);
+    void div(uint32_t opcode);
+    void divu(uint32_t opcode);
+    void add(uint32_t opcode);
+    void addu(uint32_t opcode);
+    void sub(uint32_t opcode);
+    void subu(uint32_t opcode);
+    void and_(uint32_t opcode);
+    void or_(uint32_t opcode);
+    void xor_(uint32_t opcode);
+    void nor(uint32_t opcode);
+    void slt(uint32_t opcode);
+    void sltu(uint32_t opcode);
+    void dadd(uint32_t opcode);
+    void daddu(uint32_t opcode);
+    void dsub(uint32_t opcode);
+    void dsubu(uint32_t opcode);
+    void dsll(uint32_t opcode);
+    void dsrl(uint32_t opcode);
+    void dsra(uint32_t opcode);
+    void dsll32(uint32_t opcode);
+    void dsrl32(uint32_t opcode);
+    void dsra32(uint32_t opcode);
+
+    void bltz(uint32_t opcode);
+    void bgez(uint32_t opcode);
+    void bltzl(uint32_t opcode);
+    void bgezl(uint32_t opcode);
+    void bltzal(uint32_t opcode);
+    void bgezal(uint32_t opcode);
+    void bltzall(uint32_t opcode);
+    void bgezall(uint32_t opcode);
+
+    void eret(uint32_t opcode);
+    void mfc0(uint32_t opcode);
+    void mtc0(uint32_t opcode);
+
+    void cop(uint32_t opcode);
+    void unk(uint32_t opcode);
+}
+
+// Immediate-type instruction lookup table, using opcode bits 26-31
+void (*VR4300::immInstrs[0x40])(uint32_t) =
+{
+    nullptr, nullptr, j,    jal,   beq,  bne,  blez,  bgtz,  // 0x00-0x07
+    addi,    addiu,   slti, sltiu, andi, ori,  xori,  lui,   // 0x08-0x0F
+    cop,     unk,     unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
+    daddi,   daddiu,  ldl,  ldr,   unk,  unk,  unk,   unk,   // 0x18-0x1F
+    lb,      lh,      unk,  lw,    lbu,  lhu,  unk,   lwu,   // 0x20-0x27
+    sb,      sh,      unk,  sw,    unk,  unk,  unk,   unk,   // 0x28-0x2F
+    unk,     unk,     unk,  unk,   unk,  unk,  unk,   ld,    // 0x30-0x37
+    unk,     unk,     unk,  unk,   unk,  unk,  unk,   sd     // 0x38-0x3F
 };
 
 // Register-type instruction lookup table, using opcode bits 0-5
-static void (*regInstrs[0x40])(uint32_t) =
+void (*VR4300::regInstrs[0x40])(uint32_t) =
 {
-    VR4300::sll,    VR4300::unk,   VR4300::srl,    VR4300::sra,    // 0x00-0x03
-    VR4300::sllv,   VR4300::unk,   VR4300::srlv,   VR4300::srav,   // 0x04-0x07
-    VR4300::jr,     VR4300::jalr,  VR4300::unk,    VR4300::unk,    // 0x08-0x0B
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x0C-0x0F
-    VR4300::mfhi,   VR4300::unk,   VR4300::mflo,   VR4300::unk,    // 0x10-0x13
-    VR4300::dsllv,  VR4300::unk,   VR4300::dsrlv,  VR4300::dsrav,  // 0x14-0x17
-    VR4300::mult,   VR4300::multu, VR4300::div,    VR4300::divu,   // 0x18-0x1B
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x1C-0x1F
-    VR4300::add,    VR4300::addu,  VR4300::sub,    VR4300::subu,   // 0x20-0x23
-    VR4300::and_,   VR4300::or_,   VR4300::xor_,   VR4300::nor,    // 0x24-0x27
-    VR4300::unk,    VR4300::unk,   VR4300::slt,    VR4300::sltu,   // 0x28-0x2B
-    VR4300::dadd,   VR4300::daddu, VR4300::dsub,   VR4300::dsubu,  // 0x2C-0x2F
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x30-0x33
-    VR4300::unk,    VR4300::unk,   VR4300::unk,    VR4300::unk,    // 0x34-0x37
-    VR4300::dsll,   VR4300::unk,   VR4300::dsrl,   VR4300::dsra,   // 0x38-0x3B
-    VR4300::dsll32, VR4300::unk,   VR4300::dsrl32, VR4300::dsra32, // 0x3C-0x3F
+    sll,  unk,   srl,  sra,  sllv,   unk,   srlv,   srav,   // 0x00-0x07
+    jr,   jalr,  unk,  unk,  unk,    unk,   unk,    unk,    // 0x08-0x0F
+    mfhi, mthi,  mflo, mtlo, dsllv,  unk,   dsrlv,  dsrav,  // 0x10-0x17
+    mult, multu, div,  divu, unk,    unk,   unk,    unk,    // 0x18-0x1F
+    add,  addu,  sub,  subu, and_,   or_,   xor_,   nor,    // 0x20-0x27
+    unk,  unk,   slt,  sltu, dadd,   daddu, dsub,   dsubu,  // 0x28-0x2F
+    unk,  unk,   unk,  unk,  unk,    unk,   unk,    unk,    // 0x30-0x37
+    dsll, unk,   dsrl, dsra, dsll32, unk,   dsrl32, dsra32  // 0x38-0x3F
 };
 
 // Extra-type instruction lookup table, using opcode bits 16-20
-static void (*extInstrs[0x20])(uint32_t) =
+void (*VR4300::extInstrs[0x20])(uint32_t) =
 {
-    VR4300::bltz,   VR4300::bgez,   VR4300::bltzl,   VR4300::bgezl,   // 0x00-0x03
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x04-0x07
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x08-0x0B
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x0C-0x0F
-    VR4300::bltzal, VR4300::bgezal, VR4300::bltzall, VR4300::bgezall, // 0x10-0x13
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x14-0x17
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x18-0x1B
-    VR4300::unk,    VR4300::unk,    VR4300::unk,     VR4300::unk,     // 0x1C-0x1F
+    bltz,   bgez,   bltzl,   bgezl,   unk, unk, unk, unk, // 0x00-0x07
+    unk,    unk,    unk,     unk,     unk, unk, unk, unk, // 0x08-0x0F
+    bltzal, bgezal, bltzall, bgezall, unk, unk, unk, unk, // 0x10-0x17
+    unk,    unk,    unk,     unk,     unk, unk, unk, unk  // 0x18-0x1F
 };
-
-static uint64_t registersR[33];
-static uint64_t *registersW[32];
-static uint64_t hi, lo;
-static uint32_t programCounter;
-static uint32_t nextOpcode;
 
 void VR4300::reset()
 {
@@ -89,6 +169,7 @@ void VR4300::reset()
         registersW[i] = &registersR[i];
 
     // Reset the interpreter to its initial state
+    memset(registersR, 0, sizeof(registersR));
     hi = lo = 0;
     programCounter = 0xBFC00000;
     nextOpcode = Memory::read<uint32_t>(programCounter);
@@ -107,6 +188,16 @@ void VR4300::runOpcode()
         case 0:  return (*regInstrs[opcode & 0x3F])(opcode);
         case 1:  return (*extInstrs[(opcode >> 16) & 0x1F])(opcode);
     }
+}
+
+void VR4300::exception()
+{
+    // Disable further exceptions and jump to the exception handler
+    // TODO: support non-interrupt exceptions
+    CP0::write(12, CP0::read(12) | 0x2); // EXL
+    CP0::write(14, programCounter);
+    programCounter = 0x80000180 - 4;
+    nextOpcode = 0;
 }
 
 void VR4300::j(uint32_t opcode)
@@ -427,10 +518,22 @@ void VR4300::mfhi(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = hi;
 }
 
+void VR4300::mthi(uint32_t opcode)
+{
+    // Copy a register to the high word of the mult/div result
+    hi = registersR[(opcode >> 21) & 0x1F];
+}
+
 void VR4300::mflo(uint32_t opcode)
 {
     // Copy the low word of the mult/div result to a register
     *registersW[(opcode >> 11) & 0x1F] = lo;
+}
+
+void VR4300::mtlo(uint32_t opcode)
+{
+    // Copy a register to the low word of the mult/div result
+    lo = registersR[(opcode >> 21) & 0x1F];
 }
 
 void VR4300::dsllv(uint32_t opcode)
@@ -722,6 +825,37 @@ void VR4300::bgezall(uint32_t opcode)
     {
         nextOpcode = 0;
     }
+}
+
+void VR4300::eret(uint32_t opcode)
+{
+    // Enable exceptions and return from the current one
+    CP0::write(12, CP0::read(12) & ~0x2); // EXL
+    programCounter = CP0::read(14) - 4;
+    nextOpcode = 0;
+}
+
+void VR4300::mfc0(uint32_t opcode)
+{
+    // Copy a CP0 register value to a CPU register
+    *registersW[(opcode >> 16) & 0x1F] = CP0::read((opcode >> 11) & 0x1F);
+}
+
+void VR4300::mtc0(uint32_t opcode)
+{
+    // Copy a CPU register value to a CP0 register
+    CP0::write((opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::cop(uint32_t opcode)
+{
+    // Look up coprocessor instructions that weren't worth making a table for
+    if (opcode == 0x42000018)
+        return eret(opcode);
+    else if ((opcode & 0xFFE007FF) == 0x40000000)
+        return mfc0(opcode);
+    else if ((opcode & 0xFFE007FF) == 0x40800000)
+        return mtc0(opcode);
 }
 
 void VR4300::unk(uint32_t opcode)

@@ -17,23 +17,25 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
+
 #include "pi.h"
 #include "memory.h"
+#include "mi.h"
 
-uint8_t *PI::rom;
-uint32_t PI::romSize;
+namespace PI
+{
+    uint8_t *rom;
+    uint32_t romSize;
 
-static uint32_t dramAddr;
-static uint32_t cartAddr;
+    uint32_t dramAddr;
+    uint32_t cartAddr;
+
+    void performDma(uint32_t length);
+}
 
 void PI::reset(FILE *romFile)
 {
-    // Load the first 4KB of the ROM into RSP DMEM
-    uint8_t data[0x1000];
-    fread(data, sizeof(uint8_t), 0x1000, romFile);
-    for (size_t i = 0; i < 0x1000; i++)
-        Memory::write<uint8_t>(0x84000000 + i, data[i]);
-
     // Load the cart ROM into memory
     if (rom) delete[] rom;
     fseek(romFile, 0, SEEK_END);
@@ -48,31 +50,66 @@ void PI::reset(FILE *romFile)
     cartAddr = 0;
 }
 
-void PI::writeDramAddr(uint32_t value)
+uint32_t PI::read(uint32_t address)
 {
-    // Set the DMA memory address
-    dramAddr = value & 0xFFFFFF;
+    // Read from an I/O register if one exists at the given address
+    switch (address)
+    {
+        default:
+            printf("Unknown PI register read: 0x%X\n", address);
+            return 0;
+    }
 }
 
-void PI::writeCartAddr(uint32_t value)
+void PI::write(uint32_t address, uint32_t value)
 {
-    // Set the DMA cartridge address
-    cartAddr = value;
+    // Write to an I/O register if one exists at the given address
+    switch (address)
+    {
+        case 0x4600000: // PI_DRAM_ADDR
+            // Set the DMA memory address
+            dramAddr = value & 0xFFFFFF;
+            return;
+
+        case 0x4600004: // PI_CART_ADDR
+            // Set the DMA cartridge address
+            cartAddr = value;
+            return;
+
+        case 0x460000C: // PI_WR_LEN
+            // Start a DMA transfer
+            performDma(value);
+            return;
+
+        case 0x4600010: // PI_STATUS
+            // Acknowledge a PI interrupt when bit 1 is set
+            // TODO: handle bit 0
+            if (value & 0x2)
+                MI::clearInterrupt(4);
+            return;
+
+        default:
+            printf("Unknown PI register write: 0x%X\n", address);
+            return;
+    }
 }
 
-void PI::writeWrLen(uint32_t value)
+void PI::performDma(uint32_t length)
 {
     // Trigger a DMA transfer of the given size
-    uint32_t size = (value & 0xFFFFFF) + 1;
+    uint32_t size = (length & 0xFFFFFF) + 1;
     printf("PI DMA from 0x%X to 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
 
-    if (cartAddr >= 0x10000000 && cartAddr < 0x1FC00000) // Cartridge ROM
+    // Copy data from the cartridge to memory
+    // TODO: support SRAM
+    for (uint32_t i = 0; i < size; i++)
     {
-        // Copy data from the cartridge to memory
-        for (uint32_t i = 0; i < size; i++)
-        {
-            uint32_t j = cartAddr - 0x10000000 + i;
-            Memory::write<uint8_t>(0x80000000 + dramAddr + i, (j < romSize) ? rom[j] : 0xFFFFFFFF);
-        }
+        uint32_t dst = 0x80000000 + dramAddr + i;
+        uint32_t src = cartAddr - 0x10000000 + i;
+        Memory::write<uint8_t>(dst, (src < std::min(0xFC00000U, romSize)) ? rom[src] : 0xFFFFFFFF);
     }
+
+    // Request a PI interrupt when the DMA finishes
+    // TODO: make DMA not instant
+    MI::setInterrupt(4);
 }

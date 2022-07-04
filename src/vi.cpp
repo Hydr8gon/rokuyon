@@ -25,14 +25,18 @@
 #include "vi.h"
 #include "core.h"
 #include "memory.h"
+#include "mi.h"
 
-static Framebuffer fbs[2];
-static std::atomic<bool> ready;
+namespace VI
+{
+    Framebuffer fbs[2];
+    std::atomic<bool> ready;
 
-static uint32_t control;
-static uint32_t origin;
-static uint32_t width;
-static uint32_t yScale;
+    uint32_t control;
+    uint32_t origin;
+    uint32_t width;
+    uint32_t yScale;
+}
 
 Framebuffer *VI::getFramebuffer()
 {
@@ -62,6 +66,53 @@ void VI::reset()
     origin = 0;
     width = 0;
     yScale = 0;
+}
+
+uint32_t VI::read(uint32_t address)
+{
+    // Read from an I/O register if one exists at the given address
+    switch (address)
+    {
+        default:
+            printf("Unknown VI register read: 0x%X\n", address);
+            return 0;
+    }
+}
+
+void VI::write(uint32_t address, uint32_t value)
+{
+    // Write to an I/O register if one exists at the given address
+    switch (address)
+    {
+        case 0x4400000: // VI_CONTROL
+            // Set the VI control register
+            // TODO: actually use bits other than type
+            control = (value & 0x1FBFF);
+            break;
+
+        case 0x4400004: // VI_ORIGIN
+            // Set the framebuffer address
+            origin = 0x80000000 | (value & 0xFFFFFF);
+            break;
+
+        case 0x4400008: // VI_WIDTH
+            // Set the framebuffer width in pixels
+            width = (value & 0xFFF);
+            break;
+
+        case 0x4400010: // VI_V_CURRENT
+            // Acknowledge a VI interrupt instead of writing a value
+            MI::clearInterrupt(3);
+            break;
+
+        case 0x4400034: // VI_Y_SCALE
+            // Set the framebuffer Y-scale
+            // TODO: actually use offset value
+            yScale = (value & 0xFFF0FFF);
+            break;
+    }
+
+    printf("Unknown VI register write: 0x%X\n", address);
 }
 
 void VI::drawFrame()
@@ -112,31 +163,8 @@ void VI::drawFrame()
             break;
     }
 
+    // Finish the frame and request a VI interrupt
+    // TODO: request interrupt at the proper time
     ready.store(true);
-}
-
-void VI::writeControl(uint32_t value)
-{
-    // Set the VI control register
-    // TODO: actually use bits other than type
-    control = (value & 0x1FBFF);
-}
-
-void VI::writeOrigin(uint32_t value)
-{
-    // Set the framebuffer address
-    origin = 0x80000000 | (value & 0xFFFFFF);
-}
-
-void VI::writeWidth(uint32_t value)
-{
-    // Set the framebuffer width in pixels
-    width = (value & 0xFFF);
-}
-
-void VI::writeYScale(uint32_t value)
-{
-    // Set the framebuffer Y-scale
-    // TODO: actually use offset value
-    yScale = (value & 0xFFF0FFF);
+    MI::setInterrupt(3);
 }

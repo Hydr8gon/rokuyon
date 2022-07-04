@@ -26,10 +26,15 @@
 #include "vi.h"
 #include "vr4300.h"
 
-bool Core::running;
-static std::thread *thread;
+namespace Core
+{
+    bool running;
+    std::thread *thread;
 
-static void run()
+    void run();
+}
+
+void Core::run()
 {
     while (Core::running)
     {

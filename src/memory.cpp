@@ -21,51 +21,22 @@
 #include <cstring>
 
 #include "memory.h"
+#include "mi.h"
 #include "pi.h"
 #include "pif.h"
 #include "vi.h"
 
-static uint8_t rdram[0x400000]; // 4MB RDRAM
-static uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
+namespace Memory
+{
+    uint8_t rdram[0x400000]; // 4MB RDRAM
+    uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
+}
 
 void Memory::reset()
 {
     // Clear the remaining memory locations
     memset(rdram,  0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
-}
-
-namespace Registers
-{
-    uint32_t read(uint32_t address)
-    {
-        // Read from an I/O register if one exists at the given address
-        switch (address)
-        {
-            case 0x4040010: return 0x00000001; // SP_STATUS
-            case 0x470000C: return 0x00000001; // RI_SELECT_REG
-        }
-
-        printf("Unknown register read: 0x%X\n", address);
-        return 0;
-    }
-
-    void write(uint32_t address, uint32_t value)
-    {
-        // Write to an I/O register if one exists at the given address
-        switch (address)
-        {
-            case 0x4400000: return VI::writeControl(value);  // VI_CONTROL
-            case 0x4400004: return VI::writeOrigin(value);   // VI_ORIGIN
-            case 0x4400008: return VI::writeWidth(value);    // VI_WIDTH
-            case 0x4400034: return VI::writeYScale(value);   // VI_Y_SCALE
-            case 0x4600000: return PI::writeDramAddr(value); // PI_DRAM_ADDR
-            case 0x4600004: return PI::writeCartAddr(value); // PI_CART_ADDR
-            case 0x460000C: return PI::writeWrLen(value);    // PI_WR_LEN
-        }
-
-        printf("Unknown register write: 0x%X\n", address);
-    }
 }
 
 template uint8_t  Memory::read(uint32_t address);
@@ -79,20 +50,48 @@ template <typename T> T Memory::read(uint32_t address)
 
     uint8_t *data = nullptr;
 
-    // Get a pointer to readable N64 memory based on the address
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
     {
-        uint32_t addr = address & 0x1FFFFFFF; // Mirror
-        if (addr < 0x400000) // RDRAM
+        // Mask the virtual address to get a physical one
+        uint32_t addr = address & 0x1FFFFFFF;
+
+        if (addr < 0x400000)
+        {
+            // Get a pointer to data in RDRAM
             data = &rdram[addr & 0x3FFFFF];
-        else if (addr >= 0x4000000 && addr < 0x4040000) // RSP DMEM/IMEM
+        }
+        else if (addr >= 0x4000000 && addr < 0x4040000)
+        {
+            // Get a pointer to data in RSP DMEM/IMEM
             data = &rspMem[addr & 0x1FFF];
-        else if (addr >= 0x10000000 && addr < 0x10000000 + std::min(PI::romSize, 0xFC00000U)) // Cart ROM
+        }
+        else if (addr >= 0x10000000 && addr < 0x10000000 + std::min(PI::romSize, 0xFC00000U))
+        {
+            // Get a pointer to data in cart ROM
             data = &PI::rom[addr - 0x10000000];
-        else if (addr >= 0x3F00000 && addr < 0x4900000) // Registers
-            return Registers::read(addr);
-        else if (addr >= 0x1FC00000 && addr < 0x1FC00800) // PIF ROM/RAM
+        }
+        else if (addr >= 0x1FC00000 && addr < 0x1FC00800)
+        {
+            // Get a pointer to data in PIF ROM/RAM
             data = &PIF::memory[addr & 0x7FF];
+        }
+        else
+        {
+            // Read a value from a group of registers
+            switch (addr >> 20)
+            {
+                case 0x43: return MI::read(addr);
+                case 0x44: return VI::read(addr);
+                case 0x46: return PI::read(addr);
+            }
+
+            // Stub some stray register reads
+            switch (addr)
+            {
+                case 0x4040010: return 0x00000001; // SP_STATUS
+                case 0x470000C: return 0x00000001; // RI_SELECT_REG
+            }
+        }
     }
 
     if (data != nullptr)
@@ -119,18 +118,24 @@ template <typename T> void Memory::write(uint32_t address, T value)
 
     uint8_t *data = nullptr;
 
-    // Get a pointer to writable N64 memory based on the address
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
     {
-        uint32_t addr = address & 0x1FFFFFFF; // Mirror
-        if (addr < 0x400000) // RDRAM
-            data = &rdram[addr & 0x3FFFFF];
-        else if (addr >= 0x4000000 && addr < 0x4040000) // RSP DMEM/IMEM
-            data = &rspMem[addr & 0x1FFF];
-        else if (addr >= 0x3F00000 && addr < 0x4900000) // Registers
-            return Registers::write(addr, value);
-        else if (addr >= 0x1FC007C0 && addr < 0x1FC00800) // PIF RAM
+        // Mask the virtual address to get a physical one
+        uint32_t addr = address & 0x1FFFFFFF;
+
+        if (addr < 0x400000)
         {
+            // Get a pointer to data in RDRAM
+            data = &rdram[addr & 0x3FFFFF];
+        }
+        else if (addr >= 0x4000000 && addr < 0x4040000)
+        {
+            // Get a pointer to data in RSP DMEM/IMEM
+            data = &rspMem[addr & 0x1FFF];
+        }
+        else if (addr >= 0x1FC007C0 && addr < 0x1FC00800)
+        {
+            // Get a pointer to data in PIF ROM/RAM
             data = &PIF::memory[addr & 0x7FF];
 
             // Catch writes to the PIF command byte and call the PIF
@@ -140,6 +145,16 @@ template <typename T> void Memory::write(uint32_t address, T value)
                     data[i] = value >> ((sizeof(T) - 1 - i) * 8);
                 PIF::runCommand();
                 return;
+            }
+        }
+        else
+        {
+            // Write a value to a group of registers
+            switch (addr >> 20)
+            {
+                case 0x43: return MI::write(addr, value);
+                case 0x44: return VI::write(addr, value);
+                case 0x46: return PI::write(addr, value);
             }
         }
     }

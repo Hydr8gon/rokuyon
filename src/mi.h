@@ -17,27 +17,22 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef VI_H
-#define VI_H
+#ifndef MI_H
+#define MI_H
 
 #include <cstdint>
 
-struct Framebuffer
+namespace MI
 {
-    uint32_t *data;
-    uint32_t width;
-    uint32_t height;
-};
-
-namespace VI
-{
-    Framebuffer *getFramebuffer();
+    extern uint32_t interrupt;
+    extern uint32_t mask;
 
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 
-    void drawFrame();
+    void setInterrupt(int bit);
+    void clearInterrupt(int bit);
 }
 
-#endif // VI_H
+#endif // MI_H
