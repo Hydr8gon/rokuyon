@@ -47,6 +47,8 @@ namespace VR4300
     void bgtzl(uint32_t opcode);
     void daddi(uint32_t opcode);
     void daddiu(uint32_t opcode);
+    void ldl(uint32_t opcode);
+    void ldr(uint32_t opcode);
     void lb(uint32_t opcode);
     void lh(uint32_t opcode);
     void lw(uint32_t opcode);

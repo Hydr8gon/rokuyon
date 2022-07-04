@@ -31,9 +31,13 @@ static std::thread *thread;
 
 static void run()
 {
-    // Run the CPU until stopped
     while (Core::running)
-        VR4300::runOpcode();
+    {
+        // Run a frame's worth of instructions and then draw a frame
+        for (uint32_t i = 0; i < 93750000 / 60; i++)
+            VR4300::runOpcode();
+        VI::drawFrame();
+    }
 }
 
 int Core::bootRom(const std::string &path)

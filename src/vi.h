@@ -22,12 +22,24 @@
 
 #include <cstdint>
 
+struct Framebuffer
+{
+    uint32_t *data;
+    uint32_t width;
+    uint32_t height;
+};
+
 namespace VI
 {
-    uint32_t *getFramebuffer();
+    Framebuffer *getFramebuffer();
 
     void reset();
+    void drawFrame();
+
+    void writeControl(uint32_t value);
     void writeOrigin(uint32_t value);
+    void writeWidth(uint32_t value);
+    void writeYScale(uint32_t value);
 }
 
 #endif // VI_H

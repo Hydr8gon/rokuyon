@@ -42,9 +42,9 @@ void PIF::reset(FILE *pifFile)
     // TODO: check ROM bootcode and set appropriately
     Memory::write<uint32_t>(0xBFC007E4, 0x00043F3F);
 
-    // Set the memory size to 3MB(?)
+    // Set the memory size to 4MB
     // TODO: I think IPL3 is supposed to set this, but stubbing RI_SELECT_REG to 1 skips it
-    Memory::write<uint32_t>(0xA0000318, 0x00300000);
+    Memory::write<uint32_t>(0xA0000318, 0x00400000);
 }
 
 void PIF::runCommand()

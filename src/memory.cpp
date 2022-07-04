@@ -55,7 +55,10 @@ namespace Registers
         // Write to an I/O register if one exists at the given address
         switch (address)
         {
+            case 0x4400000: return VI::writeControl(value);  // VI_CONTROL
             case 0x4400004: return VI::writeOrigin(value);   // VI_ORIGIN
+            case 0x4400008: return VI::writeWidth(value);    // VI_WIDTH
+            case 0x4400034: return VI::writeYScale(value);   // VI_Y_SCALE
             case 0x4600000: return PI::writeDramAddr(value); // PI_DRAM_ADDR
             case 0x4600004: return PI::writeCartAddr(value); // PI_CART_ADDR
             case 0x460000C: return PI::writeWrLen(value);    // PI_WR_LEN
@@ -71,6 +74,9 @@ template uint32_t Memory::read(uint32_t address);
 template uint64_t Memory::read(uint32_t address);
 template <typename T> T Memory::read(uint32_t address)
 {
+    // Align the address
+    address &= ~(sizeof(T) - 1);
+
     uint8_t *data = nullptr;
 
     // Get a pointer to readable N64 memory based on the address
@@ -94,7 +100,7 @@ template <typename T> T Memory::read(uint32_t address)
         // Read a value from the pointer, big-endian style (MSB first)
         T value = 0;
         for (size_t i = 0; i < sizeof(T); i++)
-            value |= data[i] << ((sizeof(T) - 1 - i) * 8);
+            value |= (T)data[i] << ((sizeof(T) - 1 - i) * 8);
         return value;
     }
 
@@ -108,6 +114,9 @@ template void Memory::write(uint32_t address, uint32_t value);
 template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
+    // Align the address
+    address &= ~(sizeof(T) - 1);
+
     uint8_t *data = nullptr;
 
     // Get a pointer to writable N64 memory based on the address

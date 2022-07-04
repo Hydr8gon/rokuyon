@@ -61,7 +61,8 @@ void ryCanvas::draw(wxPaintEvent &event)
     glClear(GL_COLOR_BUFFER_BIT);
 
     // Get the framebuffer as a texture
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 320, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, VI::getFramebuffer());
+    Framebuffer *fb = VI::getFramebuffer();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width, fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
 
     // Submit the polygon vertices
     glBegin(GL_QUADS);

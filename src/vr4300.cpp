@@ -29,7 +29,7 @@ static void (*immInstrs[0x40])(uint32_t) =
     VR4300::andi,  VR4300::ori,    VR4300::xori,  VR4300::lui,   // 0x0C-0x0F
     VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x10-0x13
     VR4300::beql,  VR4300::bnel,   VR4300::blezl, VR4300::bgtzl, // 0x14-0x17
-    VR4300::daddi, VR4300::daddiu, VR4300::unk,   VR4300::unk,   // 0x18-0x1B
+    VR4300::daddi, VR4300::daddiu, VR4300::ldl,   VR4300::ldr,   // 0x18-0x1B
     VR4300::unk,   VR4300::unk,    VR4300::unk,   VR4300::unk,   // 0x1C-0x1F
     VR4300::lb,    VR4300::lh,     VR4300::unk,   VR4300::lw,    // 0x20-0x23
     VR4300::lbu,   VR4300::lhu,    VR4300::unk,   VR4300::lwu,   // 0x24-0x27
@@ -259,6 +259,34 @@ void VR4300::daddiu(uint32_t opcode)
     // Add a signed 16-bit immediate to a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
+}
+
+void VR4300::ldl(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the most significant byte of a misaligned 64-bit word
+    // The aligned 64-bit word containing that byte is read, and all lower bytes
+    // The bytes are shifted left so they're posisioned as if the misaligned word was read
+    // This value is saved to a register, but empty bytes are left unchanged
+    // This allows LDL and LDR to be used in succession to read misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint64_t value = Memory::read<uint64_t>(address) << ((address & 7) * 8);
+    uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
+    *reg = (*reg & ~((uint64_t)-1 << ((address & 7) * 8))) | value;
+}
+
+void VR4300::ldr(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the least significant byte of a misaligned 64-bit word
+    // The aligned 64-bit word containing that byte is read, and all higher bytes
+    // The bytes are shifted right so they're posisioned as if the misaligned word was read
+    // This value is saved to a register, but empty bytes are left unchanged
+    // This allows LDL and LDR to be used in succession to read misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint64_t value = Memory::read<uint64_t>(address) >> ((7 - (address & 7)) * 8);
+    uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
+    *reg = (*reg & ~((uint64_t)-1 >> ((7 - (address & 7)) * 8))) | value;
 }
 
 void VR4300::lb(uint32_t opcode)
