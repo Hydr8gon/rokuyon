@@ -1,7 +1,7 @@
 NAME     := rokuyon
 BUILD    := build
 SOURCES  := src src/desktop
-ARGS     := -Ofast -flto -std=c++11
+ARGS     := -Ofast -flto -std=c++11 -DLOG_LEVEL=0
 LIBS     := $(shell wx-config --libs --gl-libs) -lGL
 INCLUDES := $(shell wx-config --cxxflags)
 

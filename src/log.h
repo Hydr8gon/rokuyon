@@ -17,17 +17,30 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef MEMORY_H
-#define MEMORY_H
+#ifndef LOG_H
+#define LOG_H
 
-#include <cstdint>
+#include <cstdio>
 
-namespace Memory
-{
-    void reset();
+// If enabled, print critical logs in red
+#if LOG_LEVEL > 0
+    #define LOG_CRIT(...) printf("\x1b[31m" __VA_ARGS__)
+#else
+    #define LOG_CRIT(...) (0)
+#endif
 
-    template <typename T> T read(uint32_t address);
-    template <typename T> void write(uint32_t address, T value);
-}
+// If enabled, print warning logs in yellow
+#if LOG_LEVEL > 1
+    #define LOG_WARN(...) printf("\x1b[33m" __VA_ARGS__)
+#else
+    #define LOG_WARN(...) (0)
+#endif
 
-#endif // MEMORY_H
+// If enabled, print info logs normally
+#if LOG_LEVEL > 2
+    #define LOG_INFO(...) printf("\x1b[0m" __VA_ARGS__)
+#else
+    #define LOG_INFO(...) (0)
+#endif
+
+#endif // LOG_H

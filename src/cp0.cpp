@@ -18,6 +18,7 @@
 */
 
 #include "cp0.h"
+#include "log.h"
 #include "mi.h"
 #include "vr4300.h"
 
@@ -54,7 +55,7 @@ uint32_t CP0::read(int index)
             return exCounter;
     }
 
-    printf("Read from unimplemented CP0 register: %d\n", index);
+    LOG_WARN("Read from unknown CP0 register: %d\n", index);
     return 0;
 }
 
@@ -82,7 +83,7 @@ void CP0::write(int index, uint32_t value)
             return;
     }
 
-    printf("Write to unimplemented CP0 register: %d\n", index);
+    LOG_WARN("Write to unknown CP0 register: %d\n", index);
 }
 
 void CP0::checkInterrupts()

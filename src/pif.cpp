@@ -20,6 +20,7 @@
 #include <cstring>
 
 #include "pif.h"
+#include "log.h"
 #include "memory.h"
 
 namespace PIF
@@ -81,5 +82,5 @@ void PIF::clearMemory(int bit)
 void PIF::unknownCmd(int bit)
 {
     // Warn about unknown commands
-    printf("Unknown PIF command bit: %d\n", bit);
+    LOG_WARN("Unknown PIF command bit: %d\n", bit);
 }

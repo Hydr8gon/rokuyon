@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "memory.h"
+#include "log.h"
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
@@ -103,7 +104,7 @@ template <typename T> T Memory::read(uint32_t address)
         return value;
     }
 
-    printf("Unknown memory read: 0x%X\n", address);
+    LOG_WARN("Unknown memory read: 0x%X\n", address);
     return 0;
 }
 
@@ -167,5 +168,5 @@ template <typename T> void Memory::write(uint32_t address, T value)
         return;
     }
 
-    printf("Unknown memory write: 0x%X\n", address);
+    LOG_WARN("Unknown memory write: 0x%X\n", address);
 }

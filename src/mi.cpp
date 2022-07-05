@@ -21,6 +21,7 @@
 
 #include "mi.h"
 #include "cp0.h"
+#include "log.h"
 
 namespace MI
 {
@@ -49,7 +50,7 @@ uint32_t MI::read(uint32_t address)
             return mask;
 
         default:
-            printf("Unknown MI register read: 0x%X\n", address);
+            LOG_WARN("Unknown MI register read: 0x%X\n", address);
             return 0;
     }
 }
@@ -73,7 +74,7 @@ void MI::write(uint32_t address, uint32_t value)
             return;
     }
 
-    printf("Unknown MI register write: 0x%X\n", address);
+    LOG_WARN("Unknown MI register write: 0x%X\n", address);
 }
 
 void MI::setInterrupt(int bit)

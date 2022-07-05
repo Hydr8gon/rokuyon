@@ -21,6 +21,7 @@
 
 #include "vr4300.h"
 #include "cp0.h"
+#include "log.h"
 #include "memory.h"
 
 namespace VR4300
@@ -829,10 +830,10 @@ void VR4300::bgezall(uint32_t opcode)
 
 void VR4300::eret(uint32_t opcode)
 {
-    // Enable exceptions and return from the current one
-    CP0::write(12, CP0::read(12) & ~0x2); // EXL
+    // Return from an exception and re-enable them
     programCounter = CP0::read(14) - 4;
     nextOpcode = 0;
+    CP0::write(12, CP0::read(12) & ~0x2); // EXL
 }
 
 void VR4300::mfc0(uint32_t opcode)
@@ -861,5 +862,5 @@ void VR4300::cop(uint32_t opcode)
 void VR4300::unk(uint32_t opcode)
 {
     // Warn about unknown instructions
-    printf("Unknown opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
+    LOG_CRIT("Unknown opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
 }

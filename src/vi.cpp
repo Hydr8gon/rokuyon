@@ -24,6 +24,7 @@
 
 #include "vi.h"
 #include "core.h"
+#include "log.h"
 #include "memory.h"
 #include "mi.h"
 
@@ -74,7 +75,7 @@ uint32_t VI::read(uint32_t address)
     switch (address)
     {
         default:
-            printf("Unknown VI register read: 0x%X\n", address);
+            LOG_WARN("Unknown VI register read: 0x%X\n", address);
             return 0;
     }
 }
@@ -112,7 +113,7 @@ void VI::write(uint32_t address, uint32_t value)
             break;
     }
 
-    printf("Unknown VI register write: 0x%X\n", address);
+    LOG_WARN("Unknown VI register write: 0x%X\n", address);
 }
 
 void VI::drawFrame()

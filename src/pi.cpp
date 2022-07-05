@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "pi.h"
+#include "log.h"
 #include "memory.h"
 #include "mi.h"
 
@@ -56,7 +57,7 @@ uint32_t PI::read(uint32_t address)
     switch (address)
     {
         default:
-            printf("Unknown PI register read: 0x%X\n", address);
+            LOG_WARN("Unknown PI register read: 0x%X\n", address);
             return 0;
     }
 }
@@ -89,7 +90,7 @@ void PI::write(uint32_t address, uint32_t value)
             return;
 
         default:
-            printf("Unknown PI register write: 0x%X\n", address);
+            LOG_WARN("Unknown PI register write: 0x%X\n", address);
             return;
     }
 }
@@ -98,7 +99,7 @@ void PI::performDma(uint32_t length)
 {
     // Trigger a DMA transfer of the given size
     uint32_t size = (length & 0xFFFFFF) + 1;
-    printf("PI DMA from 0x%X to 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
+    LOG_INFO("PI DMA from 0x%X to 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
 
     // Copy data from the cartridge to memory
     // TODO: support SRAM
