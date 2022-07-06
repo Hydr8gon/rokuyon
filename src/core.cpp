@@ -20,7 +20,9 @@
 #include <thread>
 
 #include "core.h"
+#include "cp0.h"
 #include "memory.h"
+#include "mi.h"
 #include "pi.h"
 #include "pif.h"
 #include "vi.h"
@@ -57,7 +59,9 @@ int Core::bootRom(const std::string &path)
 
     // Stop and reset the emulator
     Core::stop();
+    CP0::reset();
     Memory::reset();
+    MI::reset();
     PI::reset(romFile);
     PIF::reset(pifFile);
     VI::reset();

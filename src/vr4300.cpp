@@ -67,6 +67,8 @@ namespace VR4300
     void sb(uint32_t opcode);
     void sh(uint32_t opcode);
     void sw(uint32_t opcode);
+    void sdl(uint32_t opcode);
+    void sdr(uint32_t opcode);
     void ld(uint32_t opcode);
     void sd(uint32_t opcode);
 
@@ -89,6 +91,10 @@ namespace VR4300
     void multu(uint32_t opcode);
     void div(uint32_t opcode);
     void divu(uint32_t opcode);
+    void dmult(uint32_t opcode);
+    void dmultu(uint32_t opcode);
+    void ddiv(uint32_t opcode);
+    void ddivu(uint32_t opcode);
     void add(uint32_t opcode);
     void addu(uint32_t opcode);
     void sub(uint32_t opcode);
@@ -135,7 +141,7 @@ void (*VR4300::immInstrs[0x40])(uint32_t) =
     cop,     unk,     unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
     daddi,   daddiu,  ldl,  ldr,   unk,  unk,  unk,   unk,   // 0x18-0x1F
     lb,      lh,      unk,  lw,    lbu,  lhu,  unk,   lwu,   // 0x20-0x27
-    sb,      sh,      unk,  sw,    unk,  unk,  unk,   unk,   // 0x28-0x2F
+    sb,      sh,      unk,  sw,    sdl,  sdr,  unk,   unk,   // 0x28-0x2F
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   ld,    // 0x30-0x37
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   sd     // 0x38-0x3F
 };
@@ -143,14 +149,14 @@ void (*VR4300::immInstrs[0x40])(uint32_t) =
 // Register-type instruction lookup table, using opcode bits 0-5
 void (*VR4300::regInstrs[0x40])(uint32_t) =
 {
-    sll,  unk,   srl,  sra,  sllv,   unk,   srlv,   srav,   // 0x00-0x07
-    jr,   jalr,  unk,  unk,  unk,    unk,   unk,    unk,    // 0x08-0x0F
-    mfhi, mthi,  mflo, mtlo, dsllv,  unk,   dsrlv,  dsrav,  // 0x10-0x17
-    mult, multu, div,  divu, unk,    unk,   unk,    unk,    // 0x18-0x1F
-    add,  addu,  sub,  subu, and_,   or_,   xor_,   nor,    // 0x20-0x27
-    unk,  unk,   slt,  sltu, dadd,   daddu, dsub,   dsubu,  // 0x28-0x2F
-    unk,  unk,   unk,  unk,  unk,    unk,   unk,    unk,    // 0x30-0x37
-    dsll, unk,   dsrl, dsra, dsll32, unk,   dsrl32, dsra32  // 0x38-0x3F
+    sll,  unk,   srl,  sra,  sllv,   unk,    srlv,   srav,  // 0x00-0x07
+    jr,   jalr,  unk,  unk,  unk,    unk,    unk,    unk,   // 0x08-0x0F
+    mfhi, mthi,  mflo, mtlo, dsllv,  unk,    dsrlv,  dsrav, // 0x10-0x17
+    mult, multu, div,  divu, dmult,  dmultu, ddiv,   ddivu, // 0x18-0x1F
+    add,  addu,  sub,  subu, and_,   or_,    xor_,   nor,   // 0x20-0x27
+    unk,  unk,   slt,  sltu, dadd,   daddu,  dsub,   dsubu, // 0x28-0x2F
+    unk,  unk,   unk,  unk,  unk,    unk,    unk,    unk,   // 0x30-0x37
+    dsll, unk,   dsrl, dsra, dsll32, unk,    dsrl32, dsra32 // 0x38-0x3F
 };
 
 // Extra-type instruction lookup table, using opcode bits 16-20
@@ -357,9 +363,8 @@ void VR4300::ldl(uint32_t opcode)
 {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 64-bit word
-    // The aligned 64-bit word containing that byte is read, and all lower bytes
-    // The bytes are shifted left so they're posisioned as if the misaligned word was read
-    // This value is saved to a register, but empty bytes are left unchanged
+    // The aligned 64-bit word is shifted left so its bytes misalign to match the address
+    // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LDL and LDR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint64_t value = Memory::read<uint64_t>(address) << ((address & 7) * 8);
@@ -370,10 +375,9 @@ void VR4300::ldl(uint32_t opcode)
 void VR4300::ldr(uint32_t opcode)
 {
     // This instruction is confusing, but I'll try my best to explain
-    // The address points to the least significant byte of a misaligned 64-bit word
-    // The aligned 64-bit word containing that byte is read, and all higher bytes
-    // The bytes are shifted right so they're posisioned as if the misaligned word was read
-    // This value is saved to a register, but empty bytes are left unchanged
+    // The address points to the most significant byte of a misaligned 64-bit word
+    // The aligned 64-bit word is shifted right so its bytes misalign to match the address
+    // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LDL and LDR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint64_t value = Memory::read<uint64_t>(address) >> ((7 - (address & 7)) * 8);
@@ -442,6 +446,32 @@ void VR4300::sw(uint32_t opcode)
     // Store a word to memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::sdl(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the most significant byte of a misaligned 64-bit word
+    // A register value is shifted right so its bytes misalign to match the address
+    // The shifted value is written to the aligned memory address, but empty bytes are left unchanged
+    // This allows SDL and SDR to be used in succession to write misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint64_t rVal = registersR[(opcode >> 16) & 0x1F] >> ((address & 7) * 8);
+    uint64_t mVal = Memory::read<uint64_t>(address) & ~((uint64_t)-1 >> ((address & 7) * 8));
+    Memory::write<uint64_t>(address, rVal | mVal);
+}
+
+void VR4300::sdr(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the least significant byte of a misaligned 64-bit word
+    // A register value is shifted left so its bytes misalign to match the address
+    // The shifted value is written to the aligned memory address, but empty bytes are left unchanged
+    // This allows SDL and SDR to be used in succession to write misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint64_t rVal = registersR[(opcode >> 16) & 0x1F] << ((7 - (address & 7)) * 8);
+    uint64_t mVal = Memory::read<uint64_t>(address) & ~((uint64_t)-1 << ((7 - (address & 7)) * 8));
+    Memory::write<uint64_t>(address, rVal | mVal);
 }
 
 void VR4300::ld(uint32_t opcode)
@@ -560,8 +590,8 @@ void VR4300::dsrav(uint32_t opcode)
 
 void VR4300::mult(uint32_t opcode)
 {
-    // Multiply two signed registers and set the result
-    uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] *
+    // Multiply two 32-bit signed registers and set the 64-bit result
+    int64_t value = (int64_t)(int32_t)registersR[(opcode >> 16) & 0x1F] *
         (int32_t)registersR[(opcode >> 21) & 0x1F];
     hi = value >> 32;
     lo = (uint32_t)value;
@@ -569,8 +599,8 @@ void VR4300::mult(uint32_t opcode)
 
 void VR4300::multu(uint32_t opcode)
 {
-    // Multiply two unsigned registers and set the result
-    uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] *
+    // Multiply two 32-bit unsigned registers and set the 64-bit result
+    uint64_t value = (uint64_t)(uint32_t)registersR[(opcode >> 16) & 0x1F] *
         (uint32_t)registersR[(opcode >> 21) & 0x1F];
     hi = value >> 32;
     lo = (uint32_t)value;
@@ -578,23 +608,69 @@ void VR4300::multu(uint32_t opcode)
 
 void VR4300::div(uint32_t opcode)
 {
-    // Divide two signed registers and set the result
-    if (int32_t divisor = registersR[(opcode >> 21) & 0x1F])
+    // Divide two 32-bit signed registers and set the 32-bit result and remainder
+    // TODO: handle edge cases
+    int32_t divisor = registersR[(opcode >> 16) & 0x1F];
+    int32_t value = registersR[(opcode >> 21) & 0x1F];
+    if (divisor && !(divisor == -1 && value == (1 << 31)))
     {
-        uint64_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] / divisor;
-        hi = value >> 32;
-        lo = (uint32_t)value;
+        hi = value % divisor;
+        lo = value / divisor;
     }
 }
 
 void VR4300::divu(uint32_t opcode)
 {
-    // Divide two unsigned registers and set the result
-    if (uint32_t divisor = registersR[(opcode >> 21) & 0x1F])
+    // Divide two 32-bit unsigned registers and set the 32-bit result and remainder
+    // TODO: handle edge cases
+    if (uint32_t divisor = registersR[(opcode >> 16) & 0x1F])
     {
-        uint64_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] / divisor;
-        hi = value >> 32;
-        lo = (uint32_t)value;
+        uint32_t value = registersR[(opcode >> 21) & 0x1F];
+        hi = value % divisor;
+        lo = value / divisor;
+    }
+}
+
+void VR4300::dmult(uint32_t opcode)
+{
+    // Multiply two signed 64-bit registers and set the 128-bit result
+    __uint128_t value = (__int128_t)(int64_t)registersR[(opcode >> 16) & 0x1F] *
+        (int64_t)registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 64;
+    lo = value;
+}
+
+void VR4300::dmultu(uint32_t opcode)
+{
+    // Multiply two unsigned 64-bit registers and set the 128-bit result
+    __uint128_t value = (__uint128_t)registersR[(opcode >> 16) & 0x1F] *
+        registersR[(opcode >> 21) & 0x1F];
+    hi = value >> 64;
+    lo = value;
+}
+
+void VR4300::ddiv(uint32_t opcode)
+{
+    // Divide two 64-bit signed registers and set the 64-bit result and remainder
+    // TODO: handle edge cases
+    int64_t divisor = registersR[(opcode >> 16) & 0x1F];
+    int64_t value = registersR[(opcode >> 21) & 0x1F];
+    if (divisor && !(divisor == -1 && value == (1L << 63)))
+    {
+        hi = value % divisor;
+        lo = value / divisor;
+    }
+}
+
+void VR4300::ddivu(uint32_t opcode)
+{
+    // Divide two 64-bit unsigned registers and set the 64-bit result and remainder
+    // TODO: handle edge cases
+    if (uint64_t divisor = registersR[(opcode >> 16) & 0x1F])
+    {
+        uint64_t value = registersR[(opcode >> 21) & 0x1F];
+        hi = value % divisor;
+        lo = value / divisor;
     }
 }
 
