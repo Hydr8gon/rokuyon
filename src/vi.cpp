@@ -89,31 +89,33 @@ void VI::write(uint32_t address, uint32_t value)
             // Set the VI control register
             // TODO: actually use bits other than type
             control = (value & 0x1FBFF);
-            break;
+            return;
 
         case 0x4400004: // VI_ORIGIN
             // Set the framebuffer address
             origin = 0x80000000 | (value & 0xFFFFFF);
-            break;
+            return;
 
         case 0x4400008: // VI_WIDTH
             // Set the framebuffer width in pixels
             width = (value & 0xFFF);
-            break;
+            return;
 
         case 0x4400010: // VI_V_CURRENT
             // Acknowledge a VI interrupt instead of writing a value
             MI::clearInterrupt(3);
-            break;
+            return;
 
         case 0x4400034: // VI_Y_SCALE
             // Set the framebuffer Y-scale
             // TODO: actually use offset value
             yScale = (value & 0xFFF0FFF);
-            break;
-    }
+            return;
 
-    LOG_WARN("Unknown VI register write: 0x%X\n", address);
+        default:
+            LOG_WARN("Unknown VI register write: 0x%X\n", address);
+            return;
+    }
 }
 
 void VI::drawFrame()

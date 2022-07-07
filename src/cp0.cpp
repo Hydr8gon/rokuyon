@@ -24,6 +24,8 @@
 
 namespace CP0
 {
+    uint32_t count;
+    uint32_t compare;
     uint32_t status;
     uint32_t cause;
     uint32_t exCounter;
@@ -32,6 +34,8 @@ namespace CP0
 void CP0::reset()
 {
     // Reset the CP0 to its initial state
+    count = 0;
+    compare = 0;
     status = 0;
     cause = 0;
     exCounter = 0;
@@ -42,6 +46,14 @@ uint32_t CP0::read(int index)
     // Read from a CP0 register if one exists at the given address
     switch (index)
     {
+        case 9: // Count
+            // Get the count register
+            return count;
+
+        case 11: // Compare
+            // Get the compare register
+            return compare;
+
         case 12: // Status
             // Get the status register
             return status;
@@ -53,10 +65,11 @@ uint32_t CP0::read(int index)
         case 14: // EPC
             // Get the exception program counter
             return exCounter;
-    }
 
-    LOG_WARN("Read from unknown CP0 register: %d\n", index);
-    return 0;
+        default:
+            LOG_WARN("Read from unknown CP0 register: %d\n", index);
+            return 0;
+    }
 }
 
 void CP0::write(int index, uint32_t value)
@@ -64,6 +77,17 @@ void CP0::write(int index, uint32_t value)
     // Write to a CP0 register if one exists at the given address
     switch (index)
     {
+        case 9: // Count
+            // Set the count register
+            count = value;
+            return;
+
+        case 11: // Compare
+            // Set the compare register and acknowledge a timer interrupt
+            compare = value;
+            cause &= ~0x8000;
+            return;
+
         case 12: // Status
             // Set the status register
             // TODO: actually use bits other than 0xFF03
@@ -81,9 +105,21 @@ void CP0::write(int index, uint32_t value)
             // Set the exception program counter
             exCounter = value;
             return;
-    }
 
-    LOG_WARN("Write to unknown CP0 register: %d\n", index);
+        default:
+            LOG_WARN("Write to unknown CP0 register: %d\n", index);
+            return;
+    }
+}
+
+void CP0::updateCount()
+{
+    // Increment count and request a timer interrupt when it matches compare
+    if (++count == compare)
+    {
+        cause |= 0x8000;
+        checkInterrupts;
+    }
 }
 
 void CP0::checkInterrupts()

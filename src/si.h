@@ -17,19 +17,16 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CP0_H
-#define CP0_H
+#ifndef SI_H
+#define SI_H
 
 #include <cstdint>
 
-namespace CP0
+namespace SI
 {
     void reset();
-    uint32_t read(int index);
-    void write(int index, uint32_t value);
-
-    void updateCount();
-    void checkInterrupts();
+    uint32_t read(uint32_t address);
+    void write(uint32_t address, uint32_t value);
 }
 
-#endif // CP0_H
+#endif // SI_H

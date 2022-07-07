@@ -25,6 +25,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "si.h"
 #include "vi.h"
 
 namespace Memory
@@ -84,13 +85,15 @@ template <typename T> T Memory::read(uint32_t address)
                 case 0x43: return MI::read(addr);
                 case 0x44: return VI::read(addr);
                 case 0x46: return PI::read(addr);
+                case 0x48: return SI::read(addr);
             }
 
             // Stub some stray register reads
             switch (addr)
             {
                 case 0x4040010: return 0x00000001; // SP_STATUS
-                case 0x470000C: return 0x00000001; // RI_SELECT_REG
+                case 0x450000C: return 0x80000000; // AI_STATUS
+                case 0x470000C: return 0x00000001; // RI_SELECT
             }
         }
     }
@@ -156,6 +159,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
                 case 0x43: return MI::write(addr, value);
                 case 0x44: return VI::write(addr, value);
                 case 0x46: return PI::write(addr, value);
+                case 0x48: return SI::write(addr, value);
             }
         }
     }

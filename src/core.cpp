@@ -25,6 +25,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "si.h"
 #include "vi.h"
 #include "vr4300.h"
 
@@ -40,9 +41,14 @@ void Core::run()
 {
     while (Core::running)
     {
-        // Run a frame's worth of instructions and then draw a frame
+        // Run a frame's worth of instructions and updates
         for (uint32_t i = 0; i < 93750000 / 60; i++)
+        {
             VR4300::runOpcode();
+            CP0::updateCount();
+        }
+
+        // Draw a frame
         VI::drawFrame();
     }
 }
@@ -64,6 +70,7 @@ int Core::bootRom(const std::string &path)
     MI::reset();
     PI::reset(romFile);
     PIF::reset(pifFile);
+    SI::reset();
     VI::reset();
     VR4300::reset();
 

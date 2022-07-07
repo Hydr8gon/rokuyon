@@ -60,15 +60,19 @@ namespace VR4300
     void ldr(uint32_t opcode);
     void lb(uint32_t opcode);
     void lh(uint32_t opcode);
+    void lwl(uint32_t opcode);
     void lw(uint32_t opcode);
     void lbu(uint32_t opcode);
     void lhu(uint32_t opcode);
+    void lwr(uint32_t opcode);
     void lwu(uint32_t opcode);
     void sb(uint32_t opcode);
     void sh(uint32_t opcode);
+    void swl(uint32_t opcode);
     void sw(uint32_t opcode);
     void sdl(uint32_t opcode);
     void sdr(uint32_t opcode);
+    void swr(uint32_t opcode);
     void ld(uint32_t opcode);
     void sd(uint32_t opcode);
 
@@ -140,8 +144,8 @@ void (*VR4300::immInstrs[0x40])(uint32_t) =
     addi,    addiu,   slti, sltiu, andi, ori,  xori,  lui,   // 0x08-0x0F
     cop,     unk,     unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
     daddi,   daddiu,  ldl,  ldr,   unk,  unk,  unk,   unk,   // 0x18-0x1F
-    lb,      lh,      unk,  lw,    lbu,  lhu,  unk,   lwu,   // 0x20-0x27
-    sb,      sh,      unk,  sw,    sdl,  sdr,  unk,   unk,   // 0x28-0x2F
+    lb,      lh,      lwl,  lw,    lbu,  lhu,  lwr,   lwu,   // 0x20-0x27
+    sb,      sh,      swl,  sw,    sdl,  sdr,  swr,   unk,   // 0x28-0x2F
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   ld,    // 0x30-0x37
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   sd     // 0x38-0x3F
 };
@@ -399,6 +403,19 @@ void VR4300::lh(uint32_t opcode)
     *registersW[(opcode >> 16) & 0x1F] = (int16_t)Memory::read<uint16_t>(address);
 }
 
+void VR4300::lwl(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the most significant byte of a misaligned 32-bit word
+    // The aligned 32-bit word is shifted left so its bytes misalign to match the address
+    // The shifted value is read to a register, but empty bytes are left unchanged
+    // This allows LWL and LWR to be used in succession to read misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint32_t value = Memory::read<uint32_t>(address) << ((address & 3) * 8);
+    uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
+    *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 << ((address & 7) * 8))) | value);
+}
+
 void VR4300::lw(uint32_t opcode)
 {
     // Load a signed word from memory at base register plus immeditate offset
@@ -420,6 +437,19 @@ void VR4300::lhu(uint32_t opcode)
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint16_t>(address);
 }
 
+void VR4300::lwr(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the most significant byte of a misaligned 32-bit word
+    // The aligned 32-bit word is shifted right so its bytes misalign to match the address
+    // The shifted value is read to a register, but empty bytes are left unchanged
+    // This allows LWL and LWR to be used in succession to read misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint32_t value = Memory::read<uint32_t>(address) >> ((3 - (address & 3)) * 8);
+    uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
+    *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 >> ((3 - (address & 3)) * 8))) | value);
+}
+
 void VR4300::lwu(uint32_t opcode)
 {
     // Load a word from memory at base register plus immeditate offset
@@ -439,6 +469,19 @@ void VR4300::sh(uint32_t opcode)
     // Store a half-word to memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint16_t>(address, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::swl(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the most significant byte of a misaligned 32-bit word
+    // A register value is shifted right so its bytes misalign to match the address
+    // The shifted value is written to the aligned memory address, but empty bytes are left unchanged
+    // This allows SWL and SWR to be used in succession to write misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint32_t rVal = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> ((address & 3) * 8);
+    uint32_t mVal = Memory::read<uint32_t>(address) & ~((uint32_t)-1 >> ((address & 3) * 8));
+    Memory::write<uint32_t>(address, rVal | mVal);
 }
 
 void VR4300::sw(uint32_t opcode)
@@ -472,6 +515,19 @@ void VR4300::sdr(uint32_t opcode)
     uint64_t rVal = registersR[(opcode >> 16) & 0x1F] << ((7 - (address & 7)) * 8);
     uint64_t mVal = Memory::read<uint64_t>(address) & ~((uint64_t)-1 << ((7 - (address & 7)) * 8));
     Memory::write<uint64_t>(address, rVal | mVal);
+}
+
+void VR4300::swr(uint32_t opcode)
+{
+    // This instruction is confusing, but I'll try my best to explain
+    // The address points to the least significant byte of a misaligned 32-bit word
+    // A register value is shifted left so its bytes misalign to match the address
+    // The shifted value is written to the aligned memory address, but empty bytes are left unchanged
+    // This allows SWL and SWR to be used in succession to write misaligned words
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    uint32_t rVal = (uint32_t)registersR[(opcode >> 16) & 0x1F] << ((3 - (address & 3)) * 8);
+    uint32_t mVal = Memory::read<uint32_t>(address) & ~((uint32_t)-1 << ((3 - (address & 3)) * 8));
+    Memory::write<uint32_t>(address, rVal | mVal);
 }
 
 void VR4300::ld(uint32_t opcode)

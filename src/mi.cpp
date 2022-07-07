@@ -17,8 +17,6 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <cstdio>
-
 #include "mi.h"
 #include "cp0.h"
 #include "log.h"
@@ -72,9 +70,11 @@ void MI::write(uint32_t address, uint32_t value)
 
             CP0::checkInterrupts();
             return;
-    }
 
-    LOG_WARN("Unknown MI register write: 0x%X\n", address);
+        default:
+            LOG_WARN("Unknown MI register write: 0x%X\n", address);
+            return;
+    }
 }
 
 void MI::setInterrupt(int bit)
