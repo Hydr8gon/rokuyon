@@ -26,15 +26,21 @@
 namespace PIF
 {
     uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
+    uint16_t buttons;
 
     extern void (*pifCommands[])(int);
+
+    void joybusProtocol(int bit);
+    void verifyChecksum(int bit);
+    void clearMemory(int bit);
+    void unknownCmd(int bit);
 }
 
 // Small command lookup table for PIF command bits
 void (*PIF::pifCommands[7])(int) =
 {
-    unknownCmd, unknownCmd,     unknownCmd, unknownCmd, // 0-3
-    unknownCmd, verifyChecksum, clearMemory             // 4-6
+    joybusProtocol, unknownCmd,     unknownCmd, unknownCmd, // 0-3
+    unknownCmd,     verifyChecksum, clearMemory             // 4-6
 };
 
 void PIF::reset(FILE *pifFile)
@@ -62,6 +68,50 @@ void PIF::runCommand()
         {
             (*pifCommands[i])(i);
             memory[0x7FF] &= ~(1 << i);
+        }
+    }
+}
+
+void PIF::pressKey(int key)
+{
+    // Mark a button as pressed
+    if (key < 16)
+        buttons |= (1 << (15 - key));
+}
+
+void PIF::releaseKey(int key)
+{
+    // Mark a button as released
+    if (key < 16)
+        buttons &= ~(1 << (15 - key));
+}
+
+void PIF::joybusProtocol(int bit)
+{
+    // Handle joybus commands in PIF RAM for 4 controllers
+    for (int i = 0; i < 4 * 8; i += 8)
+    {
+        switch (uint8_t cmd = memory[0x7C3 + i])
+        {
+            case 0xFF: // Reset
+            case 0x00: // Info
+                // Report a standard controller with no pak
+                memory[0x7C4 + i] = 0x05; // ID high
+                memory[0x7C5 + i] = 0x00; // ID low
+                memory[0x7C6 + i] = 0x02; // Status
+                break;
+
+            case 0x01: // Controller state
+                // Report which buttons are pressed for controller 1
+                memory[0x7C4 + i] = (i == 0) ? (buttons >> 8) : 0;
+                memory[0x7C5 + i] = (i == 0) ? (buttons >> 0) : 0;
+                memory[0x7C6 + i] = 0; // Stick X
+                memory[0x7C7 + i] = 0; // Stick Y
+                break;
+
+            default:
+                LOG_WARN("Unknown controller %d command: 0x%02X\n", i / 8, cmd);
+                return;
         }
     }
 }

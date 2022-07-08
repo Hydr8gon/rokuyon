@@ -19,17 +19,29 @@
 
 #include "ry_canvas.h"
 #include "../core.h"
+#include "../pif.h"
 #include "../vi.h"
+
+const char ryCanvas::keyMap[16] =
+{
+    'L', 'K', 'J', 'G', 'W', 'S', 'A', 'D',
+     0 ,  0 , 'Q', 'P', '8', '2', '4', '6'
+};
 
 wxBEGIN_EVENT_TABLE(ryCanvas, wxGLCanvas)
 EVT_PAINT(ryCanvas::draw)
 EVT_SIZE(ryCanvas::resize)
+EVT_KEY_DOWN(ryCanvas::pressKey)
+EVT_KEY_UP(ryCanvas::releaseKey)
 wxEND_EVENT_TABLE()
 
 ryCanvas::ryCanvas(wxFrame *frame): wxGLCanvas(frame, wxID_ANY, nullptr), frame(frame)
 {
     // Prepare the OpenGL context
     context = new wxGLContext(this);
+
+    // Set focus so that key presses will be registered
+    SetFocus();
 }
 
 void ryCanvas::draw(wxPaintEvent &event)
@@ -104,5 +116,25 @@ void ryCanvas::resize(wxSizeEvent &event)
         height = 240 * size.x / 320;
         x = 0;
         y = (size.y - height) / 2;
+    }
+}
+
+void ryCanvas::pressKey(wxKeyEvent &event)
+{
+    // Trigger a key press if a mapped key was pressed
+    for (int i = 0; i < 16; i++)
+    {
+        if (event.GetKeyCode() == keyMap[i])
+            PIF::pressKey(i);
+    }
+}
+
+void ryCanvas::releaseKey(wxKeyEvent &event)
+{
+    // Trigger a key release if a mapped key was released
+    for (int i = 0; i < 16; i++)
+    {
+        if (event.GetKeyCode() == keyMap[i])
+            PIF::releaseKey(i);
     }
 }

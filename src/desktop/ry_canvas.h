@@ -34,6 +34,8 @@ class ryCanvas: public wxGLCanvas
         wxFrame *frame;
         wxGLContext *context;
 
+        static const char keyMap[];
+
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t x = 0;
@@ -41,6 +43,8 @@ class ryCanvas: public wxGLCanvas
 
         void draw(wxPaintEvent &event);
         void resize(wxSizeEvent &event);
+        void pressKey(wxKeyEvent &event);
+        void releaseKey(wxKeyEvent &event);
 
         wxDECLARE_EVENT_TABLE();
 };

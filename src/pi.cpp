@@ -32,7 +32,7 @@ namespace PI
     uint32_t dramAddr;
     uint32_t cartAddr;
 
-    void performDma(uint32_t length);
+    void performReadDma(uint32_t length);
 }
 
 void PI::reset(FILE *romFile)
@@ -68,18 +68,18 @@ void PI::write(uint32_t address, uint32_t value)
     switch (address)
     {
         case 0x4600000: // PI_DRAM_ADDR
-            // Set the DMA memory address
+            // Set the RDRAM DMA address
             dramAddr = value & 0xFFFFFF;
             return;
 
         case 0x4600004: // PI_CART_ADDR
-            // Set the DMA cartridge address
+            // Set the cart DMA address
             cartAddr = value;
             return;
 
         case 0x460000C: // PI_WR_LEN
-            // Start a DMA transfer
-            performDma(value);
+            // Start a DMA transfer from cart to RDRAM
+            performReadDma(value);
             return;
 
         case 0x4600010: // PI_STATUS
@@ -95,11 +95,10 @@ void PI::write(uint32_t address, uint32_t value)
     }
 }
 
-void PI::performDma(uint32_t length)
+void PI::performReadDma(uint32_t length)
 {
-    // Trigger a DMA transfer of the given size
     uint32_t size = (length & 0xFFFFFF) + 1;
-    LOG_INFO("PI DMA from 0x%X to 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
+    LOG_INFO("PI DMA from cart 0x%X to RDRAM 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
 
     // Copy data from the cartridge to memory
     // TODO: support SRAM
@@ -111,6 +110,6 @@ void PI::performDma(uint32_t length)
     }
 
     // Request a PI interrupt when the DMA finishes
-    // TODO: make DMA not instant
+    // TODO: make DMAs not instant
     MI::setInterrupt(4);
 }

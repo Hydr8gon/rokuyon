@@ -19,11 +19,15 @@
 
 #include "si.h"
 #include "log.h"
+#include "memory.h"
 #include "mi.h"
 
 namespace SI
 {
     uint32_t dramAddr;
+
+    void performReadDma(uint32_t address);
+    void performWriteDma(uint32_t address);
 }
 
 void SI::reset()
@@ -49,20 +53,18 @@ void SI::write(uint32_t address, uint32_t value)
     switch (address)
     {
         case 0x4800000: // SI_DRAM_ADDR
-            // Set the DMA memory address
+            // Set the RDRAM DMA address
             dramAddr = value & 0xFFFFFF;
             return;
 
         case 0x4800004: // SI_PIF_AD_RD64B
-            // Pretend a DMA transfer happened by requesting an SI interrupt
-            // TODO: actually implement SI DMAs
-            MI::setInterrupt(1);
+            // Start a DMA transfer from PIF to RDRAM
+            performReadDma(value & 0x7FC);
             return;
 
         case 0x4800010: // SI_PIF_AD_WR64B
-            // Pretend a DMA transfer happened by requesting an SI interrupt
-            // TODO: actually implement SI DMAs
-            MI::setInterrupt(1);
+            // Start a DMA transfer from RDRAM to PIF
+            performWriteDma(value & 0x7FC);
             return;
 
         case 0x4800018: // SI_STATUS
@@ -74,4 +76,36 @@ void SI::write(uint32_t address, uint32_t value)
             LOG_WARN("Unknown SI register write: 0x%X\n", address);
             return;
     }
+}
+
+void SI::performReadDma(uint32_t address)
+{
+    LOG_INFO("SI DMA from PIF 0x%X to RDRAM 0x%X with size 0x40\n", address, dramAddr);
+
+    // Copy 64 bytes from PIF RAM to RDRAM
+    for (uint32_t i = 0; i < 0x40; i++)
+    {
+        uint8_t value = Memory::read<uint8_t>(0x9FC00000 + address + i);
+        Memory::write<uint8_t>(0x80000000 + dramAddr + i, value);
+    }
+
+    // Request an SI interrupt when the DMA finishes
+    // TODO: make DMAs not instant
+    MI::setInterrupt(1);
+}
+
+void SI::performWriteDma(uint32_t address)
+{
+    LOG_INFO("SI DMA from RDRAM 0x%X to PIF 0x%X with size 0x40\n", dramAddr, address);
+
+    // Copy 64 bytes from RDRAM to PIF RAM
+    for (uint32_t i = 0; i < 0x40; i++)
+    {
+        uint8_t value = Memory::read<uint8_t>(0x80000000 + dramAddr + i);
+        Memory::write<uint8_t>(0x9FC00000 + address + i, value);
+    }
+
+    // Request an SI interrupt when the DMA finishes
+    // TODO: make DMAs not instant
+    MI::setInterrupt(1);
 }

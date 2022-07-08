@@ -30,9 +30,8 @@ namespace PIF
     void reset(FILE *pifFile);
     void runCommand();
 
-    void verifyChecksum(int bit);
-    void clearMemory(int bit);
-    void unknownCmd(int bit);
+    void pressKey(int key);
+    void releaseKey(int key);
 }
 
 #endif // PIF_H
