@@ -18,6 +18,7 @@
 */
 
 #include "cp0.h"
+#include "cp1.h"
 #include "log.h"
 #include "mi.h"
 #include "vr4300.h"
@@ -89,10 +90,14 @@ void CP0::write(int index, uint32_t value)
             return;
 
         case 12: // Status
-            // Set the status register
-            // TODO: actually use bits other than 0xFF03
+            // Set the status register and apply the FR bit to the CP1
             status = value & 0xFF57FFFF;
             checkInterrupts();
+            CP1::setRegMode(status & (1 << 26));
+
+            // Keep track of unimplemented bits that should do something
+            if (uint32_t bits = (value & 0x3B4000F8))
+                LOG_WARN("Unimplemented CP0 status bits set: 0x%X\n", bits);
             return;
 
         case 13: // Cause
@@ -118,7 +123,7 @@ void CP0::updateCount()
     if (++count == compare)
     {
         cause |= 0x8000;
-        checkInterrupts;
+        checkInterrupts();
     }
 }
 
@@ -131,4 +136,3 @@ void CP0::checkInterrupts()
     if (((status & 0x3) == 0x1) && (status & cause & 0xFF00))
         VR4300::exception();
 }
-

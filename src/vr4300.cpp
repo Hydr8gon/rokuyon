@@ -21,6 +21,7 @@
 
 #include "vr4300.h"
 #include "cp0.h"
+#include "cp1.h"
 #include "log.h"
 #include "memory.h"
 
@@ -73,7 +74,12 @@ namespace VR4300
     void sdl(uint32_t opcode);
     void sdr(uint32_t opcode);
     void swr(uint32_t opcode);
+    void cache(uint32_t opcode);
+    void lwc1(uint32_t opcode);
+    void ldc1(uint32_t opcode);
     void ld(uint32_t opcode);
+    void swc1(uint32_t opcode);
+    void sdc1(uint32_t opcode);
     void sd(uint32_t opcode);
 
     void sll(uint32_t opcode);
@@ -132,25 +138,32 @@ namespace VR4300
     void eret(uint32_t opcode);
     void mfc0(uint32_t opcode);
     void mtc0(uint32_t opcode);
+    void mfc1(uint32_t opcode);
+    void dmfc1(uint32_t opcode);
+    void cfc1(uint32_t opcode);
+    void mtc1(uint32_t opcode);
+    void dmtc1(uint32_t opcode);
+    void ctc1(uint32_t opcode);
 
-    void cop(uint32_t opcode);
+    void cop0(uint32_t opcode);
+    void cop1(uint32_t opcode);
     void unk(uint32_t opcode);
 }
 
-// Immediate-type instruction lookup table, using opcode bits 26-31
+// Immediate-type CPU instruction lookup table, using opcode bits 26-31
 void (*VR4300::immInstrs[0x40])(uint32_t) =
 {
     nullptr, nullptr, j,    jal,   beq,  bne,  blez,  bgtz,  // 0x00-0x07
     addi,    addiu,   slti, sltiu, andi, ori,  xori,  lui,   // 0x08-0x0F
-    cop,     unk,     unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
+    cop0,    cop1,    unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
     daddi,   daddiu,  ldl,  ldr,   unk,  unk,  unk,   unk,   // 0x18-0x1F
     lb,      lh,      lwl,  lw,    lbu,  lhu,  lwr,   lwu,   // 0x20-0x27
-    sb,      sh,      swl,  sw,    sdl,  sdr,  swr,   unk,   // 0x28-0x2F
-    unk,     unk,     unk,  unk,   unk,  unk,  unk,   ld,    // 0x30-0x37
-    unk,     unk,     unk,  unk,   unk,  unk,  unk,   sd     // 0x38-0x3F
+    sb,      sh,      swl,  sw,    sdl,  sdr,  swr,   cache, // 0x28-0x2F
+    unk,     lwc1,    unk,  unk,   unk,  ldc1, unk,   ld,    // 0x30-0x37
+    unk,     swc1,    unk,  unk,   unk,  sdc1, unk,   sd     // 0x38-0x3F
 };
 
-// Register-type instruction lookup table, using opcode bits 0-5
+// Register-type CPU instruction lookup table, using opcode bits 0-5
 void (*VR4300::regInstrs[0x40])(uint32_t) =
 {
     sll,  unk,   srl,  sra,  sllv,   unk,    srlv,   srav,  // 0x00-0x07
@@ -163,7 +176,7 @@ void (*VR4300::regInstrs[0x40])(uint32_t) =
     dsll, unk,   dsrl, dsra, dsll32, unk,    dsrl32, dsra32 // 0x38-0x3F
 };
 
-// Extra-type instruction lookup table, using opcode bits 16-20
+// Extra-type CPU instruction lookup table, using opcode bits 16-20
 void (*VR4300::extInstrs[0x20])(uint32_t) =
 {
     bltz,   bgez,   bltzl,   bgezl,   unk, unk, unk, unk, // 0x00-0x07
@@ -530,11 +543,45 @@ void VR4300::swr(uint32_t opcode)
     Memory::write<uint32_t>(address, rVal | mVal);
 }
 
+void VR4300::cache(uint32_t opcode)
+{
+    // The cache isn't emulated, so just warn about an unknown operation
+    LOG_WARN("Unknown cache operation: 0x%02X\n", (opcode >> 16) & 0x1F);
+}
+
+void VR4300::lwc1(uint32_t opcode)
+{
+    // Load a word from memory at base plus offset to a CP1 register
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    CP1::write(CP1_32BIT, (opcode >> 16) & 0x1F, Memory::read<uint32_t>(address));
+}
+
+void VR4300::ldc1(uint32_t opcode)
+{
+    // Load a double-word from memory at base plus offset to a CP1 register
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    CP1::write(CP1_64BIT, (opcode >> 16) & 0x1F, Memory::read<uint64_t>(address));
+}
+
 void VR4300::ld(uint32_t opcode)
 {
     // Load a double-word from memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint64_t>(address);
+}
+
+void VR4300::swc1(uint32_t opcode)
+{
+    // Store a word to memory at base plus offset from a CP1 register
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    Memory::write<uint32_t>(address, CP1::read(CP1_32BIT, (opcode >> 16) & 0x1F));
+}
+
+void VR4300::sdc1(uint32_t opcode)
+{
+    // Store a double-word to memory at base plus offset from a CP1 register
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    Memory::write<uint64_t>(address, CP1::read(CP1_64BIT, (opcode >> 16) & 0x1F));
 }
 
 void VR4300::sd(uint32_t opcode)
@@ -970,29 +1017,83 @@ void VR4300::eret(uint32_t opcode)
 
 void VR4300::mfc0(uint32_t opcode)
 {
-    // Copy a CP0 register value to a CPU register
+    // Copy a 32-bit CP0 register value to a CPU register
     *registersW[(opcode >> 16) & 0x1F] = CP0::read((opcode >> 11) & 0x1F);
 }
 
 void VR4300::mtc0(uint32_t opcode)
 {
-    // Copy a CPU register value to a CP0 register
+    // Copy a 32-bit CPU register value to a CP0 register
     CP0::write((opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void VR4300::cop(uint32_t opcode)
+void VR4300::mfc1(uint32_t opcode)
 {
-    // Look up coprocessor instructions that weren't worth making a table for
-    if (opcode == 0x42000018)
-        return eret(opcode);
-    else if ((opcode & 0xFFE007FF) == 0x40000000)
-        return mfc0(opcode);
-    else if ((opcode & 0xFFE007FF) == 0x40800000)
-        return mtc0(opcode);
+    // Copy a 32-bit CP1 register value to a CPU register
+    *registersW[(opcode >> 16) & 0x1F] = CP1::read(CP1_32BIT, (opcode >> 11) & 0x1F);
+}
+
+void VR4300::dmfc1(uint32_t opcode)
+{
+    // Copy a 64-bit CP1 register value to a CPU register
+    *registersW[(opcode >> 16) & 0x1F] = CP1::read(CP1_64BIT, (opcode >> 11) & 0x1F);
+}
+
+void VR4300::cfc1(uint32_t opcode)
+{
+    // Copy a 32-bit CP1 control register value to a CPU register
+    *registersW[(opcode >> 16) & 0x1F] = CP1::read(CP1_CTRL, (opcode >> 11) & 0x1F);
+}
+
+void VR4300::mtc1(uint32_t opcode)
+{
+    // Copy a 32-bit CPU register value to a CP1 register
+    CP1::write(CP1_32BIT, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::dmtc1(uint32_t opcode)
+{
+    // Copy a 64-bit CPU register value to a CP1 register
+    CP1::write(CP1_64BIT, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::ctc1(uint32_t opcode)
+{
+    // Copy a 32-bit CPU register value to a CP1 control register
+    CP1::write(CP1_CTRL, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void VR4300::cop0(uint32_t opcode)
+{
+    // Look up CP0 instructions that weren't worth making a table for
+    switch ((opcode >> 21) & 0x1F)
+    {
+        case 0x00: return mfc0(opcode);
+        case 0x04: return mtc0(opcode);
+        case 0x10: return (opcode == 0x42000018) ? eret(opcode) : unk(opcode);
+        default:   return unk(opcode);
+    }
+}
+
+void VR4300::cop1(uint32_t opcode)
+{
+    // Look up CP1 instructions that weren't worth making a table for
+    switch ((opcode >> 21) & 0x1F)
+    {
+        case 0x00: return mfc1(opcode);
+        case 0x01: return dmfc1(opcode);
+        case 0x02: return cfc1(opcode);
+        case 0x04: return mtc1(opcode);
+        case 0x05: return dmtc1(opcode);
+        case 0x06: return ctc1(opcode);
+        case 0x10: return (*CP1::sglInstrs[opcode & 0x3F])(opcode);
+        case 0x11: return (*CP1::dblInstrs[opcode & 0x3F])(opcode);
+        default:   return unk(opcode);
+    }
 }
 
 void VR4300::unk(uint32_t opcode)
 {
     // Warn about unknown instructions
-    LOG_CRIT("Unknown opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
+    LOG_CRIT("Unknown CPU opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
 }
