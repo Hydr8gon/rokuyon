@@ -22,12 +22,16 @@
 
 #include <wx/wx.h>
 
+class ryCanvas;
+
 class ryFrame: public wxFrame
 {
     public:
         ryFrame();
 
     private:
+        ryCanvas *canvas;
+
         void loadRom(wxCommandEvent &event);
         void quit(wxCommandEvent &event);
         void close(wxCloseEvent &event);

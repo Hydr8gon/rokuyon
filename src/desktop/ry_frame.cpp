@@ -46,13 +46,14 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
     menuBar->Append(fileMenu, "&File");
     SetMenuBar(menuBar);
 
-    // Show the window
-    SetBackgroundColour(*wxBLACK);
+    // Set up and show the window
+    SetClientSize(wxSize(320, 240));
+    SetMinClientSize(wxSize(320, 240));
     Centre();
     Show(true);
 
     // Set up a canvas for drawing the framebuffer
-    ryCanvas *canvas = new ryCanvas(this);
+    canvas = new ryCanvas(this);
     wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
     sizer->Add(canvas, 1, wxEXPAND);
     SetSizer(sizer);
@@ -91,5 +92,6 @@ void ryFrame::close(wxCloseEvent &event)
 {
     // Stop emulation before exiting
     Core::stop();
+    canvas->finish();
     event.Skip(true);
 }

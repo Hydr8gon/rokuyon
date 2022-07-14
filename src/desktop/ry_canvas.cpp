@@ -44,11 +44,19 @@ ryCanvas::ryCanvas(wxFrame *frame): wxGLCanvas(frame, wxID_ANY, nullptr), frame(
     SetFocus();
 }
 
+void ryCanvas::finish()
+{
+    // Tell the canvas to stop rendering
+    finished = true;
+}
+
 void ryCanvas::draw(wxPaintEvent &event)
 {
-    if (!Core::running) return;
-    SetCurrent(*context);
+    // Stop rendering so the program can close
+    if (finished)
+        return;
 
+    SetCurrent(*context);
     static bool setup = false;
 
     if (!setup)
@@ -72,21 +80,25 @@ void ryCanvas::draw(wxPaintEvent &event)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Get the framebuffer as a texture
-    Framebuffer *fb = VI::getFramebuffer();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width, fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
+    if (Core::running)
+    {
+        // Get the framebuffer as a texture
+        Framebuffer *fb = VI::getFramebuffer();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width,
+            fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
 
-    // Submit the polygon vertices
-    glBegin(GL_QUADS);
-    glTexCoord2i(1, 1);
-    glVertex2i(x + width, y + height);
-    glTexCoord2i(0, 1);
-    glVertex2i(x, y + height);
-    glTexCoord2i(0, 0);
-    glVertex2i(x, y);
-    glTexCoord2i(1, 0);
-    glVertex2i(x + width, y);
-    glEnd();
+        // Submit the polygon vertices
+        glBegin(GL_QUADS);
+        glTexCoord2i(1, 1);
+        glVertex2i(x + width, y + height);
+        glTexCoord2i(0, 1);
+        glVertex2i(x, y + height);
+        glTexCoord2i(0, 0);
+        glVertex2i(x, y);
+        glTexCoord2i(1, 0);
+        glVertex2i(x + width, y);
+        glEnd();
+    }
 
     // Finish the frame
     glFinish();

@@ -144,6 +144,10 @@ namespace VR4300
     void mtc1(uint32_t opcode);
     void dmtc1(uint32_t opcode);
     void ctc1(uint32_t opcode);
+    void bc1f(uint32_t opcode);
+    void bc1t(uint32_t opcode);
+    void bc1fl(uint32_t opcode);
+    void bc1tl(uint32_t opcode);
 
     void cop0(uint32_t opcode);
     void cop1(uint32_t opcode);
@@ -608,28 +612,28 @@ void VR4300::srl(uint32_t opcode)
 void VR4300::sra(uint32_t opcode)
 {
     // Shift a register right by a 5-bit immediate and store the lower signed result
-    int32_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
+    int32_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void VR4300::sllv(uint32_t opcode)
 {
     // Shift a register left by a register and store the lower result
-    int32_t value = registersR[(opcode >> 16) & 0x1F] << registersR[(opcode >> 21) & 0x1F];
+    int32_t value = registersR[(opcode >> 16) & 0x1F] << (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void VR4300::srlv(uint32_t opcode)
 {
     // Shift a register right by a register and store the lower result
-    int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> registersR[(opcode >> 21) & 0x1F];
+    int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void VR4300::srav(uint32_t opcode)
 {
     // Shift a register right by a register and store the lower signed result
-    int32_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] >> registersR[(opcode >> 21) & 0x1F];
+    int32_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -673,21 +677,21 @@ void VR4300::mtlo(uint32_t opcode)
 void VR4300::dsllv(uint32_t opcode)
 {
     // Shift a register left by a register and store the result
-    uint64_t value = registersR[(opcode >> 16) & 0x1F] << registersR[(opcode >> 21) & 0x1F];
+    uint64_t value = registersR[(opcode >> 16) & 0x1F] << (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void VR4300::dsrlv(uint32_t opcode)
 {
     // Shift a register right by a register and store the result
-    uint64_t value = registersR[(opcode >> 16) & 0x1F] >> registersR[(opcode >> 21) & 0x1F];
+    uint64_t value = registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void VR4300::dsrav(uint32_t opcode)
 {
     // Shift a register right by a register and store the signed result
-    uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> registersR[(opcode >> 21) & 0x1F];
+    uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -1063,6 +1067,40 @@ void VR4300::ctc1(uint32_t opcode)
     CP1::write(CP1_CTRL, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
+void VR4300::bc1f(uint32_t opcode)
+{
+    // Add a 16-bit offset to the program counter if the CP1 condition bit is 0
+    if (!(CP1::read(CP1_CTRL, 31) & (1 << 23)))
+        programCounter += ((int16_t)opcode << 2) - 4;
+}
+
+void VR4300::bc1t(uint32_t opcode)
+{
+    // Add a 16-bit offset to the program counter if the CP1 condition bit is 1
+    if (CP1::read(CP1_CTRL, 31) & (1 << 23))
+        programCounter += ((int16_t)opcode << 2) - 4;
+}
+
+void VR4300::bc1fl(uint32_t opcode)
+{
+    // Add a 16-bit offset to the program counter if the CP1 condition bit is 0
+    // Otherwise, discard the delay slot opcode
+    if (!(CP1::read(CP1_CTRL, 31) & (1 << 23)))
+        programCounter += ((int16_t)opcode << 2) - 4;
+    else
+        nextOpcode = 0;
+}
+
+void VR4300::bc1tl(uint32_t opcode)
+{
+    // Add a 16-bit offset to the program counter if CP1 condition bit is 1
+    // Otherwise, discard the delay slot opcode
+    if (CP1::read(CP1_CTRL, 31) & (1 << 23))
+        programCounter += ((int16_t)opcode << 2) - 4;
+    else
+        nextOpcode = 0;
+}
+
 void VR4300::cop0(uint32_t opcode)
 {
     // Look up CP0 instructions that weren't worth making a table for
@@ -1088,7 +1126,18 @@ void VR4300::cop1(uint32_t opcode)
         case 0x06: return ctc1(opcode);
         case 0x10: return (*CP1::sglInstrs[opcode & 0x3F])(opcode);
         case 0x11: return (*CP1::dblInstrs[opcode & 0x3F])(opcode);
+        case 0x14: return (*CP1::wrdInstrs[opcode & 0x3F])(opcode);
+        case 0x15: return (*CP1::lwdInstrs[opcode & 0x3F])(opcode);
         default:   return unk(opcode);
+
+        case 0x08:
+            switch ((opcode >> 16) & 0x3)
+            {
+                case 0x0: return bc1f(opcode);
+                case 0x1: return bc1t(opcode);
+                case 0x2: return bc1fl(opcode);
+                case 0x3: return bc1tl(opcode);
+            }
     }
 }
 

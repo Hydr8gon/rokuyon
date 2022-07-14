@@ -30,12 +30,15 @@ class ryCanvas: public wxGLCanvas
     public:
         ryCanvas(wxFrame *frame);
 
+        void finish();
+
     private:
         wxFrame *frame;
         wxGLContext *context;
 
         static const char keyMap[];
 
+        bool finished = false;
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t x = 0;

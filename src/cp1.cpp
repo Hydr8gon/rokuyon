@@ -63,6 +63,32 @@ void (*CP1::dblInstrs[0x40])(uint32_t) =
     unk,  unk, unk, unk, unk, unk, unk, unk  // 0x38-0x3F
 };
 
+// 32-bit fixed-point FPU instruction lookup table, using opcode bits 0-5
+void (*CP1::wrdInstrs[0x40])(uint32_t) =
+{
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x20-0x27
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk  // 0x38-0x3F
+};
+
+// 64-bit fixed-point FPU instruction lookup table, using opcode bits 0-5
+void (*CP1::lwdInstrs[0x40])(uint32_t) =
+{
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x20-0x27
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk  // 0x38-0x3F
+};
+
 void CP1::reset()
 {
     // Reset the CP1 to its initial state

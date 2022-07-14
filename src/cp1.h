@@ -33,6 +33,8 @@ namespace CP1
 {
     extern void (*sglInstrs[])(uint32_t);
     extern void (*dblInstrs[])(uint32_t);
+    extern void (*wrdInstrs[])(uint32_t);
+    extern void (*lwdInstrs[])(uint32_t);
 
     void reset();
     uint64_t read(CP1Type type, int index);

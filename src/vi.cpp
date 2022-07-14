@@ -130,8 +130,8 @@ void VI::drawFrame()
 
     // Allocate a framebuffer of the correct size
     if (fbs[0].data) delete[] fbs[0].data;
-    size_t size = fbs[0].width * fbs[0].height * sizeof(uint32_t);
-    fbs[0].data = new uint32_t[size];
+    size_t size = fbs[0].width * fbs[0].height;
+    fbs[0].data = new uint32_t[size * sizeof(uint32_t)];
 
     // Read the framebuffer from N64 memory
     switch (control & 0x3) // Type
