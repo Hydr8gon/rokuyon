@@ -17,18 +17,19 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CORE_H
-#define CORE_H
+#ifndef CPU_CP0_H
+#define CPU_CP0_H
 
-#include <string>
+#include <cstdint>
 
-namespace Core
+namespace CPU_CP0
 {
-    extern bool running;
-    extern bool rspRunning;
+    void reset();
+    uint32_t read(int index);
+    void write(int index, uint32_t value);
 
-    int bootRom(const std::string &path);
-    void stop();
+    void updateCount();
+    void checkInterrupts();
 }
 
-#endif // CORE_H
+#endif // CPU_CP0_H

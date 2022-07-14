@@ -17,18 +17,29 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef VR4300_H
-#define VR4300_H
+#ifndef CPU_CP1_H
+#define CPU_CP1_H
 
-#include <string>
+#include <cstdint>
 
-namespace VR4300
+enum CP1Type
 {
-    extern uint32_t programCounter;
+    CP1_32BIT = 0,
+    CP1_64BIT,
+    CP1_CTRL
+};
+
+namespace CPU_CP1
+{
+    extern void (*sglInstrs[])(uint32_t);
+    extern void (*dblInstrs[])(uint32_t);
+    extern void (*wrdInstrs[])(uint32_t);
+    extern void (*lwdInstrs[])(uint32_t);
 
     void reset();
-    void runOpcode();
-    void exception();
+    uint64_t read(CP1Type type, int index);
+    void write(CP1Type type, int index, uint64_t value);
+    void setRegMode(bool full);
 }
 
-#endif // VR4300_H
+#endif // CPU_CP1_H

@@ -79,7 +79,7 @@ void PI::write(uint32_t address, uint32_t value)
 
         case 0x460000C: // PI_WR_LEN
             // Start a DMA transfer from cart to RDRAM
-            performReadDma(value);
+            performReadDma((value & 0xFFFFFF) + 1);
             return;
 
         case 0x4600010: // PI_STATUS
@@ -95,9 +95,8 @@ void PI::write(uint32_t address, uint32_t value)
     }
 }
 
-void PI::performReadDma(uint32_t length)
+void PI::performReadDma(uint32_t size)
 {
-    uint32_t size = (length & 0xFFFFFF) + 1;
     LOG_INFO("PI DMA from cart 0x%X to RDRAM 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
 
     // Copy data from the cartridge to memory

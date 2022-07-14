@@ -20,20 +20,23 @@
 #include <thread>
 
 #include "core.h"
-#include "cp0.h"
-#include "cp1.h"
+#include "cpu.h"
+#include "cpu_cp0.h"
+#include "cpu_cp1.h"
 #include "memory.h"
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "rsp.h"
+#include "rsp_cp0.h"
 #include "si.h"
 #include "vi.h"
-#include "vr4300.h"
 
 namespace Core
 {
-    bool running;
     std::thread *thread;
+    bool running;
+    bool rspRunning;
 
     void run();
 }
@@ -42,11 +45,14 @@ void Core::run()
 {
     while (Core::running)
     {
-        // Run a frame's worth of instructions and updates
-        for (uint32_t i = 0; i < 93750000 / 60; i++)
+        // Run a frame's worth of CPU and RSP instructions
+        for (uint32_t i = 0; i < (93750000 / 60) / 3; i++)
         {
-            VR4300::runOpcode();
-            CP0::updateCount();
+            CPU::runOpcode();
+            if (rspRunning) RSP::runOpcode();
+            CPU::runOpcode();
+            if (rspRunning) RSP::runOpcode();
+            CPU::runOpcode();
         }
 
         // Draw a frame
@@ -66,15 +72,17 @@ int Core::bootRom(const std::string &path)
 
     // Stop and reset the emulator
     Core::stop();
-    CP0::reset();
-    CP1::reset();
     Memory::reset();
     MI::reset();
     PI::reset(romFile);
-    PIF::reset(pifFile);
     SI::reset();
     VI::reset();
-    VR4300::reset();
+    PIF::reset(pifFile);
+    CPU::reset();
+    CPU_CP0::reset();
+    CPU_CP1::reset();
+    RSP::reset();
+    RSP_CP0::reset();
 
     // Start the emulation thread
     running = true;

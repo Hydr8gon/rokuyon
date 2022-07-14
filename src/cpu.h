@@ -17,29 +17,18 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CP1_H
-#define CP1_H
+#ifndef CPU_H
+#define CPU_H
 
-#include <cstdint>
+#include <string>
 
-enum CP1Type
+namespace CPU
 {
-    CP1_32BIT = 0,
-    CP1_64BIT,
-    CP1_CTRL
-};
-
-namespace CP1
-{
-    extern void (*sglInstrs[])(uint32_t);
-    extern void (*dblInstrs[])(uint32_t);
-    extern void (*wrdInstrs[])(uint32_t);
-    extern void (*lwdInstrs[])(uint32_t);
+    extern uint32_t programCounter;
 
     void reset();
-    uint64_t read(CP1Type type, int index);
-    void write(CP1Type type, int index, uint64_t value);
-    void setRegMode(bool full);
+    void runOpcode();
+    void exception();
 }
 
-#endif // CP1_H
+#endif // CPU_H

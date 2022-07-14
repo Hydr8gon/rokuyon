@@ -18,7 +18,7 @@
 */
 
 #include "mi.h"
-#include "cp0.h"
+#include "cpu_cp0.h"
 #include "log.h"
 
 namespace MI
@@ -68,7 +68,7 @@ void MI::write(uint32_t address, uint32_t value)
                     mask &= ~(1 << (i / 2));
             }
 
-            CP0::checkInterrupts();
+            CPU_CP0::checkInterrupts();
             return;
 
         default:
@@ -81,12 +81,12 @@ void MI::setInterrupt(int bit)
 {
     // Request an interrupt by setting its bit
     interrupt |= (1 << bit);
-    CP0::checkInterrupts();
+    CPU_CP0::checkInterrupts();
 }
 
 void MI::clearInterrupt(int bit)
 {
     // Acknowledge an interrupt by clearing its bit
     interrupt &= ~(1 << bit);
-    CP0::checkInterrupts();
+    CPU_CP0::checkInterrupts();
 }

@@ -19,11 +19,11 @@
 
 #include <cstring>
 
-#include "cp1.h"
+#include "cpu_cp1.h"
+#include "cpu.h"
 #include "log.h"
-#include "vr4300.h"
 
-namespace CP1
+namespace CPU_CP1
 {
     bool fullMode;
     uint64_t registers[32];
@@ -38,7 +38,7 @@ namespace CP1
 }
 
 // Single-precision FPU instruction lookup table, using opcode bits 0-5
-void (*CP1::sglInstrs[0x40])(uint32_t) =
+void (*CPU_CP1::sglInstrs[0x40])(uint32_t) =
 {
     addS, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
     unk,  unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
@@ -51,7 +51,7 @@ void (*CP1::sglInstrs[0x40])(uint32_t) =
 };
 
 // Double-precision FPU instruction lookup table, using opcode bits 0-5
-void (*CP1::dblInstrs[0x40])(uint32_t) =
+void (*CPU_CP1::dblInstrs[0x40])(uint32_t) =
 {
     addD, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
     unk,  unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
@@ -64,7 +64,7 @@ void (*CP1::dblInstrs[0x40])(uint32_t) =
 };
 
 // 32-bit fixed-point FPU instruction lookup table, using opcode bits 0-5
-void (*CP1::wrdInstrs[0x40])(uint32_t) =
+void (*CPU_CP1::wrdInstrs[0x40])(uint32_t) =
 {
     unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
     unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
@@ -77,7 +77,7 @@ void (*CP1::wrdInstrs[0x40])(uint32_t) =
 };
 
 // 64-bit fixed-point FPU instruction lookup table, using opcode bits 0-5
-void (*CP1::lwdInstrs[0x40])(uint32_t) =
+void (*CPU_CP1::lwdInstrs[0x40])(uint32_t) =
 {
     unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
     unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
@@ -89,15 +89,15 @@ void (*CP1::lwdInstrs[0x40])(uint32_t) =
     unk, unk, unk, unk, unk, unk, unk, unk  // 0x38-0x3F
 };
 
-void CP1::reset()
+void CPU_CP1::reset()
 {
-    // Reset the CP1 to its initial state
+    // Reset the CPU CP1 to its initial state
     fullMode = false;
     memset(registers, 0, sizeof(registers));
     status = 0;
 }
 
-uint64_t CP1::read(CP1Type type, int index)
+uint64_t CPU_CP1::read(CP1Type type, int index)
 {
     switch (type)
     {
@@ -112,7 +112,7 @@ uint64_t CP1::read(CP1Type type, int index)
             return registers[index];
 
         default:
-            // Read from a CP1 control register if one exists at the given address
+            // Read from a CPU CP1 control register if one exists at the given address
             switch (index)
             {
                 case 31: // Status
@@ -120,13 +120,13 @@ uint64_t CP1::read(CP1Type type, int index)
                     return status;
 
                 default:
-                    LOG_WARN("Read from unknown CP1 control register: %d\n", index);
+                    LOG_WARN("Read from unknown CPU CP1 control register: %d\n", index);
                     return 0;
             }
     }
 }
 
-void CP1::write(CP1Type type, int index, uint64_t value)
+void CPU_CP1::write(CP1Type type, int index, uint64_t value)
 {
     switch (type)
     {
@@ -143,7 +143,7 @@ void CP1::write(CP1Type type, int index, uint64_t value)
             return;
 
         default:
-            // Write to a CP1 control register if one exists at the given address
+            // Write to a CPU CP1 control register if one exists at the given address
             switch (index)
             {
                 case 31: // Status
@@ -152,23 +152,23 @@ void CP1::write(CP1Type type, int index, uint64_t value)
 
                     // Keep track of unimplemented bits that should do something
                     if (uint32_t bits = (value & 0x1000F83))
-                        LOG_WARN("Unimplemented CP1 status bits set: 0x%X\n", bits);
+                        LOG_WARN("Unimplemented CPU CP1 status bits set: 0x%X\n", bits);
                     return;
 
                 default:
-                    LOG_WARN("Write to unknown CP1 control register: %d\n", index);
+                    LOG_WARN("Write to unknown CPU CP1 control register: %d\n", index);
                     return;
             }
     }
 }
 
-void CP1::setRegMode(bool full)
+void CPU_CP1::setRegMode(bool full)
 {
     // Set the register mode to either full or half
     fullMode = full;
 }
 
-inline float &CP1::getFloat(int index)
+inline float &CPU_CP1::getFloat(int index)
 {
     // Get a 32-bit register as a float, mapped based on the current mode
     // TODO: make this endian-safe
@@ -176,29 +176,29 @@ inline float &CP1::getFloat(int index)
         *((float*)&registers[index & ~1] + (index & 1));
 }
 
-inline double &CP1::getDouble(int index)
+inline double &CPU_CP1::getDouble(int index)
 {
     // Get a 64-bit register as a double
     // This should be endian-safe as long as double and uint64_t have the same size
     return *(double*)&registers[index];
 }
 
-void CP1::addS(uint32_t opcode)
+void CPU_CP1::addS(uint32_t opcode)
 {
     // Add a float to a float and store the result
     float value = getFloat((opcode >> 11) & 0x1F) + getFloat((opcode >> 16) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CP1::addD(uint32_t opcode)
+void CPU_CP1::addD(uint32_t opcode)
 {
     // Add a double to a double and store the result
     double value = getDouble((opcode >> 11) & 0x1F) + getDouble((opcode >> 16) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CP1::unk(uint32_t opcode)
+void CPU_CP1::unk(uint32_t opcode)
 {
     // Warn about unknown instructions
-    LOG_CRIT("Unknown FPU opcode: 0x%08X @ 0x%X\n", opcode, VR4300::programCounter - 4);
+    LOG_CRIT("Unknown FPU opcode: 0x%08X @ 0x%X\n", opcode, CPU::programCounter - 4);
 }

@@ -25,6 +25,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "rsp_cp0.h"
 #include "si.h"
 #include "vi.h"
 
@@ -77,6 +78,11 @@ template <typename T> T Memory::read(uint32_t address)
             // Get a pointer to data in PIF ROM/RAM
             data = &PIF::memory[addr & 0x7FF];
         }
+        else if (addr >= 0x4040000 && addr < 0x4040020)
+        {
+            // Read a value from an RSP CP0 register
+            return RSP_CP0::read((addr & 0x1F) >> 2);
+        }
         else
         {
             // Read a value from a group of registers
@@ -91,7 +97,6 @@ template <typename T> T Memory::read(uint32_t address)
             // Stub some stray register reads
             switch (addr)
             {
-                case 0x4040010: return 0x00000001; // SP_STATUS
                 case 0x450000C: return 0x80000000; // AI_STATUS
                 case 0x470000C: return 0x00000001; // RI_SELECT
             }
@@ -150,6 +155,11 @@ template <typename T> void Memory::write(uint32_t address, T value)
                 PIF::runCommand();
                 return;
             }
+        }
+        else if (addr >= 0x4040000 && addr < 0x4040020)
+        {
+            // Write a value to an RSP CP0 register
+            return RSP_CP0::write((addr & 0x1F) >> 2, value);
         }
         else
         {

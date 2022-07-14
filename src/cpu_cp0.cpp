@@ -17,13 +17,13 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "cp0.h"
-#include "cp1.h"
+#include "cpu_cp0.h"
+#include "cpu.h"
+#include "cpu_cp1.h"
 #include "log.h"
 #include "mi.h"
-#include "vr4300.h"
 
-namespace CP0
+namespace CPU_CP0
 {
     uint32_t count;
     uint32_t compare;
@@ -32,9 +32,9 @@ namespace CP0
     uint32_t exCounter;
 }
 
-void CP0::reset()
+void CPU_CP0::reset()
 {
-    // Reset the CP0 to its initial state
+    // Reset the CPU CP0 to its initial state
     count = 0;
     compare = 0;
     status = 0;
@@ -42,9 +42,9 @@ void CP0::reset()
     exCounter = 0;
 }
 
-uint32_t CP0::read(int index)
+uint32_t CPU_CP0::read(int index)
 {
-    // Read from a CP0 register if one exists at the given address
+    // Read from a CPU CP0 register if one exists at the given address
     switch (index)
     {
         case 9: // Count
@@ -68,14 +68,14 @@ uint32_t CP0::read(int index)
             return exCounter;
 
         default:
-            LOG_WARN("Read from unknown CP0 register: %d\n", index);
+            LOG_WARN("Read from unknown CPU CP0 register: %d\n", index);
             return 0;
     }
 }
 
-void CP0::write(int index, uint32_t value)
+void CPU_CP0::write(int index, uint32_t value)
 {
-    // Write to a CP0 register if one exists at the given address
+    // Write to a CPU CP0 register if one exists at the given address
     switch (index)
     {
         case 9: // Count
@@ -93,11 +93,11 @@ void CP0::write(int index, uint32_t value)
             // Set the status register and apply the FR bit to the CP1
             status = value & 0xFF57FFFF;
             checkInterrupts();
-            CP1::setRegMode(status & (1 << 26));
+            CPU_CP1::setRegMode(status & (1 << 26));
 
             // Keep track of unimplemented bits that should do something
             if (uint32_t bits = (value & 0x3B4000F8))
-                LOG_WARN("Unimplemented CP0 status bits set: 0x%X\n", bits);
+                LOG_WARN("Unimplemented CPU CP0 status bits set: 0x%X\n", bits);
             return;
 
         case 13: // Cause
@@ -112,12 +112,12 @@ void CP0::write(int index, uint32_t value)
             return;
 
         default:
-            LOG_WARN("Write to unknown CP0 register: %d\n", index);
+            LOG_WARN("Write to unknown CPU CP0 register: %d\n", index);
             return;
     }
 }
 
-void CP0::updateCount()
+void CPU_CP0::updateCount()
 {
     // Increment count and request a timer interrupt when it matches compare
     if (++count == compare)
@@ -127,12 +127,12 @@ void CP0::updateCount()
     }
 }
 
-void CP0::checkInterrupts()
+void CPU_CP0::checkInterrupts()
 {
     // Set the external interrupt bit if any MI interrupt is set
     cause = (cause & ~0x400) | ((bool)(MI::interrupt & MI::mask) << 10);
 
     // Trigger an interrupt if able and an enabled bit is set
     if (((status & 0x3) == 0x1) && (status & cause & 0xFF00))
-        VR4300::exception();
+        CPU::exception();
 }

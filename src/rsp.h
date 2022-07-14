@@ -17,19 +17,16 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CP0_H
-#define CP0_H
+#ifndef RSP_H
+#define RSP_H
 
-#include <cstdint>
+#include <string>
 
-namespace CP0
+namespace RSP
 {
     void reset();
-    uint32_t read(int index);
-    void write(int index, uint32_t value);
-
-    void updateCount();
-    void checkInterrupts();
+    void setState(bool halted);
+    void runOpcode();
 }
 
-#endif // CP0_H
+#endif // RSP_H
