@@ -223,6 +223,11 @@ void CPU::runOpcode()
 
 void CPU::exception()
 {
+    // If an exception happens at a delay slot, execute that first
+    // TODO: this is a hacky solution; improve the pipeline so it isn't needed
+    if (nextOpcode != Memory::read<uint32_t>(programCounter))
+        runOpcode();
+
     // Disable further exceptions and jump to the exception handler
     // TODO: support non-interrupt exceptions
     CPU_CP0::write(12, CPU_CP0::read(12) | 0x2); // EXL
