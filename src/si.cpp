@@ -21,6 +21,7 @@
 #include "log.h"
 #include "memory.h"
 #include "mi.h"
+#include "pif.h"
 
 namespace SI
 {
@@ -81,6 +82,10 @@ void SI::write(uint32_t address, uint32_t value)
 void SI::performReadDma(uint32_t address)
 {
     LOG_INFO("SI DMA from PIF 0x%X to RDRAM 0x%X with size 0x40\n", address, dramAddr);
+
+    // Re-trigger the last PIF command on DMA reads
+    // TODO: properly look into how PIF command triggers work
+    PIF::runCommand();
 
     // Copy 64 bytes from PIF RAM to RDRAM
     for (uint32_t i = 0; i < 0x40; i++)

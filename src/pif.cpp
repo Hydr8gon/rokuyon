@@ -26,6 +26,7 @@
 namespace PIF
 {
     uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
+    uint8_t command;
     uint16_t buttons;
 
     extern void (*pifCommands[])(int);
@@ -48,7 +49,11 @@ void PIF::reset(FILE *pifFile)
     // Load the PIF ROM into memory
     fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
     fclose(pifFile);
+
+    // Reset the PIF to its initial state
     clearMemory(0);
+    command = 0;
+    buttons = 0;
 
     // Set the CIC value used for checksums during boot
     // TODO: check ROM bootcode and set appropriately
@@ -61,10 +66,14 @@ void PIF::reset(FILE *pifFile)
 
 void PIF::runCommand()
 {
+    // Update the current command if new command bits were set
+    if (uint8_t value = memory[0x7FF] & 0x7F)
+        command = value;
+
     // Execute commands for any set bits, and clear the bits
     for (int i = 0; i < 7; i++)
     {
-        if (memory[0x7FF] & (1 << i))
+        if (command & (1 << i))
         {
             (*pifCommands[i])(i);
             memory[0x7FF] &= ~(1 << i);
