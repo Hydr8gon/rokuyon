@@ -20,6 +20,7 @@
 #ifndef RY_CANVAS_H
 #define RY_CANVAS_H
 
+#include <chrono>
 #include <wx/wx.h>
 #include <wx/glcanvas.h>
 
@@ -37,6 +38,11 @@ class ryCanvas: public wxGLCanvas
         wxGLContext *context;
 
         static const char keyMap[];
+
+        int frameCount = 0;
+        int swapInterval = 0;
+        int refreshRate = 0;
+        std::chrono::steady_clock::time_point lastRateTime;
 
         bool finished = false;
         uint32_t width = 0;

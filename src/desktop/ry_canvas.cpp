@@ -82,10 +82,16 @@ void ryCanvas::draw(wxPaintEvent &event)
 
     if (Core::running)
     {
-        // Get the framebuffer as a texture
-        Framebuffer *fb = VI::getFramebuffer();
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width,
-            fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
+        // At the swap interval, get the framebuffer as a texture
+        if (++frameCount >= swapInterval)
+        {
+            if (Framebuffer *fb = VI::getFramebuffer())
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width,
+                    fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
+                frameCount = 0;
+            }
+        }
 
         // Submit the polygon vertices
         glBegin(GL_QUADS);
@@ -98,6 +104,17 @@ void ryCanvas::draw(wxPaintEvent &event)
         glTexCoord2i(1, 0);
         glVertex2i(x + width, y);
         glEnd();
+    }
+
+    // Track the refresh rate and update the swap interval every second
+    // Speed is limited by drawing, so this tries to keep it at 60 Hz
+    refreshRate++;
+    std::chrono::duration<double> rateTime = std::chrono::steady_clock::now() - lastRateTime;
+    if (rateTime.count() >= 1.0f)
+    {
+        swapInterval = (refreshRate + 5) / 60; // Margin of 5
+        refreshRate = 0;
+        lastRateTime = std::chrono::steady_clock::now();
     }
 
     // Finish the frame

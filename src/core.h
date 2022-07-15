@@ -26,6 +26,7 @@ namespace Core
 {
     extern bool running;
     extern bool rspRunning;
+    extern int fps;
 
     int bootRom(const std::string &path);
     void stop();

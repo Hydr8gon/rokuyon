@@ -59,6 +59,17 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
     SetSizer(sizer);
 }
 
+void ryFrame::Refresh()
+{
+    wxFrame::Refresh();
+
+    // Override the refresh function to also update the FPS counter
+    wxString label = "rokuyon";
+    if (Core::running)
+        label += wxString::Format(" - %d FPS", Core::fps);
+    SetLabel(label);
+}
+
 void ryFrame::loadRom(wxCommandEvent &event)
 {
     // Show the file browser

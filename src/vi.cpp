@@ -42,8 +42,8 @@ namespace VI
 Framebuffer *VI::getFramebuffer()
 {
     // Wait until a new frame is ready
-    while (Core::running && !ready.load())
-        std::this_thread::yield();
+    if (!ready.load())
+        return nullptr;
 
     // Get the width and height of the frame
     fbs[1].width  = fbs[0].width;

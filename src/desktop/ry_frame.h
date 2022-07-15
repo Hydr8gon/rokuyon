@@ -29,6 +29,8 @@ class ryFrame: public wxFrame
     public:
         ryFrame();
 
+        void Refresh();
+
     private:
         ryCanvas *canvas;
 

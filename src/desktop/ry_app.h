@@ -25,7 +25,7 @@
 class ryApp: public wxApp
 {
     private:
-        wxFrame *frame;
+        ryFrame *frame;
         wxTimer *timer;
 
         bool OnInit();

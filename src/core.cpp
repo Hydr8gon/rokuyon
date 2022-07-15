@@ -17,6 +17,7 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <chrono>
 #include <thread>
 
 #include "core.h"
@@ -38,6 +39,10 @@ namespace Core
     bool running;
     bool rspRunning;
 
+    int fps;
+    int fpsCount;
+    std::chrono::steady_clock::time_point lastFpsTime;
+
     void run();
 }
 
@@ -57,6 +62,21 @@ void Core::run()
 
         // Draw a frame
         VI::drawFrame();
+
+        // Update the FPS counter
+        std::chrono::duration<double> fpsTime = std::chrono::steady_clock::now() - lastFpsTime;
+        if (fpsTime.count() >= 1.0f)
+        {
+            // Save the FPS value after one second and reset the counter
+            fps = fpsCount;
+            fpsCount = 0;
+            lastFpsTime = std::chrono::steady_clock::now();
+        }
+        else
+        {
+            // Count another frame
+            fpsCount++;
+        }
     }
 }
 
