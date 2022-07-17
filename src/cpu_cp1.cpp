@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <fenv.h>
 
 #include "cpu_cp1.h"
 #include "cpu.h"
@@ -50,6 +51,23 @@ namespace CPU_CP1
     void negS(uint32_t opcode);
     void negD(uint32_t opcode);
 
+    void roundWS(uint32_t opcode);
+    void roundWD(uint32_t opcode);
+    void roundLS(uint32_t opcode);
+    void roundLD(uint32_t opcode);
+    void truncWS(uint32_t opcode);
+    void truncWD(uint32_t opcode);
+    void truncLS(uint32_t opcode);
+    void truncLD(uint32_t opcode);
+    void ceilWS(uint32_t opcode);
+    void ceilWD(uint32_t opcode);
+    void ceilLS(uint32_t opcode);
+    void ceilLD(uint32_t opcode);
+    void floorWS(uint32_t opcode);
+    void floorWD(uint32_t opcode);
+    void floorLS(uint32_t opcode);
+    void floorLD(uint32_t opcode);
+
     void cvtSD(uint32_t opcode);
     void cvtSW(uint32_t opcode);
     void cvtSL(uint32_t opcode);
@@ -67,27 +85,27 @@ namespace CPU_CP1
 // Single-precision FPU instruction lookup table, using opcode bits 0-5
 void (*CPU_CP1::sglInstrs[0x40])(uint32_t) =
 {
-    addS, subS,  mulS, divS, sqrtS, absS,  movS, negS, // 0x00-0x07
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk,  // 0x08-0x0F
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk,  // 0x10-0x17
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk,  // 0x18-0x1F
-    unk,  cvtDS, unk,  unk,  cvtWS, cvtLS, unk,  unk,  // 0x20-0x27
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk,  // 0x28-0x2F
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk,  // 0x30-0x37
-    unk,  unk,   unk,  unk,  unk,   unk,   unk,  unk   // 0x38-0x3F
+    addS,    subS,    mulS,   divS,    sqrtS,   absS,    movS,   negS,    // 0x00-0x07
+    roundLS, truncLS, ceilLS, floorLS, roundWS, truncWS, ceilWS, floorWS, // 0x08-0x0F
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x10-0x17
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
+    unk,     cvtDS,   unk,    unk,     cvtWS,   cvtLS,   unk,    unk,     // 0x20-0x27
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x30-0x37
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk      // 0x38-0x3F
 };
 
 // Double-precision FPU instruction lookup table, using opcode bits 0-5
 void (*CPU_CP1::dblInstrs[0x40])(uint32_t) =
 {
-    addD, subD,  mulD, divD, sqrtD, absD,  movD, negD, // 0x00-0x07
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk,  // 0x08-0x0F
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk,  // 0x10-0x17
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk,  // 0x18-0x1F
-    cvtSD, unk,  unk,  unk,  cvtWD, cvtLD, unk,  unk,  // 0x20-0x27
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk,  // 0x28-0x2F
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk,  // 0x30-0x37
-    unk,   unk,  unk,  unk,  unk,   unk,   unk,  unk   // 0x38-0x3F
+    addD,    subD,    mulD,   divD,    sqrtD,   absD,    movD,   negD,    // 0x00-0x07
+    roundLD, truncLD, ceilLD, floorLD, roundWD, truncWD, ceilWD, floorWD, // 0x08-0x0F
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x10-0x17
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
+    cvtSD,   unk,     unk,    unk,     cvtWD,   cvtLD,   unk,    unk,     // 0x20-0x27
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x30-0x37
+    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk      // 0x38-0x3F
 };
 
 // 32-bit integer FPU instruction lookup table, using opcode bits 0-5
@@ -314,6 +332,166 @@ void CPU_CP1::negD(uint32_t opcode)
     getDouble((opcode >> 6) & 0x1F) = -getDouble((opcode >> 11) & 0x1F);
 }
 
+void CPU_CP1::roundWS(uint32_t opcode)
+{
+    // Convert a float to a 32-bit integer with forced rounding to nearest
+    int backup = fegetround();
+    fesetround(FE_TONEAREST);
+    int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::roundWD(uint32_t opcode)
+{
+    // Convert a double to a 32-bit integer with forced rounding to nearest
+    int backup = fegetround();
+    fesetround(FE_TONEAREST);
+    int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::roundLS(uint32_t opcode)
+{
+    // Convert a float to a 64-bit integer with forced rounding to nearest
+    int backup = fegetround();
+    fesetround(FE_TONEAREST);
+    int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::roundLD(uint32_t opcode)
+{
+    // Convert a double to a 64-bit integer with forced rounding to nearest
+    int backup = fegetround();
+    fesetround(FE_TONEAREST);
+    int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::truncWS(uint32_t opcode)
+{
+    // Convert a float to a 32-bit integer with forced rounding towards zero
+    int backup = fegetround();
+    fesetround(FE_TOWARDZERO);
+    int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::truncWD(uint32_t opcode)
+{
+    // Convert a double to a 32-bit integer with forced rounding towards zero
+    int backup = fegetround();
+    fesetround(FE_TOWARDZERO);
+    int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::truncLS(uint32_t opcode)
+{
+    // Convert a float to a 64-bit integer with forced rounding towards zero
+    int backup = fegetround();
+    fesetround(FE_TOWARDZERO);
+    int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::truncLD(uint32_t opcode)
+{
+    // Convert a double to a 64-bit integer with forced rounding towards zero
+    int backup = fegetround();
+    fesetround(FE_TOWARDZERO);
+    int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::ceilWS(uint32_t opcode)
+{
+    // Convert a float to a 32-bit integer with forced rounding upwards
+    int backup = fegetround();
+    fesetround(FE_UPWARD);
+    int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::ceilWD(uint32_t opcode)
+{
+    // Convert a double to a 32-bit integer with forced rounding upwards
+    int backup = fegetround();
+    fesetround(FE_UPWARD);
+    int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::ceilLS(uint32_t opcode)
+{
+    // Convert a float to a 64-bit integer with forced rounding upwards
+    int backup = fegetround();
+    fesetround(FE_UPWARD);
+    int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::ceilLD(uint32_t opcode)
+{
+    // Convert a double to a 64-bit integer with forced rounding upwards
+    int backup = fegetround();
+    fesetround(FE_UPWARD);
+    int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::floorWS(uint32_t opcode)
+{
+    // Convert a float to a 32-bit integer with forced rounding downwards
+    int backup = fegetround();
+    fesetround(FE_DOWNWARD);
+    int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::floorWD(uint32_t opcode)
+{
+    // Convert a double to a 32-bit integer with forced rounding downwards
+    int backup = fegetround();
+    fesetround(FE_DOWNWARD);
+    int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::floorLS(uint32_t opcode)
+{
+    // Convert a float to a 64-bit integer with forced rounding downwards
+    int backup = fegetround();
+    fesetround(FE_DOWNWARD);
+    int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
+void CPU_CP1::floorLD(uint32_t opcode)
+{
+    // Convert a double to a 64-bit integer with forced rounding downwards
+    int backup = fegetround();
+    fesetround(FE_DOWNWARD);
+    int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
+    write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+    fesetround(backup);
+}
+
 void CPU_CP1::cvtSD(uint32_t opcode)
 {
     // Convert a double to a float and store the result
@@ -359,28 +537,28 @@ void CPU_CP1::cvtDL(uint32_t opcode)
 void CPU_CP1::cvtWS(uint32_t opcode)
 {
     // Convert a float to a 32-bit integer and store the result
-    int32_t value = getFloat((opcode >> 11) & 0x1F);
+    int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
     write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
 }
 
 void CPU_CP1::cvtWD(uint32_t opcode)
 {
     // Convert a double to a 32-bit integer and store the result
-    int32_t value = getDouble((opcode >> 11) & 0x1F);
+    int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
     write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
 }
 
 void CPU_CP1::cvtLS(uint32_t opcode)
 {
     // Convert a float to a 64-bit integer and store the result
-    int64_t value = getFloat((opcode >> 11) & 0x1F);
+    int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
     write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
 }
 
 void CPU_CP1::cvtLD(uint32_t opcode)
 {
     // Convert a double to a 64-bit integer and store the result
-    int64_t value = getDouble((opcode >> 11) & 0x1F);
+    int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
     write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
 }
 
