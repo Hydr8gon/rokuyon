@@ -79,6 +79,36 @@ namespace CPU_CP1
     void cvtLS(uint32_t opcode);
     void cvtLD(uint32_t opcode);
 
+    void cf(uint32_t opcode);
+    void cunS(uint32_t opcode);
+    void cunD(uint32_t opcode);
+    void ceqS(uint32_t opcode);
+    void ceqD(uint32_t opcode);
+    void cueqS(uint32_t opcode);
+    void cueqD(uint32_t opcode);
+    void coltS(uint32_t opcode);
+    void coltD(uint32_t opcode);
+    void cultS(uint32_t opcode);
+    void cultD(uint32_t opcode);
+    void coleS(uint32_t opcode);
+    void coleD(uint32_t opcode);
+    void culeS(uint32_t opcode);
+    void culeD(uint32_t opcode);
+    void cngleS(uint32_t opcode);
+    void cngleD(uint32_t opcode);
+    void cseqS(uint32_t opcode);
+    void cseqD(uint32_t opcode);
+    void cnglS(uint32_t opcode);
+    void cnglD(uint32_t opcode);
+    void cltS(uint32_t opcode);
+    void cltD(uint32_t opcode);
+    void cngeS(uint32_t opcode);
+    void cngeD(uint32_t opcode);
+    void cleS(uint32_t opcode);
+    void cleD(uint32_t opcode);
+    void cngtS(uint32_t opcode);
+    void cngtD(uint32_t opcode);
+
     void unk(uint32_t opcode);
 }
 
@@ -91,8 +121,8 @@ void (*CPU_CP1::sglInstrs[0x40])(uint32_t) =
     unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
     unk,     cvtDS,   unk,    unk,     cvtWS,   cvtLS,   unk,    unk,     // 0x20-0x27
     unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x30-0x37
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk      // 0x38-0x3F
+    cf,      cunS,    ceqS,   cueqS,   coltS,   cultS,   coleS,  culeS,   // 0x30-0x37
+    cf,      cunS,    ceqS,   cueqS,   coltS,   cultS,   coleS,  culeS    // 0x38-0x3F
 };
 
 // Double-precision FPU instruction lookup table, using opcode bits 0-5
@@ -104,8 +134,8 @@ void (*CPU_CP1::dblInstrs[0x40])(uint32_t) =
     unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
     cvtSD,   unk,     unk,    unk,     cvtWD,   cvtLD,   unk,    unk,     // 0x20-0x27
     unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x30-0x37
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk      // 0x38-0x3F
+    cf,      cunD,    ceqD,   cueqD,   coltD,   cultD,   coleD,  culeD,   // 0x30-0x37
+    cf,      cunD,    ceqD,   cueqD,   coltD,   cultD,   coleD,  culeD    // 0x38-0x3F
 };
 
 // 32-bit integer FPU instruction lookup table, using opcode bits 0-5
@@ -560,6 +590,123 @@ void CPU_CP1::cvtLD(uint32_t opcode)
     // Convert a double to a 64-bit integer and store the result
     int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
     write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
+}
+
+void CPU_CP1::cf(uint32_t opcode)
+{
+    // Set the CP1 condition bit to false
+    bool cond = false;
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cunS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one of two floats is NaN
+    bool cond = (std::isnan(getFloat((opcode >> 11) & 0x1F)) || std::isnan(getFloat((opcode >> 16) & 0x1F)));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cunD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one of two doubles is NaN
+    bool cond = (std::isnan(getDouble((opcode >> 11) & 0x1F)) || std::isnan(getDouble((opcode >> 16) & 0x1F)));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::ceqS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if two floats are equal
+    bool cond = (getFloat((opcode >> 11) & 0x1F) == getFloat((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::ceqD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if two doubles are equal
+    bool cond = (getDouble((opcode >> 11) & 0x1F) == getDouble((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cueqS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if two floats are equal or one of them is NaN
+    float &a = getFloat((opcode >> 11) & 0x1F);
+    float &b = getFloat((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a == b);
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cueqD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if two floats are equal or one of them is NaN
+    double &a = getDouble((opcode >> 11) & 0x1F);
+    double &b = getDouble((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a == b);
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::coltS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one float is less than another
+    bool cond = (getFloat((opcode >> 11) & 0x1F) < getFloat((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::coltD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one double is less than another
+    bool cond = (getDouble((opcode >> 11) & 0x1F) < getDouble((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cultS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one float is less than another or one of them is NaN
+    float &a = getFloat((opcode >> 11) & 0x1F);
+    float &b = getFloat((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a < b);
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::cultD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one double is less than another or one of them is NaN
+    double &a = getDouble((opcode >> 11) & 0x1F);
+    double &b = getDouble((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a < b);
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::coleS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one float is less or equal to another
+    bool cond = (getFloat((opcode >> 11) & 0x1F) <= getFloat((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::coleD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one double is less or equal to another
+    bool cond = (getDouble((opcode >> 11) & 0x1F) <= getDouble((opcode >> 16) & 0x1F));
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::culeS(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one float is less or equal to another or one of them is NaN
+    float &a = getFloat((opcode >> 11) & 0x1F);
+    float &b = getFloat((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a <= b);
+    status = (status & ~(1 << 23)) | (cond << 23);
+}
+
+void CPU_CP1::culeD(uint32_t opcode)
+{
+    // Set the CP1 condition bit if one double is less or equal to another or one of them is NaN
+    double &a = getDouble((opcode >> 11) & 0x1F);
+    double &b = getDouble((opcode >> 16) & 0x1F);
+    bool cond = (std::isnan(a) || std::isnan(b) || a <= b);
+    status = (status & ~(1 << 23)) | (cond << 23);
 }
 
 void CPU_CP1::unk(uint32_t opcode)
