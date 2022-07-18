@@ -806,7 +806,7 @@ void CPU::addu(uint32_t opcode)
 
 void CPU::sub(uint32_t opcode)
 {
-    // Add a register to a register and store the lower result
+    // Subtract a register from a register and store the lower result
     // TODO: overflow exception
     int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
@@ -814,7 +814,7 @@ void CPU::sub(uint32_t opcode)
 
 void CPU::subu(uint32_t opcode)
 {
-    // Add a register to a register and store the result
+    // Subtract a register from a register and store the result
     int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }

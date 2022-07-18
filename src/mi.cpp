@@ -62,10 +62,10 @@ void MI::write(uint32_t address, uint32_t value)
             // For each set bit, set or clear a mask bit appropriately
             for (int i = 0; i < 12; i += 2)
             {
-                if (value & (1 << (i + 1)))
-                    mask |= (1 << (i / 2));
-                else if (value & (1 << i))
+                if (value & (1 << i))
                     mask &= ~(1 << (i / 2));
+                else if (value & (1 << (i + 1)))
+                    mask |= (1 << (i / 2));
             }
 
             CPU_CP0::checkInterrupts();

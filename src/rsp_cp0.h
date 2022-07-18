@@ -27,6 +27,7 @@ namespace RSP_CP0
     void reset();
     uint32_t read(int index);
     void write(int index, uint32_t value);
+    void triggerBreak();
 }
 
 #endif // RSP_CP0_H

@@ -25,6 +25,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "rsp.h"
 #include "rsp_cp0.h"
 #include "si.h"
 #include "vi.h"
@@ -82,6 +83,11 @@ template <typename T> T Memory::read(uint32_t address)
         {
             // Read a value from an RSP CP0 register
             return RSP_CP0::read((addr & 0x1F) >> 2);
+        }
+        else if (addr == 0x4080000)
+        {
+            // Read a value from the RSP program counter
+            return RSP::readPC();
         }
         else
         {
@@ -160,6 +166,11 @@ template <typename T> void Memory::write(uint32_t address, T value)
         {
             // Write a value to an RSP CP0 register
             return RSP_CP0::write((addr & 0x1F) >> 2, value);
+        }
+        else if (addr == 0x4080000)
+        {
+            // Write a value to the RSP program counter
+            return RSP::writePC(value);
         }
         else
         {

@@ -20,6 +20,7 @@
 #include "rsp_cp0.h"
 #include "log.h"
 #include "memory.h"
+#include "mi.h"
 #include "rsp.h"
 
 namespace RSP_CP0
@@ -90,14 +91,33 @@ void RSP_CP0::write(int index, uint32_t value)
 
         case 4: // SP_STATUS
             // Set or clear the halt flag and update the RSP's state
-            if (value & 0x2)
-                status |= 0x1;
-            else if (value & 0x1)
+            if (value & 0x1)
                 status &= ~0x1;
+            else if (value & 0x2)
+                status |= 0x1;
             RSP::setState(status & 0x1);
 
+            // Clear the broke flag
+            if (value & 0x4)
+                status &= ~0x2;
+
+            // Acknowledge or trigger an SP interrupt
+            if (value & 0x8)
+                MI::clearInterrupt(0);
+            else if (value & 0x10)
+                MI::setInterrupt(0);
+
+            // Set or clear the remaining status bits
+            for (int i = 0; i < 20; i += 2)
+            {
+                if (value & (1 << (i + 5)))
+                    status &= ~(1 << ((i / 2) + 5));
+                else if (value & (1 << (i + 6)))
+                    status |= (1 << ((i / 2) + 5));
+            }
+
             // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (value & 0x1FFFFFC))
+            if (uint32_t bits = (status & 0x20))
                 LOG_WARN("Unimplemented RSP CP0 status bits set: 0x%X\n", bits);
             return;
 
@@ -105,6 +125,15 @@ void RSP_CP0::write(int index, uint32_t value)
             LOG_WARN("Write to unknown RSP CP0 register: %d\n", index);
             return;
     }
+}
+
+void RSP_CP0::triggerBreak()
+{
+    // Trigger an SP interrupt if enabled, halt the RSP, and set the broke flag
+    if (status & 0x40)
+        MI::setInterrupt(0);
+    RSP::setState(true);
+    status |= 0x2;
 }
 
 void RSP_CP0::performReadDma(uint32_t size)

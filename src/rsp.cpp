@@ -42,7 +42,6 @@ namespace RSP
     void bne(uint32_t opcode);
     void blez(uint32_t opcode);
     void bgtz(uint32_t opcode);
-    void addi(uint32_t opcode);
     void addiu(uint32_t opcode);
     void slti(uint32_t opcode);
     void sltiu(uint32_t opcode);
@@ -67,9 +66,8 @@ namespace RSP
     void srav(uint32_t opcode);
     void jr(uint32_t opcode);
     void jalr(uint32_t opcode);
-    void add(uint32_t opcode);
+    void break_(uint32_t opcode);
     void addu(uint32_t opcode);
-    void sub(uint32_t opcode);
     void subu(uint32_t opcode);
     void and_(uint32_t opcode);
     void or_(uint32_t opcode);
@@ -94,7 +92,7 @@ namespace RSP
 void (*RSP::immInstrs[0x40])(uint32_t) =
 {
     nullptr, nullptr, j,    jal,   beq,  bne,  blez,  bgtz, // 0x00-0x07
-    addi,    addiu,   slti, sltiu, andi, ori,  xori,  lui,  // 0x08-0x0F
+    addiu,   addiu,   slti, sltiu, andi, ori,  xori,  lui,  // 0x08-0x0F
     cop0,    unk,     unk,  unk,   unk,  unk,  unk,   unk,  // 0x10-0x17
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   unk,  // 0x18-0x1F
     lb,      lh,      unk,  lw,    lbu,  lhu,  unk,   unk,  // 0x20-0x27
@@ -106,14 +104,14 @@ void (*RSP::immInstrs[0x40])(uint32_t) =
 // Register-type RSP instruction lookup table, using opcode bits 0-5
 void (*RSP::regInstrs[0x40])(uint32_t) =
 {
-    sll, unk,  srl, sra,  sllv, unk, srlv, srav, // 0x00-0x07
-    jr,  jalr, unk, unk,  unk,  unk, unk,  unk,  // 0x08-0x0F
-    unk, unk,  unk, unk,  unk,  unk, unk,  unk,  // 0x10-0x17
-    unk, unk,  unk, unk,  unk,  unk, unk,  unk,  // 0x18-0x1F
-    add, addu, sub, subu, and_, or_, xor_, nor,  // 0x20-0x27
-    unk, unk,  slt, sltu, unk,  unk, unk,  unk,  // 0x28-0x2F
-    unk, unk,  unk, unk,  unk,  unk, unk,  unk,  // 0x30-0x37
-    unk, unk,  unk, unk,  unk,  unk, unk,  unk   // 0x38-0x3F
+    sll,  unk,  srl,  sra,  sllv, unk,    srlv, srav, // 0x00-0x07
+    jr,   jalr, unk,  unk,  unk,  break_, unk,  unk,  // 0x08-0x0F
+    unk,  unk,  unk,  unk,  unk,  unk,    unk,  unk,  // 0x10-0x17
+    unk,  unk,  unk,  unk,  unk,  unk,    unk,  unk,  // 0x18-0x1F
+    addu, addu, subu, subu, and_, or_,    xor_, nor,  // 0x20-0x27
+    unk,  unk,  slt,  sltu, unk,  unk,    unk,  unk,  // 0x28-0x2F
+    unk,  unk,  unk,  unk,  unk,  unk,    unk,  unk,  // 0x30-0x37
+    unk,  unk,  unk,  unk,  unk,  unk,    unk,  unk   // 0x38-0x3F
 };
 
 // Extra-type RSP instruction lookup table, using opcode bits 16-20
@@ -136,6 +134,18 @@ void RSP::reset()
     memset(registersR, 0, sizeof(registersR));
     programCounter = 0xA4001000;
     setState(true);
+}
+
+uint32_t RSP::readPC()
+{
+    // Get the effective bits of the RSP program counter
+    return programCounter & 0xFF8;
+}
+
+void RSP::writePC(uint32_t value)
+{
+    // Set the effective bits of the RSP program counter
+    programCounter = 0xA4001000 | (value & 0xFF8);
 }
 
 void RSP::setState(bool halted)
@@ -202,16 +212,9 @@ void RSP::bgtz(uint32_t opcode)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void RSP::addi(uint32_t opcode)
-{
-    // Add a signed 16-bit immediate to a register and store the lower result
-    int32_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    *registersW[(opcode >> 16) & 0x1F] = value;
-}
-
 void RSP::addiu(uint32_t opcode)
 {
-    // Add a signed 16-bit immediate to a register and store the lower result
+    // Add a signed 16-bit immediate to a register and store the result
     int32_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
@@ -315,42 +318,42 @@ void RSP::sw(uint32_t opcode)
 
 void RSP::sll(uint32_t opcode)
 {
-    // Shift a register left by a 5-bit immediate and store the lower result
+    // Shift a register left by a 5-bit immediate and store the result
     int32_t value = registersR[(opcode >> 16) & 0x1F] << ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void RSP::srl(uint32_t opcode)
 {
-    // Shift a register right by a 5-bit immediate and store the lower result
+    // Shift a register right by a 5-bit immediate and store the result
     int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void RSP::sra(uint32_t opcode)
 {
-    // Shift a register right by a 5-bit immediate and store the lower signed result
+    // Shift a register right by a 5-bit immediate and store the signed result
     int32_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void RSP::sllv(uint32_t opcode)
 {
-    // Shift a register left by a register and store the lower result
+    // Shift a register left by a register and store the result
     int32_t value = registersR[(opcode >> 16) & 0x1F] << (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void RSP::srlv(uint32_t opcode)
 {
-    // Shift a register right by a register and store the lower result
+    // Shift a register right by a register and store the result
     int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
 void RSP::srav(uint32_t opcode)
 {
-    // Shift a register right by a register and store the lower signed result
+    // Shift a register right by a register and store the signed result
     int32_t value = (int32_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
@@ -368,11 +371,10 @@ void RSP::jalr(uint32_t opcode)
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
-void RSP::add(uint32_t opcode)
+void RSP::break_(uint32_t opcode)
 {
-    // Add a register to a register and store the lower result
-    int32_t value = registersR[(opcode >> 21) & 0x1F] + registersR[(opcode >> 16) & 0x1F];
-    *registersW[(opcode >> 11) & 0x1F] = value;
+    // Trigger a break, halting the RSP
+    RSP_CP0::triggerBreak();
 }
 
 void RSP::addu(uint32_t opcode)
@@ -382,16 +384,9 @@ void RSP::addu(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void RSP::sub(uint32_t opcode)
-{
-    // Add a register to a register and store the lower result
-    int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
-    *registersW[(opcode >> 11) & 0x1F] = value;
-}
-
 void RSP::subu(uint32_t opcode)
 {
-    // Add a register to a register and store the result
+    // Subtract a register from a register and store the result
     int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }

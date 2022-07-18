@@ -25,6 +25,8 @@
 namespace RSP
 {
     void reset();
+    uint32_t readPC();
+    void writePC(uint32_t value);
     void setState(bool halted);
     void runOpcode();
 }
