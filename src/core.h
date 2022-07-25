@@ -30,6 +30,9 @@ namespace Core
 
     int bootRom(const std::string &path);
     void stop();
+
+    void countFrame();
+    void schedule(void (*function)(), uint32_t cycles);
 }
 
 #endif // CORE_H

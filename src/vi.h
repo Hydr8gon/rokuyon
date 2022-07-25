@@ -36,8 +36,6 @@ namespace VI
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
-
-    void drawFrame();
 }
 
 #endif // VI_H

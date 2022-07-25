@@ -37,6 +37,8 @@ namespace VI
     uint32_t origin;
     uint32_t width;
     uint32_t yScale;
+
+    void drawFrame();
 }
 
 Framebuffer *VI::getFramebuffer()
@@ -67,6 +69,9 @@ void VI::reset()
     origin = 0;
     width = 0;
     yScale = 0;
+
+    // Schedule the first frame to be drawn
+    Core::schedule(drawFrame, (93750000 / 60) * 2);
 }
 
 uint32_t VI::read(uint32_t address)
@@ -170,4 +175,8 @@ void VI::drawFrame()
     // TODO: request interrupt at the proper time
     ready.store(true);
     MI::setInterrupt(3);
+
+    // Schedule the next frame to be drawn
+    Core::schedule(drawFrame, (93750000 / 60) * 2);
+    Core::countFrame();
 }
