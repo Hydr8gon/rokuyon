@@ -31,9 +31,9 @@ wxEND_EVENT_TABLE()
 
 bool ryApp::OnInit()
 {
-    // Create and show the app's frame
+    // Create the app's frame, passing along a filename from the command line
     SetAppName("rokuyon");
-    frame = new ryFrame();
+    frame = new ryFrame((argc > 1) ? argv[1].ToStdString() : "");
 
     // Set up the update timer
     timer = new wxTimer(this, UPDATE);

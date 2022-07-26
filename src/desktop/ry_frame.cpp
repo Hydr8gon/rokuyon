@@ -30,10 +30,11 @@ enum FrameEvent
 wxBEGIN_EVENT_TABLE(ryFrame, wxFrame)
 EVT_MENU(LOAD_ROM, ryFrame::loadRom)
 EVT_MENU(QUIT,     ryFrame::quit)
+EVT_DROP_FILES(ryFrame::dropFiles)
 EVT_CLOSE(ryFrame::close)
 wxEND_EVENT_TABLE()
 
-ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
+ryFrame::ryFrame(std::string filename): wxFrame(nullptr, wxID_ANY, "rokuyon")
 {
     // Set up the File menu
     wxMenu *fileMenu = new wxMenu();
@@ -47,6 +48,7 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
     SetMenuBar(menuBar);
 
     // Set up and show the window
+    DragAcceptFiles(true);
     SetClientSize(wxSize(320, 240));
     SetMinClientSize(wxSize(320, 240));
     Centre();
@@ -57,6 +59,27 @@ ryFrame::ryFrame(): wxFrame(nullptr, wxID_ANY, "rokuyon")
     wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
     sizer->Add(canvas, 1, wxEXPAND);
     SetSizer(sizer);
+
+    // Boot a ROM right away if a filename was given through the command line
+    if (filename != "")
+        bootRom(filename);
+}
+
+void ryFrame::bootRom(std::string filename)
+{
+    // Try to boot the specified ROM and handle errors
+    switch (Core::bootRom(filename))
+    {
+        case 1: // PIF ROM load failed
+            wxMessageDialog(this, "Make sure a valid PIF dump named pif_rom.bin is next to the executable.",
+                            "Error Loading PIF ROM", wxICON_NONE).ShowModal();
+            break;
+
+        case 2: // Cart ROM load failed
+            wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
+                            "Error Loading Cart ROM", wxICON_NONE).ShowModal();
+            break;
+    }
 }
 
 void ryFrame::Refresh()
@@ -75,28 +98,26 @@ void ryFrame::loadRom(wxCommandEvent &event)
     // Show the file browser
     wxFileDialog romSelect(this, "Select ROM File", "", "", "N64 ROM files (*.z64)|*.z64", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
-    // Try to boot the selected ROM and handle errors
+    // Boot a ROM if a file was selected
     if (romSelect.ShowModal() != wxID_CANCEL)
-    {
-        switch (Core::bootRom((const char*)romSelect.GetPath().mb_str(wxConvUTF8)))
-        {
-            case 1: // PIF ROM load failed
-                wxMessageDialog(this, "Make sure a valid PIF dump named pif_rom.bin is next to the executable.",
-                    "Error Loading PIF ROM", wxICON_NONE).ShowModal();
-                break;
-
-            case 2: // Cart ROM load failed
-                wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
-                    "Error Loading Cart ROM", wxICON_NONE).ShowModal();
-                break;
-        }
-    }
+        bootRom((const char*)romSelect.GetPath().mb_str(wxConvUTF8));
 }
 
 void ryFrame::quit(wxCommandEvent &event)
 {
     // Close the program
     Close(true);
+}
+
+void ryFrame::dropFiles(wxDropFilesEvent &event)
+{
+    // Boot a ROM if a single file is dropped onto the frame
+    if (event.GetNumberOfFiles() == 1)
+    {
+        wxString path = event.GetFiles()[0];
+        if (wxFileExists(path))
+            bootRom((const char*)path.mb_str(wxConvUTF8));
+    }
 }
 
 void ryFrame::close(wxCloseEvent &event)

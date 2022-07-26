@@ -78,6 +78,9 @@ int Core::bootRom(const std::string &path)
     FILE *romFile = fopen(path.c_str(), "rb");
     if (!romFile) return 2;
 
+    // Ensure the emulator is stopped
+    Core::stop();
+
     // Reset the scheduler
     tasks.clear();
     globalCycles = 0;
@@ -85,8 +88,7 @@ int Core::bootRom(const std::string &path)
     rspCycles = 0;
     schedule(resetCycles, 0x7FFFFFFF);
 
-    // Stop and reset the emulator
-    Core::stop();
+    // Reset the emulated components
     Memory::reset();
     MI::reset();
     PI::reset(romFile);

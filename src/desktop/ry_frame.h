@@ -27,15 +27,18 @@ class ryCanvas;
 class ryFrame: public wxFrame
 {
     public:
-        ryFrame();
+        ryFrame(std::string filename);
 
         void Refresh();
 
     private:
         ryCanvas *canvas;
 
+        void bootRom(std::string filename);
+
         void loadRom(wxCommandEvent &event);
         void quit(wxCommandEvent &event);
+        void dropFiles(wxDropFilesEvent &event);
         void close(wxCloseEvent &event);
 
         wxDECLARE_EVENT_TABLE();
