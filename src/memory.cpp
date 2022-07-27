@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "memory.h"
+#include "ai.h"
 #include "log.h"
 #include "mi.h"
 #include "pi.h"
@@ -89,6 +90,11 @@ template <typename T> T Memory::read(uint32_t address)
             // Read a value from the RSP program counter
             return RSP::readPC();
         }
+        else if (addr == 0x470000C)
+        {
+            // Stub the RI_SELECT register
+            return 0x1;
+        }
         else
         {
             // Read a value from a group of registers
@@ -96,15 +102,9 @@ template <typename T> T Memory::read(uint32_t address)
             {
                 case 0x43: return MI::read(addr);
                 case 0x44: return VI::read(addr);
+                case 0x45: return AI::read(addr);
                 case 0x46: return PI::read(addr);
                 case 0x48: return SI::read(addr);
-            }
-
-            // Stub some stray register reads
-            switch (addr)
-            {
-                case 0x450000C: return 0x80000000; // AI_STATUS
-                case 0x470000C: return 0x00000001; // RI_SELECT
             }
         }
     }
@@ -179,6 +179,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
             {
                 case 0x43: return MI::write(addr, value);
                 case 0x44: return VI::write(addr, value);
+                case 0x45: return AI::write(addr, value);
                 case 0x46: return PI::write(addr, value);
                 case 0x48: return SI::write(addr, value);
             }

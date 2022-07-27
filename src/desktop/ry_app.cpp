@@ -19,6 +19,7 @@
 
 #include "ry_app.h"
 #include "../core.h"
+#include "../ai.h"
 
 enum AppEvent
 {
@@ -39,11 +40,18 @@ bool ryApp::OnInit()
     timer = new wxTimer(this, UPDATE);
     timer->Start(6);
 
+    // Set up the audio stream
+    Pa_Initialize();
+    Pa_OpenDefaultStream(&stream, 0, 2, paInt16, 48000, 1024, audioCallback, nullptr);
+    Pa_StartStream(stream);
+
     return true;
 }
 
 int ryApp::OnExit()
 {
+    // Stop some things before exiting
+    Pa_StopStream(stream);
     timer->Stop();
     return wxApp::OnExit();
 }
@@ -52,4 +60,18 @@ void ryApp::update(wxTimerEvent &event)
 {
     // Continuously refresh the frame
     frame->Refresh();
+}
+
+int ryApp::audioCallback(const void *in, void *out, unsigned long count,
+    const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data)
+{
+    // Get samples from the audio interface
+    AI::fillBuffer((uint32_t*)out);
+
+    // Reduce the volume so people's ears don't get blown out
+    // TODO: this is temporary; remove once audio is better
+    for (size_t i = 0; i < count * 2; i++)
+        ((int16_t*)out)[i] >>= 4;
+
+    return paContinue;
 }

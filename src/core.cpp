@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "core.h"
+#include "ai.h"
 #include "cpu.h"
 #include "cpu_cp0.h"
 #include "cpu_cp1.h"
@@ -90,6 +91,7 @@ int Core::bootRom(const std::string &path)
 
     // Reset the emulated components
     Memory::reset();
+    AI::reset();
     MI::reset();
     PI::reset(romFile);
     SI::reset();

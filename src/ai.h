@@ -17,29 +17,18 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RY_APP_H
-#define RY_APP_H
+#ifndef AI_H
+#define AI_H
 
-#include <portaudio.h>
+#include <cstdint>
 
-#include "ry_frame.h"
-
-class ryApp: public wxApp
+namespace AI
 {
-    private:
-        ryFrame *frame;
-        wxTimer *timer;
-        PaStream *stream;
+    void fillBuffer(uint32_t *out);
 
-        bool OnInit();
-        int  OnExit();
+    void reset();
+    uint32_t read(uint32_t address);
+    void write(uint32_t address, uint32_t value);
+}
 
-        void update(wxTimerEvent &event);
-
-        static int audioCallback(const void *in, void *out, unsigned long count,
-            const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data);
-
-        wxDECLARE_EVENT_TABLE();
-};
-
-#endif // RY_APP_H
+#endif // AI_H
