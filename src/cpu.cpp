@@ -32,6 +32,7 @@ namespace CPU
     uint64_t hi, lo;
     uint32_t programCounter;
     uint32_t nextOpcode;
+    bool countToggle;
 
     extern void (*immInstrs[])(uint32_t);
     extern void (*regInstrs[])(uint32_t);
@@ -90,6 +91,8 @@ namespace CPU
     void srav(uint32_t opcode);
     void jr(uint32_t opcode);
     void jalr(uint32_t opcode);
+    void syscall(uint32_t opcode);
+    void break_(uint32_t opcode);
     void mfhi(uint32_t opcode);
     void mthi(uint32_t opcode);
     void mflo(uint32_t opcode);
@@ -170,14 +173,14 @@ void (*CPU::immInstrs[0x40])(uint32_t) =
 // Register-type CPU instruction lookup table, using opcode bits 0-5
 void (*CPU::regInstrs[0x40])(uint32_t) =
 {
-    sll,  unk,   srl,  sra,  sllv,   unk,    srlv,   srav,  // 0x00-0x07
-    jr,   jalr,  unk,  unk,  unk,    unk,    unk,    unk,   // 0x08-0x0F
-    mfhi, mthi,  mflo, mtlo, dsllv,  unk,    dsrlv,  dsrav, // 0x10-0x17
-    mult, multu, div,  divu, dmult,  dmultu, ddiv,   ddivu, // 0x18-0x1F
-    add,  addu,  sub,  subu, and_,   or_,    xor_,   nor,   // 0x20-0x27
-    unk,  unk,   slt,  sltu, dadd,   daddu,  dsub,   dsubu, // 0x28-0x2F
-    unk,  unk,   unk,  unk,  unk,    unk,    unk,    unk,   // 0x30-0x37
-    dsll, unk,   dsrl, dsra, dsll32, unk,    dsrl32, dsra32 // 0x38-0x3F
+    sll,  unk,   srl,  sra,  sllv,    unk,    srlv,   srav,  // 0x00-0x07
+    jr,   jalr,  unk,  unk,  syscall, break_, unk,    unk,   // 0x08-0x0F
+    mfhi, mthi,  mflo, mtlo, dsllv,   unk,    dsrlv,  dsrav, // 0x10-0x17
+    mult, multu, div,  divu, dmult,   dmultu, ddiv,   ddivu, // 0x18-0x1F
+    add,  addu,  sub,  subu, and_,    or_,    xor_,   nor,   // 0x20-0x27
+    unk,  unk,   slt,  sltu, dadd,    daddu,  dsub,   dsubu, // 0x28-0x2F
+    unk,  unk,   unk,  unk,  unk,     unk,    unk,    unk,   // 0x30-0x37
+    dsll, unk,   dsrl, dsra, dsll32,  unk,    dsrl32, dsra32 // 0x38-0x3F
 };
 
 // Extra-type CPU instruction lookup table, using opcode bits 16-20
@@ -201,12 +204,14 @@ void CPU::reset()
     hi = lo = 0;
     programCounter = 0xBFC00000;
     nextOpcode = Memory::read<uint32_t>(programCounter);
+    countToggle = false;
 }
 
 void CPU::runOpcode()
 {
-    // Update the CPU CP0 count register
-    CPU_CP0::updateCount();
+    // Update the CP0 count register at half the speed of the CPU
+    if (countToggle = !countToggle)
+        CPU_CP0::updateCount();
 
     // Move an opcode through the pipeline
     uint32_t opcode = nextOpcode;
@@ -221,18 +226,15 @@ void CPU::runOpcode()
     }
 }
 
-void CPU::exception()
+void CPU::exception(uint8_t type)
 {
     // If an exception happens at a delay slot, execute that first
-    // TODO: this is a hacky solution; improve the pipeline so it isn't needed
+    // TODO: handle delay slot exceptions properly
     if (nextOpcode != Memory::read<uint32_t>(programCounter))
         runOpcode();
 
-    // Disable further exceptions and jump to the exception handler
-    // TODO: support non-interrupt exceptions
-    CPU_CP0::write(12, CPU_CP0::read(12) | 0x2); // EXL
-    CPU_CP0::write(14, programCounter);
-    programCounter = 0x80000180 - 4;
+    // Trigger an exception and jump to the handler
+    programCounter = CPU_CP0::exception(programCounter, type) + 0x180 - 4;
     nextOpcode = 0;
 }
 
@@ -280,8 +282,12 @@ void CPU::bgtz(uint32_t opcode)
 void CPU::addi(uint32_t opcode)
 {
     // Add a signed 16-bit immediate to a register and store the lower result
-    // TODO: overflow exception
-    int32_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    // On overflow, trigger an integer overflow exception
+    int32_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int32_t op2 = (int16_t)opcode;
+    int32_t value = op1 + op2;
+    if (!((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
+        return exception(12);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
@@ -376,8 +382,12 @@ void CPU::bgtzl(uint32_t opcode)
 void CPU::daddi(uint32_t opcode)
 {
     // Add a signed 16-bit immediate to a register and store the result
-    // TODO: overflow exception
-    uint64_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
+    // On overflow, trigger an integer overflow exception
+    int64_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int64_t op2 = (int16_t)opcode;
+    int64_t value = op1 + op2;
+    if (!((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
+        return exception(12);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
@@ -658,6 +668,18 @@ void CPU::jalr(uint32_t opcode)
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
+void CPU::syscall(uint32_t opcode)
+{
+    // Trigger a system call exception
+    exception(8);
+}
+
+void CPU::break_(uint32_t opcode)
+{
+    // Trigger a breakpoint exception
+    exception(9);
+}
+
 void CPU::mfhi(uint32_t opcode)
 {
     // Copy the high word of the mult/div result to a register
@@ -792,8 +814,12 @@ void CPU::ddivu(uint32_t opcode)
 void CPU::add(uint32_t opcode)
 {
     // Add a register to a register and store the lower result
-    // TODO: overflow exception
-    int32_t value = registersR[(opcode >> 21) & 0x1F] + registersR[(opcode >> 16) & 0x1F];
+    // On overflow, trigger an integer overflow exception
+    int32_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int32_t op2 = registersR[(opcode >> 16) & 0x1F];
+    int32_t value = op1 + op2;
+    if (!((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
+        return exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -807,8 +833,12 @@ void CPU::addu(uint32_t opcode)
 void CPU::sub(uint32_t opcode)
 {
     // Subtract a register from a register and store the lower result
-    // TODO: overflow exception
-    int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
+    // On overflow, trigger an integer overflow exception
+    int32_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int32_t op2 = registersR[(opcode >> 16) & 0x1F];
+    int32_t value = op1 - op2;
+    if (((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
+        return exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -864,8 +894,12 @@ void CPU::sltu(uint32_t opcode)
 void CPU::dadd(uint32_t opcode)
 {
     // Add a register to a register and store the result
-    // TODO: overflow exception
-    uint64_t value = registersR[(opcode >> 21) & 0x1F] + registersR[(opcode >> 16) & 0x1F];
+    // On overflow, trigger an integer overflow exception
+    int64_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int64_t op2 = registersR[(opcode >> 16) & 0x1F];
+    int64_t value = op1 + op2;
+    if (!((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
+        return exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -879,8 +913,12 @@ void CPU::daddu(uint32_t opcode)
 void CPU::dsub(uint32_t opcode)
 {
     // Subtract a register from a register and store the result
-    // TODO: overflow exception
-    uint64_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
+    // On overflow, trigger an integer overflow exception
+    int64_t op1 = registersR[(opcode >> 21) & 0x1F];
+    int64_t op2 = registersR[(opcode >> 16) & 0x1F];
+    int64_t value = op1 - op2;
+    if (((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
+        return exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -1021,10 +1059,11 @@ void CPU::bgezall(uint32_t opcode)
 
 void CPU::eret(uint32_t opcode)
 {
-    // Return from an exception and re-enable them
-    programCounter = CPU_CP0::read(14) - 4;
+    // Return from an error exception or exception and clear the ERL or EXL bit
+    uint32_t status = CPU_CP0::read(12);
+    programCounter = CPU_CP0::read((status & 0x4) ? 30 : 14) - 4;
     nextOpcode = 0;
-    CPU_CP0::write(12, CPU_CP0::read(12) & ~0x2); // EXL
+    CPU_CP0::write(12, status & ~((status & 0x4) ? 0x4 : 0x2));
 }
 
 void CPU::mfc0(uint32_t opcode)
@@ -1111,6 +1150,10 @@ void CPU::bc1tl(uint32_t opcode)
 
 void CPU::cop0(uint32_t opcode)
 {
+    // Trigger a CP0 unusable exception if CP0 is disabled
+    if (!CPU_CP0::cpUsable(0))
+        return exception(11);
+
     // Look up CP0 instructions that weren't worth making a table for
     switch ((opcode >> 21) & 0x1F)
     {
@@ -1123,6 +1166,10 @@ void CPU::cop0(uint32_t opcode)
 
 void CPU::cop1(uint32_t opcode)
 {
+    // Trigger a CP1 unusable exception if CP1 is disabled
+    if (!CPU_CP0::cpUsable(1))
+        return exception(11);
+
     // Look up CP1 instructions that weren't worth making a table for
     switch ((opcode >> 21) & 0x1F)
     {

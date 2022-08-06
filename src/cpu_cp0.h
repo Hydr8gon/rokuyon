@@ -30,6 +30,8 @@ namespace CPU_CP0
 
     void updateCount();
     void checkInterrupts();
+    uint32_t exception(uint32_t programCounter, uint8_t type);
+    bool cpUsable(uint8_t cp);
 }
 
 #endif // CPU_CP0_H

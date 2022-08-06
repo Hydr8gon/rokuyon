@@ -28,7 +28,7 @@ namespace CPU
 
     void reset();
     void runOpcode();
-    void exception();
+    void exception(uint8_t type);
 }
 
 #endif // CPU_H
