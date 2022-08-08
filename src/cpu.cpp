@@ -214,6 +214,7 @@ void CPU::runOpcode()
         CPU_CP0::updateCount();
 
     // Move an opcode through the pipeline
+    // TODO: unaligned address exception
     uint32_t opcode = nextOpcode;
     nextOpcode = Memory::read<uint32_t>(programCounter += 4);
 
@@ -406,7 +407,7 @@ void CPU::ldl(uint32_t opcode)
     // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LDL and LDR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    uint64_t value = Memory::read<uint64_t>(address) << ((address & 7) * 8);
+    uint64_t value = Memory::read<uint64_t>(address & ~7) << ((address & 7) * 8);
     uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
     *reg = (*reg & ~((uint64_t)-1 << ((address & 7) * 8))) | value;
 }
@@ -419,7 +420,7 @@ void CPU::ldr(uint32_t opcode)
     // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LDL and LDR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    uint64_t value = Memory::read<uint64_t>(address) >> ((7 - (address & 7)) * 8);
+    uint64_t value = Memory::read<uint64_t>(address & ~7) >> ((7 - (address & 7)) * 8);
     uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
     *reg = (*reg & ~((uint64_t)-1 >> ((7 - (address & 7)) * 8))) | value;
 }
@@ -434,6 +435,7 @@ void CPU::lb(uint32_t opcode)
 void CPU::lh(uint32_t opcode)
 {
     // Load a signed half-word from memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int16_t)Memory::read<uint16_t>(address);
 }
@@ -446,7 +448,7 @@ void CPU::lwl(uint32_t opcode)
     // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LWL and LWR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    uint32_t value = Memory::read<uint32_t>(address) << ((address & 3) * 8);
+    uint32_t value = Memory::read<uint32_t>(address & ~3) << ((address & 3) * 8);
     uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
     *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 << ((address & 7) * 8))) | value);
 }
@@ -454,6 +456,7 @@ void CPU::lwl(uint32_t opcode)
 void CPU::lw(uint32_t opcode)
 {
     // Load a signed word from memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int32_t)Memory::read<uint32_t>(address);
 }
@@ -468,6 +471,7 @@ void CPU::lbu(uint32_t opcode)
 void CPU::lhu(uint32_t opcode)
 {
     // Load a half-word from memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint16_t>(address);
 }
@@ -480,7 +484,7 @@ void CPU::lwr(uint32_t opcode)
     // The shifted value is read to a register, but empty bytes are left unchanged
     // This allows LWL and LWR to be used in succession to read misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    uint32_t value = Memory::read<uint32_t>(address) >> ((3 - (address & 3)) * 8);
+    uint32_t value = Memory::read<uint32_t>(address & ~3) >> ((3 - (address & 3)) * 8);
     uint64_t *reg = registersW[(opcode >> 16) & 0x1F];
     *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 >> ((3 - (address & 3)) * 8))) | value);
 }
@@ -488,6 +492,7 @@ void CPU::lwr(uint32_t opcode)
 void CPU::lwu(uint32_t opcode)
 {
     // Load a word from memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint32_t>(address);
 }
@@ -502,6 +507,7 @@ void CPU::sb(uint32_t opcode)
 void CPU::sh(uint32_t opcode)
 {
     // Store a half-word to memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint16_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
@@ -515,13 +521,14 @@ void CPU::swl(uint32_t opcode)
     // This allows SWL and SWR to be used in succession to write misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint32_t rVal = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> ((address & 3) * 8);
-    uint32_t mVal = Memory::read<uint32_t>(address) & ~((uint32_t)-1 >> ((address & 3) * 8));
-    Memory::write<uint32_t>(address, rVal | mVal);
+    uint32_t mVal = Memory::read<uint32_t>(address & ~3) & ~((uint32_t)-1 >> ((address & 3) * 8));
+    Memory::write<uint32_t>(address & ~3, rVal | mVal);
 }
 
 void CPU::sw(uint32_t opcode)
 {
     // Store a word to memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
@@ -535,8 +542,8 @@ void CPU::sdl(uint32_t opcode)
     // This allows SDL and SDR to be used in succession to write misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint64_t rVal = registersR[(opcode >> 16) & 0x1F] >> ((address & 7) * 8);
-    uint64_t mVal = Memory::read<uint64_t>(address) & ~((uint64_t)-1 >> ((address & 7) * 8));
-    Memory::write<uint64_t>(address, rVal | mVal);
+    uint64_t mVal = Memory::read<uint64_t>(address & ~7) & ~((uint64_t)-1 >> ((address & 7) * 8));
+    Memory::write<uint64_t>(address & ~7, rVal | mVal);
 }
 
 void CPU::sdr(uint32_t opcode)
@@ -548,8 +555,8 @@ void CPU::sdr(uint32_t opcode)
     // This allows SDL and SDR to be used in succession to write misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint64_t rVal = registersR[(opcode >> 16) & 0x1F] << ((7 - (address & 7)) * 8);
-    uint64_t mVal = Memory::read<uint64_t>(address) & ~((uint64_t)-1 << ((7 - (address & 7)) * 8));
-    Memory::write<uint64_t>(address, rVal | mVal);
+    uint64_t mVal = Memory::read<uint64_t>(address & ~7) & ~((uint64_t)-1 << ((7 - (address & 7)) * 8));
+    Memory::write<uint64_t>(address & ~7, rVal | mVal);
 }
 
 void CPU::swr(uint32_t opcode)
@@ -561,8 +568,8 @@ void CPU::swr(uint32_t opcode)
     // This allows SWL and SWR to be used in succession to write misaligned words
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     uint32_t rVal = (uint32_t)registersR[(opcode >> 16) & 0x1F] << ((3 - (address & 3)) * 8);
-    uint32_t mVal = Memory::read<uint32_t>(address) & ~((uint32_t)-1 << ((3 - (address & 3)) * 8));
-    Memory::write<uint32_t>(address, rVal | mVal);
+    uint32_t mVal = Memory::read<uint32_t>(address & ~3) & ~((uint32_t)-1 << ((3 - (address & 3)) * 8));
+    Memory::write<uint32_t>(address & ~3, rVal | mVal);
 }
 
 void CPU::cache(uint32_t opcode)
@@ -574,6 +581,7 @@ void CPU::cache(uint32_t opcode)
 void CPU::lwc1(uint32_t opcode)
 {
     // Load a word from memory at base plus offset to a CP1 register
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     CPU_CP1::write(CP1_32BIT, (opcode >> 16) & 0x1F, Memory::read<uint32_t>(address));
 }
@@ -581,6 +589,7 @@ void CPU::lwc1(uint32_t opcode)
 void CPU::ldc1(uint32_t opcode)
 {
     // Load a double-word from memory at base plus offset to a CP1 register
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     CPU_CP1::write(CP1_64BIT, (opcode >> 16) & 0x1F, Memory::read<uint64_t>(address));
 }
@@ -588,6 +597,7 @@ void CPU::ldc1(uint32_t opcode)
 void CPU::ld(uint32_t opcode)
 {
     // Load a double-word from memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint64_t>(address);
 }
@@ -595,6 +605,7 @@ void CPU::ld(uint32_t opcode)
 void CPU::swc1(uint32_t opcode)
 {
     // Store a word to memory at base plus offset from a CP1 register
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, CPU_CP1::read(CP1_32BIT, (opcode >> 16) & 0x1F));
 }
@@ -602,6 +613,7 @@ void CPU::swc1(uint32_t opcode)
 void CPU::sdc1(uint32_t opcode)
 {
     // Store a double-word to memory at base plus offset from a CP1 register
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint64_t>(address, CPU_CP1::read(CP1_64BIT, (opcode >> 16) & 0x1F));
 }
@@ -609,6 +621,7 @@ void CPU::sdc1(uint32_t opcode)
 void CPU::sd(uint32_t opcode)
 {
     // Store a double-word to memory at base register plus immeditate offset
+    // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint64_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
@@ -1154,7 +1167,7 @@ void CPU::cop0(uint32_t opcode)
     if (!CPU_CP0::cpUsable(0))
         return exception(11);
 
-    // Look up CP0 instructions that weren't worth making a table for
+    // Look up a CP0 instruction
     switch ((opcode >> 21) & 0x1F)
     {
         case 0x00: return mfc0(opcode);
@@ -1170,7 +1183,7 @@ void CPU::cop1(uint32_t opcode)
     if (!CPU_CP0::cpUsable(1))
         return exception(11);
 
-    // Look up CP1 instructions that weren't worth making a table for
+    // Look up a CP1 instruction
     switch ((opcode >> 21) & 0x1F)
     {
         case 0x00: return mfc1(opcode);

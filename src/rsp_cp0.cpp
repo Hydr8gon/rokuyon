@@ -43,7 +43,7 @@ void RSP_CP0::reset()
 
 uint32_t RSP_CP0::read(int index)
 {
-    // Read from an RSP CP0 register if one exists at the given address
+    // Read from an RSP CP0 register if one exists at the given index
     switch (index)
     {
         case 4: // SP_STATUS
@@ -58,7 +58,7 @@ uint32_t RSP_CP0::read(int index)
 
 void RSP_CP0::write(int index, uint32_t value)
 {
-    // Write to an RSP CP0 register if one exists at the given address
+    // Write to an RSP CP0 register if one exists at the given index
     switch (index)
     {
         case 0: // SP_MEM_ADDR
@@ -133,7 +133,7 @@ void RSP_CP0::triggerBreak()
     if (status & 0x40)
         MI::setInterrupt(0);
     RSP::setState(true);
-    status |= 0x2;
+    status |= 0x3;
 }
 
 void RSP_CP0::performReadDma(uint32_t size)
@@ -145,7 +145,7 @@ void RSP_CP0::performReadDma(uint32_t size)
     {
         uint32_t dst = 0x84000000 + ((memAddr + i) & 0x1FFF);
         uint32_t src = 0x80000000 + dramAddr + i;
-        Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));
+        Memory::write<uint64_t>(dst & ~7, Memory::read<uint64_t>(src & ~7));
     }
 }
 
@@ -158,6 +158,6 @@ void RSP_CP0::performWriteDma(uint32_t size)
     {
         uint32_t dst = 0x80000000 + dramAddr + i;
         uint32_t src = 0x84000000 + ((memAddr + i) & 0x1FFF);
-        Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));
+        Memory::write<uint64_t>(dst & ~7, Memory::read<uint64_t>(src & ~7));
     }
 }

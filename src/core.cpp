@@ -33,6 +33,7 @@
 #include "pif.h"
 #include "rsp.h"
 #include "rsp_cp0.h"
+#include "rsp_cp2.h"
 #include "si.h"
 #include "vi.h"
 
@@ -102,6 +103,7 @@ int Core::bootRom(const std::string &path)
     CPU_CP1::reset();
     RSP::reset();
     RSP_CP0::reset();
+    RSP_CP2::reset();
 
     // Start the emulation thread
     running = true;

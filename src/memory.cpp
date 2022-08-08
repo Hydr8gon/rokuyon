@@ -50,9 +50,6 @@ template uint32_t Memory::read(uint32_t address);
 template uint64_t Memory::read(uint32_t address);
 template <typename T> T Memory::read(uint32_t address)
 {
-    // Align the address
-    address &= ~(sizeof(T) - 1);
-
     uint8_t *data = nullptr;
 
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
@@ -79,6 +76,10 @@ template <typename T> T Memory::read(uint32_t address)
         {
             // Get a pointer to data in PIF ROM/RAM
             data = &PIF::memory[addr & 0x7FF];
+        }
+        else if (sizeof(T) != sizeof(uint32_t))
+        {
+            // Ignore I/O writes that aren't 32-bit
         }
         else if (addr >= 0x4040000 && addr < 0x4040020)
         {
@@ -128,9 +129,6 @@ template void Memory::write(uint32_t address, uint32_t value);
 template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
-    // Align the address
-    address &= ~(sizeof(T) - 1);
-
     uint8_t *data = nullptr;
 
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
@@ -161,6 +159,10 @@ template <typename T> void Memory::write(uint32_t address, T value)
                 PIF::runCommand();
                 return;
             }
+        }
+        else if (sizeof(T) != sizeof(uint32_t))
+        {
+            // Ignore I/O writes that aren't 32-bit
         }
         else if (addr >= 0x4040000 && addr < 0x4040020)
         {

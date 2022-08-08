@@ -24,6 +24,7 @@
 #include "log.h"
 #include "memory.h"
 #include "rsp_cp0.h"
+#include "rsp_cp2.h"
 
 namespace RSP
 {
@@ -57,6 +58,8 @@ namespace RSP
     void sb(uint32_t opcode);
     void sh(uint32_t opcode);
     void sw(uint32_t opcode);
+    void lwc2(uint32_t opcode);
+    void swc2(uint32_t opcode);
 
     void sll(uint32_t opcode);
     void srl(uint32_t opcode);
@@ -83,8 +86,13 @@ namespace RSP
 
     void mfc0(uint32_t opcode);
     void mtc0(uint32_t opcode);
+    void mfc2(uint32_t opcode);
+    void cfc2(uint32_t opcode);
+    void mtc2(uint32_t opcode);
+    void ctc2(uint32_t opcode);
 
     void cop0(uint32_t opcode);
+    void cop2(uint32_t opcode);
     void unk(uint32_t opcode);
 }
 
@@ -93,12 +101,12 @@ void (*RSP::immInstrs[0x40])(uint32_t) =
 {
     nullptr, nullptr, j,    jal,   beq,  bne,  blez,  bgtz, // 0x00-0x07
     addiu,   addiu,   slti, sltiu, andi, ori,  xori,  lui,  // 0x08-0x0F
-    cop0,    unk,     unk,  unk,   unk,  unk,  unk,   unk,  // 0x10-0x17
+    cop0,    unk,     cop2, unk,   unk,  unk,  unk,   unk,  // 0x10-0x17
     unk,     unk,     unk,  unk,   unk,  unk,  unk,   unk,  // 0x18-0x1F
     lb,      lh,      unk,  lw,    lbu,  lhu,  unk,   unk,  // 0x20-0x27
     sb,      sh,      unk,  sw,    unk,  unk,  unk,   unk,  // 0x28-0x2F
-    unk,     unk,     unk,  unk,   unk,  unk,  unk,   unk,  // 0x30-0x37
-    unk,     unk,     unk,  unk,   unk,  unk,  unk,   unk   // 0x38-0x3F
+    unk,     unk,     lwc2, unk,   unk,  unk,  unk,   unk,  // 0x30-0x37
+    unk,     unk,     swc2, unk,   unk,  unk,  unk,   unk   // 0x38-0x3F
 };
 
 // Register-type RSP instruction lookup table, using opcode bits 0-5
@@ -139,13 +147,13 @@ void RSP::reset()
 uint32_t RSP::readPC()
 {
     // Get the effective bits of the RSP program counter
-    return programCounter & 0xFF8;
+    return programCounter & 0xFFF;
 }
 
 void RSP::writePC(uint32_t value)
 {
     // Set the effective bits of the RSP program counter
-    programCounter = 0xA4001000 | (value & 0xFF8);
+    programCounter = 0xA4001000 | (value & 0xFFF);
 }
 
 void RSP::setState(bool halted)
@@ -163,6 +171,7 @@ void RSP::runOpcode()
     nextOpcode = Memory::read<uint32_t>(programCounter);
 
     // Look up and execute an instruction
+    // TODO: execute scalar and vector opcodes simultaneously
     switch (opcode >> 26)
     {
         default: return (*immInstrs[opcode >> 26])(opcode);
@@ -314,6 +323,20 @@ void RSP::sw(uint32_t opcode)
     // Store a word to RSP DMEM at base register plus immeditate offset
     uint32_t address = 0xA4000000 | ((registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode) & 0xFFF);
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void RSP::lwc2(uint32_t opcode)
+{
+    // Look up a CP2 load instruction
+    uint32_t base = registersR[(opcode >> 21) & 0x1F];
+    return (*RSP_CP2::lwcInstrs[(opcode >> 11) & 0x1F])(opcode, base);
+}
+
+void RSP::swc2(uint32_t opcode)
+{
+    // Look up a CP2 store instruction
+    uint32_t base = registersR[(opcode >> 21) & 0x1F];
+    return (*RSP_CP2::swcInstrs[(opcode >> 11) & 0x1F])(opcode, base);
 }
 
 void RSP::sll(uint32_t opcode)
@@ -471,19 +494,43 @@ void RSP::bgezal(uint32_t opcode)
 
 void RSP::mfc0(uint32_t opcode)
 {
-    // Copy a 32-bit CP0 register value to an RSP register
+    // Copy a 32-bit RSP register value from a CP0 register
     *registersW[(opcode >> 16) & 0x1F] = RSP_CP0::read((opcode >> 11) & 0x1F);
 }
 
 void RSP::mtc0(uint32_t opcode)
 {
-    // Copy a 32-bit CPU register value to an RSP register
+    // Copy a 32-bit RSP register value to a CP0 register
     RSP_CP0::write((opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void RSP::mfc2(uint32_t opcode)
+{
+    // Copy a 16-bit RSP register value from a CP2 register
+    *registersW[(opcode >> 16) & 0x1F] = RSP_CP2::read(false, (opcode >> 11) & 0x1F, (opcode >> 7) & 0xF);
+}
+
+void RSP::cfc2(uint32_t opcode)
+{
+    // Copy a 16-bit RSP register value from a CP2 control register
+    *registersW[(opcode >> 16) & 0x1F] = RSP_CP2::read(true, (opcode >> 11) & 0x1F, 0);
+}
+
+void RSP::mtc2(uint32_t opcode)
+{
+    // Copy a 16-bit RSP register value to a CP2 register
+    RSP_CP2::write(false, (opcode >> 11) & 0x1F, (opcode >> 7) & 0xF, registersR[(opcode >> 16) & 0x1F]);
+}
+
+void RSP::ctc2(uint32_t opcode)
+{
+    // Copy a 16-bit RSP register value to a CP2 control register
+    RSP_CP2::write(true, (opcode >> 11) & 0x1F, 0, registersR[(opcode >> 16) & 0x1F]);
 }
 
 void RSP::cop0(uint32_t opcode)
 {
-    // Look up CP0 instructions that weren't worth making a table for
+    // Look up a CP0 instruction
     switch ((opcode >> 21) & 0x1F)
     {
         case 0x00: return mfc0(opcode);
@@ -492,8 +539,25 @@ void RSP::cop0(uint32_t opcode)
     }
 }
 
+void RSP::cop2(uint32_t opcode)
+{
+    // Look up a CP2 instruction
+    switch ((opcode >> 21) & 0x1F)
+    {
+        case 0x00: return mfc2(opcode);
+        case 0x02: return cfc2(opcode);
+        case 0x04: return mtc2(opcode);
+        case 0x06: return ctc2(opcode);
+
+        default:
+            if (opcode & (1 << 25))
+                return (*RSP_CP2::vecInstrs[opcode & 0x3F])(opcode);
+            return unk(opcode);
+    }
+}
+
 void RSP::unk(uint32_t opcode)
 {
     // Warn about unknown instructions
-    LOG_CRIT("Unknown RSP opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
+    LOG_CRIT("Unknown RSP SU opcode: 0x%08X @ 0x%X\n", opcode, 0x1000 | ((programCounter - 4) & 0xFFF));
 }

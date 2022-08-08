@@ -46,7 +46,7 @@ void CPU_CP0::reset()
 
 uint32_t CPU_CP0::read(int index)
 {
-    // Read from a CPU CP0 register if one exists at the given address
+    // Read from a CPU CP0 register if one exists at the given index
     switch (index)
     {
         case 9: // Count
@@ -81,7 +81,7 @@ uint32_t CPU_CP0::read(int index)
 
 void CPU_CP0::write(int index, uint32_t value)
 {
-    // Write to a CPU CP0 register if one exists at the given address
+    // Write to a CPU CP0 register if one exists at the given index
     switch (index)
     {
         case 9: // Count

@@ -187,7 +187,7 @@ uint64_t CPU_CP1::read(CP1Type type, int index)
             return registers[index];
 
         default:
-            // Read from a CPU CP1 control register if one exists at the given address
+            // Read from a CPU CP1 control register if one exists at the given index
             switch (index)
             {
                 case 31: // Status
@@ -218,7 +218,7 @@ void CPU_CP1::write(CP1Type type, int index, uint64_t value)
             return;
 
         default:
-            // Write to a CPU CP1 control register if one exists at the given address
+            // Write to a CPU CP1 control register if one exists at the given index
             switch (index)
             {
                 case 31: // Status
