@@ -33,27 +33,8 @@ namespace RSP_CP2
     uint16_t vco;
     uint16_t vce;
 
-    void unk(uint32_t opcode, uint32_t base);
     void unk(uint32_t opcode);
 }
-
-// RSP vector load instruction lookup table, using opcode bits 11-15
-void (*RSP_CP2::lwcInstrs[0x20])(uint32_t, uint32_t) =
-{
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
-    unk, unk, unk, unk, unk, unk, unk, unk  // 0x18-0x1F
-};
-
-// RSP vector store instruction lookup table, using opcode bits 11-15
-void (*RSP_CP2::swcInstrs[0x20])(uint32_t, uint32_t) =
-{
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
-    unk, unk, unk, unk, unk, unk, unk, unk  // 0x18-0x1F
-};
 
 // RSP vector unit instruction lookup table, using opcode bits 0-5
 void (*RSP_CP2::vecInstrs[0x40])(uint32_t) =
@@ -103,16 +84,24 @@ int16_t RSP_CP2::read(bool control, int index, int byte)
 {
     if (!control)
     {
-        // Wrap around to the first byte if the starting byte is 15
-        if (byte >= 15)
+        // Wrap reads that start out of bounds
+        byte &= 0xF;
+
+        if (byte == 15)
+        {
+            // Wrap around to the first byte if the starting byte is 15
             return (registers[index][7] << 8) | (registers[index][0] >> 8);
-
-        // Read from a single register lane if the starting byte is even
-        if (!(byte & 1))
+        }
+        else if (!(byte & 1))
+        {
+            // Read from a single register lane if the starting byte is even
             return registers[index][byte / 2];
-
-        // Read bytes from 2 register lanes if the starting byte is odd
-        return (registers[index][byte / 2] << 8) | (registers[index][byte / 2 + 1] >> 8);
+        }
+        else
+        {
+            // Read bytes from 2 register lanes if the starting byte is odd
+            return (registers[index][byte / 2] << 8) | (registers[index][byte / 2 + 1] >> 8);
+        }
     }
     else
     {
@@ -142,7 +131,12 @@ void RSP_CP2::write(bool control, int index, int byte, int16_t value)
 {
     if (!control)
     {
-        if (byte >= 15)
+        if (byte > 15)
+        {
+            // Ignore writes that start out of bounds
+            return;
+        }
+        else if (byte == 15)
         {
             // Ignore the second byte if the starting byte is 15
             registers[index][7] = (registers[index][7] & ~0xFF) | ((value >> 8) & 0xFF);
@@ -184,12 +178,6 @@ void RSP_CP2::write(bool control, int index, int byte, int16_t value)
                 return;
         }
     }
-}
-
-void RSP_CP2::unk(uint32_t opcode, uint32_t base)
-{
-    // Forward to unknown opcode handle for load/store instructions
-    unk(opcode);
 }
 
 void RSP_CP2::unk(uint32_t opcode)

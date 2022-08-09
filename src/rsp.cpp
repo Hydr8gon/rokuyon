@@ -58,8 +58,6 @@ namespace RSP
     void sb(uint32_t opcode);
     void sh(uint32_t opcode);
     void sw(uint32_t opcode);
-    void lwc2(uint32_t opcode);
-    void swc2(uint32_t opcode);
 
     void sll(uint32_t opcode);
     void srl(uint32_t opcode);
@@ -91,8 +89,23 @@ namespace RSP
     void mtc2(uint32_t opcode);
     void ctc2(uint32_t opcode);
 
+    void lbv(uint32_t opcode);
+    void lsv(uint32_t opcode);
+    void llv(uint32_t opcode);
+    void ldv(uint32_t opcode);
+    void lqv(uint32_t opcode);
+    void lrv(uint32_t opcode);
+    void sbv(uint32_t opcode);
+    void ssv(uint32_t opcode);
+    void slv(uint32_t opcode);
+    void sdv(uint32_t opcode);
+    void sqv(uint32_t opcode);
+    void srv(uint32_t opcode);
+
     void cop0(uint32_t opcode);
     void cop2(uint32_t opcode);
+    void lwc2(uint32_t opcode);
+    void swc2(uint32_t opcode);
     void unk(uint32_t opcode);
 }
 
@@ -325,20 +338,6 @@ void RSP::sw(uint32_t opcode)
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void RSP::lwc2(uint32_t opcode)
-{
-    // Look up a CP2 load instruction
-    uint32_t base = registersR[(opcode >> 21) & 0x1F];
-    return (*RSP_CP2::lwcInstrs[(opcode >> 11) & 0x1F])(opcode, base);
-}
-
-void RSP::swc2(uint32_t opcode)
-{
-    // Look up a CP2 store instruction
-    uint32_t base = registersR[(opcode >> 21) & 0x1F];
-    return (*RSP_CP2::swcInstrs[(opcode >> 11) & 0x1F])(opcode, base);
-}
-
 void RSP::sll(uint32_t opcode)
 {
     // Shift a register left by a 5-bit immediate and store the result
@@ -528,6 +527,149 @@ void RSP::ctc2(uint32_t opcode)
     RSP_CP2::write(true, (opcode >> 11) & 0x1F, 0, registersR[(opcode >> 16) & 0x1F]);
 }
 
+void RSP::lbv(uint32_t opcode)
+{
+    // Load an 8-bit value from memory to a vector register
+    // Vector accesses are 16-bit, so 8 bits of the existing value are used
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = 0xA4000000 | ((registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) >> 1)) & 0xFFF);
+    RSP_CP2::write(false, index, byte, (RSP_CP2::read(false, index, byte) & 0xFF) | (Memory::read<uint8_t>(address) << 8));
+}
+
+void RSP::lsv(uint32_t opcode)
+{
+    // Load a 16-bit value from memory to a vector register
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int8_t)(opcode << 1);
+    RSP_CP2::write(false, index, byte, Memory::read<uint16_t>(0xA4000000 | (address & 0xFFF)));
+}
+
+void RSP::llv(uint32_t opcode)
+{
+    // Load a 32-bit value from memory to a vector register
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 1);
+    for (int i = 0; i < 4; i += 2)
+        RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i) & 0xFFF)));
+}
+
+void RSP::ldv(uint32_t opcode)
+{
+    // Load a 64-bit value from memory to a vector register
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i += 2)
+        RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i) & 0xFFF)));
+}
+
+void RSP::lqv(uint32_t opcode)
+{
+    // Load up to 16 bytes from memory to a vector register, similar to the CPU's LDL instruction
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 0; i < 15 - (address & 0xF); i += 2)
+        RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i) & 0xFFF)));
+
+    // If loading an odd number of bytes, handle the last byte specially
+    // Vector accesses are 16-bit, so 8 bits of the existing value are used
+    if (address & 0x1)
+    {
+        int i = 15 - (address & 0xF);
+        uint8_t value = Memory::read<uint8_t>(0xA4000000 | ((address + i) & 0xFFF));
+        RSP_CP2::write(false, index, byte + i, (RSP_CP2::read(false, index, byte + i) & 0xFF) | (value << 8));
+    }
+}
+
+void RSP::lrv(uint32_t opcode)
+{
+    // Load up to 16 bytes from memory to a vector register, similar to the CPU's LDR instruction
+    // Since vector writes past byte 15 are ignored, odd numbers don't need special handling
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 16 - (address & 0xF); i < 16; i += 2)
+        RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i - 16) & 0xFFF)));
+}
+
+void RSP::sbv(uint32_t opcode)
+{
+    // Store an 8-bit value from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) >> 1);
+    Memory::write<uint8_t>(0xA4000000 | (address & 0xFFF), RSP_CP2::read(false, index, byte) >> 8);
+}
+
+void RSP::ssv(uint32_t opcode)
+{
+    // Store a 16-bit value from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int8_t)(opcode << 1);
+    Memory::write<uint16_t>(0xA4000000 | (address & 0xFFF), RSP_CP2::read(false, index, byte));
+}
+
+void RSP::slv(uint32_t opcode)
+{
+    // Store a 32-bit value from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 1);
+    for (int i = 0; i < 4; i += 2)
+        Memory::write<uint16_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i));
+}
+
+void RSP::sdv(uint32_t opcode)
+{
+    // Store a 64-bit value from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i += 2)
+        Memory::write<uint16_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i));
+}
+
+void RSP::sqv(uint32_t opcode)
+{
+    // Store up to 16 bytes from a vector register to memory, similar to the CPU's SDL instruction
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 0; i < 15 - (address & 0xF); i += 2)
+        Memory::write<uint16_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i));
+
+    // If storing an odd number of bytes, handle the last byte specially
+    if (address & 0x1)
+    {
+        int i = 15 - (address & 0xF);
+        address = 0xA4000000 | ((address + i) & 0xFFF);
+        Memory::write<uint8_t>(address, RSP_CP2::read(false, index, byte + i) >> 8);
+    }
+}
+
+void RSP::srv(uint32_t opcode)
+{
+    // Store up to 16 bytes from a vector register to memory, similar to the CPU's SDR instruction
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 16 - (address & 0xF); i < 15; i += 2)
+        Memory::write<uint16_t>(0xA4000000 | ((address + i - 16) & 0xFFF), RSP_CP2::read(false, index, byte + i));
+
+    // If storing an odd number of bytes, handle the last byte specially
+    if (address & 0x1)
+    {
+        int i = 15;
+        address = 0xA4000000 | ((address + i - 16) & 0xFFF);
+        Memory::write<uint8_t>(address, RSP_CP2::read(false, index, byte + i) >> 8);
+    }
+}
+
 void RSP::cop0(uint32_t opcode)
 {
     // Look up a CP0 instruction
@@ -553,6 +695,36 @@ void RSP::cop2(uint32_t opcode)
             if (opcode & (1 << 25))
                 return (*RSP_CP2::vecInstrs[opcode & 0x3F])(opcode);
             return unk(opcode);
+    }
+}
+
+void RSP::lwc2(uint32_t opcode)
+{
+    // Look up a CP2 load instruction
+    switch ((opcode >> 11) & 0x1F)
+    {
+        case 0x00: return lbv(opcode);
+        case 0x01: return lsv(opcode);
+        case 0x02: return llv(opcode);
+        case 0x03: return ldv(opcode);
+        case 0x04: return lqv(opcode);
+        case 0x05: return lrv(opcode);
+        default:   return unk(opcode);
+    }
+}
+
+void RSP::swc2(uint32_t opcode)
+{
+    // Look up a CP2 store instruction
+    switch ((opcode >> 11) & 0x1F)
+    {
+        case 0x00: return sbv(opcode);
+        case 0x01: return ssv(opcode);
+        case 0x02: return slv(opcode);
+        case 0x03: return sdv(opcode);
+        case 0x04: return sqv(opcode);
+        case 0x05: return srv(opcode);
+        default:   return unk(opcode);
     }
 }
 

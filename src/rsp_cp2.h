@@ -24,8 +24,6 @@
 
 namespace RSP_CP2
 {
-    extern void (*lwcInstrs[])(uint32_t, uint32_t);
-    extern void (*swcInstrs[])(uint32_t, uint32_t);
     extern void (*vecInstrs[])(uint32_t);
 
     void reset();
