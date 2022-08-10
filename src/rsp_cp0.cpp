@@ -151,7 +151,7 @@ void RSP_CP0::performReadDma(uint32_t size)
 
 void RSP_CP0::performWriteDma(uint32_t size)
 {
-    LOG_INFO("RSP DMA from RDRAM 0x%X to RSP MEM 0x%X with size 0x%X\n", dramAddr, memAddr, size);
+    LOG_INFO("RSP DMA from RSP MEM 0x%X to RDRAM 0x%X with size 0x%X\n", memAddr, dramAddr, size);
 
     // Copy data from the RSP to memory
     for (uint32_t i = 0; i < size; i += 8)

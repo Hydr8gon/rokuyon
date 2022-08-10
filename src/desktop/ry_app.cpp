@@ -67,11 +67,5 @@ int ryApp::audioCallback(const void *in, void *out, unsigned long count,
 {
     // Get samples from the audio interface
     AI::fillBuffer((uint32_t*)out);
-
-    // Reduce the volume so people's ears don't get blown out
-    // TODO: this is temporary; remove once audio is better
-    for (size_t i = 0; i < count * 2; i++)
-        ((int16_t*)out)[i] >>= 4;
-
     return paContinue;
 }
