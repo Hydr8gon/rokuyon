@@ -97,7 +97,8 @@ void PIF::releaseKey(int key)
 
 void PIF::joybusProtocol(int bit)
 {
-    // Handle joybus commands in PIF RAM for 4 controllers
+    // Attempt to handle joybus commands in PIF RAM
+    // TODO: actually figure out how this works
     for (int i = 0; i < 4 * 8; i += 8)
     {
         switch (uint8_t cmd = memory[0x7C3 + i])
@@ -108,6 +109,9 @@ void PIF::joybusProtocol(int bit)
                 memory[0x7C4 + i] = 0x05; // ID high
                 memory[0x7C5 + i] = 0x00; // ID low
                 memory[0x7C6 + i] = 0x02; // Status
+
+                // Dumb hack to make EEPROM not fail
+                memory[0x7C1 + i] = 0x00;
                 break;
 
             case 0x01: // Controller state
