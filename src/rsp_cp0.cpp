@@ -21,6 +21,7 @@
 #include "log.h"
 #include "memory.h"
 #include "mi.h"
+#include "rdp.h"
 #include "rsp.h"
 
 namespace RSP_CP0
@@ -38,7 +39,7 @@ void RSP_CP0::reset()
     // Reset the RSP CP0 to its initial state
     memAddr = 0;
     dramAddr = 0;
-    status = 1;
+    status = 0x1;
 }
 
 uint32_t RSP_CP0::read(int index)
@@ -49,6 +50,11 @@ uint32_t RSP_CP0::read(int index)
         case 4: // SP_STATUS
             // Get the status register
             return status;
+
+        case  8: case  9: case 10: case 11:
+        case 12: case 13: case 14: case 15:
+            // Get an RDP register
+            return RDP::read(index - 8);
 
         default:
             LOG_WARN("Read from unknown RSP CP0 register: %d\n", index);
@@ -120,6 +126,11 @@ void RSP_CP0::write(int index, uint32_t value)
             if (uint32_t bits = (status & 0x20))
                 LOG_WARN("Unimplemented RSP CP0 status bits set: 0x%X\n", bits);
             return;
+
+        case  8: case  9: case 10: case 11:
+        case 12: case 13: case 14: case 15:
+            // Set an RDP register
+            return RDP::write(index - 8, value);
 
         default:
             LOG_WARN("Write to unknown RSP CP0 register: %d\n", index);

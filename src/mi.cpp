@@ -58,6 +58,16 @@ void MI::write(uint32_t address, uint32_t value)
     // Write to an I/O register if one exists at the given address
     switch (address)
     {
+        case 0x4300000: // MI_MODE
+            // Acknowledge a DP interrupt when bit 11 is set
+            if (value & 0x800)
+                clearInterrupt(5);
+
+            // Keep track of unimplemented bits that should do something
+            if (uint32_t bits = (value & 0x37FF))
+                LOG_WARN("Unimplemented MI mode bits set: 0x%X\n", bits);
+            return;
+
         case 0x430000C: // MI_MASK
             // For each set bit, set or clear a mask bit appropriately
             for (int i = 0; i < 12; i += 2)

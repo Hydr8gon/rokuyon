@@ -26,6 +26,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "rdp.h"
 #include "rsp.h"
 #include "rsp_cp0.h"
 #include "si.h"
@@ -90,6 +91,11 @@ template <typename T> T Memory::read(uint32_t address)
         {
             // Read a value from the RSP program counter
             return RSP::readPC();
+        }
+        else if (addr >= 0x4100000 && addr < 0x4100020)
+        {
+            // Read a value from an RDP register
+            return RDP::read((addr & 0x1F) >> 2);
         }
         else if (addr == 0x470000C)
         {
@@ -173,6 +179,11 @@ template <typename T> void Memory::write(uint32_t address, T value)
         {
             // Write a value to the RSP program counter
             return RSP::writePC(value);
+        }
+        else if (addr >= 0x4100000 && addr < 0x4100020)
+        {
+            // Write a value to an RDP register
+            return RDP::write((addr & 0x1F) >> 2, value);
         }
         else
         {

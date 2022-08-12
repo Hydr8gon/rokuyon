@@ -31,6 +31,7 @@
 #include "mi.h"
 #include "pi.h"
 #include "pif.h"
+#include "rdp.h"
 #include "rsp.h"
 #include "rsp_cp0.h"
 #include "rsp_cp2.h"
@@ -101,6 +102,7 @@ int Core::bootRom(const std::string &path)
     CPU::reset();
     CPU_CP0::reset();
     CPU_CP1::reset();
+    RDP::reset();
     RSP::reset();
     RSP_CP0::reset();
     RSP_CP2::reset();
