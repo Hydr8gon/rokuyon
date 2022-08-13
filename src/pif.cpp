@@ -22,6 +22,7 @@
 #include "pif.h"
 #include "log.h"
 #include "memory.h"
+#include "pi.h"
 
 namespace PIF
 {
@@ -31,6 +32,7 @@ namespace PIF
 
     extern void (*pifCommands[])(int);
 
+    uint32_t crc32(uint8_t *data, size_t size);
     void joybusProtocol(int bit);
     void verifyChecksum(int bit);
     void clearMemory(int bit);
@@ -44,6 +46,24 @@ void (*PIF::pifCommands[7])(int) =
     unknownCmd,     verifyChecksum, clearMemory             // 4-6
 };
 
+uint32_t PIF::crc32(uint8_t *data, size_t size)
+{
+    uint32_t r = 0xFFFFFFFF;
+
+    // Calculate a CRC32 value for the given data
+    for (size_t i = 0; i < size; i++)
+    {
+        r ^= data[i];
+        for (int j = 0; j < 8; j++)
+        {
+            uint32_t t = ~((r & 1) - 1);
+            r = (r >> 1) ^ (0xEDB88320 & t);
+        }
+    }
+
+    return ~r;
+}
+
 void PIF::reset(FILE *pifFile)
 {
     // Load the PIF ROM into memory
@@ -55,9 +75,39 @@ void PIF::reset(FILE *pifFile)
     command = 0;
     buttons = 0;
 
-    // Set the CIC value used for checksums during boot
-    // TODO: check ROM bootcode and set appropriately
-    Memory::write<uint32_t>(0xBFC007E4, 0x00043F3F);
+    // Set the CIC seed based on which bootcode is detected
+    // This value is used during boot to calculate a checksum
+    switch (uint32_t value = crc32(&PI::rom[0x40], 0x1000 - 0x40))
+    {
+        case 0x6170A4A1: // 6101
+            LOG_INFO("Detected CIC chip 6101\n");
+            Memory::write<uint8_t>(0xBFC007E6, 0x3F);
+            break;
+
+        case 0x90BB6CB5: // 6102
+            LOG_INFO("Detected CIC chip 6102\n");
+            Memory::write<uint8_t>(0xBFC007E6, 0x3F);
+            break;
+
+        case 0x0B050EE0: // 6103
+            LOG_INFO("Detected CIC chip 6103\n");
+            Memory::write<uint8_t>(0xBFC007E6, 0x78);
+            break;
+
+        case 0x98BC2C86: // 6105
+            LOG_INFO("Detected CIC chip 6105\n");
+            Memory::write<uint8_t>(0xBFC007E6, 0x91);
+            break;
+
+        case 0xACC8580A: // 6106
+            LOG_INFO("Detected CIC chip 6106\n");
+            Memory::write<uint8_t>(0xBFC007E6, 0x85);
+            break;
+
+        default:
+            LOG_WARN("Unknown IPL3 CRC32 value: 0x%08X\n", value);
+            break;
+    }
 
     // Set the memory size to 4MB
     // TODO: I think IPL3 is supposed to set this, but stubbing RI_SELECT_REG to 1 skips it
