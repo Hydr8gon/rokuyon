@@ -29,6 +29,7 @@ namespace Core
     extern int fps;
 
     int bootRom(const std::string &path);
+    void start();
     void stop();
 
     void countFrame();

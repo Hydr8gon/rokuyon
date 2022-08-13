@@ -29,12 +29,12 @@ class ryFrame;
 class ryCanvas: public wxGLCanvas
 {
     public:
-        ryCanvas(wxFrame *frame);
+        ryCanvas(ryFrame *frame);
 
         void finish();
 
     private:
-        wxFrame *frame;
+        ryFrame *frame;
         wxGLContext *context;
 
         static const char keyMap[];

@@ -18,6 +18,7 @@
 */
 
 #include "ry_canvas.h"
+#include "ry_frame.h"
 #include "../core.h"
 #include "../pif.h"
 #include "../vi.h"
@@ -35,7 +36,7 @@ EVT_KEY_DOWN(ryCanvas::pressKey)
 EVT_KEY_UP(ryCanvas::releaseKey)
 wxEND_EVENT_TABLE()
 
-ryCanvas::ryCanvas(wxFrame *frame): wxGLCanvas(frame, wxID_ANY, nullptr), frame(frame)
+ryCanvas::ryCanvas(ryFrame *frame): wxGLCanvas(frame, wxID_ANY, nullptr), frame(frame)
 {
     // Prepare the OpenGL context
     context = new wxGLContext(this);
@@ -80,7 +81,7 @@ void ryCanvas::draw(wxPaintEvent &event)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if (Core::running)
+    if (Core::running || frame->isPaused())
     {
         // At the swap interval, get the framebuffer as a texture
         if (++frameCount >= swapInterval)

@@ -82,7 +82,7 @@ int Core::bootRom(const std::string &path)
     if (!romFile) return 2;
 
     // Ensure the emulator is stopped
-    Core::stop();
+    stop();
 
     // Reset the scheduler
     tasks.clear();
@@ -107,10 +107,19 @@ int Core::bootRom(const std::string &path)
     RSP_CP0::reset();
     RSP_CP2::reset();
 
-    // Start the emulation thread
-    running = true;
-    thread = new std::thread(run);
+    // Start the emulator
+    start();
     return 0;
+}
+
+void Core::start()
+{
+    // Start the emulation thread if it wasn't running
+    if (!running)
+    {
+        running = true;
+        thread = new std::thread(run);
+    }
 }
 
 void Core::stop()
@@ -126,7 +135,7 @@ void Core::stop()
 
 void Core::run()
 {
-    while (Core::running)
+    while (running)
     {
         // Run the CPUs until the next scheduled task
         while (tasks[0].cycles > globalCycles)

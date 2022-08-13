@@ -27,17 +27,26 @@ class ryCanvas;
 class ryFrame: public wxFrame
 {
     public:
-        ryFrame(std::string filename);
+        ryFrame(std::string path);
 
         void Refresh();
+        bool isPaused() { return paused; }
 
     private:
         ryCanvas *canvas;
+        wxMenu *systemMenu;
 
-        void bootRom(std::string filename);
+        std::string lastPath;
+        bool paused;
+
+        void bootRom(std::string path);
+        void updateMenu();
 
         void loadRom(wxCommandEvent &event);
         void quit(wxCommandEvent &event);
+        void pause(wxCommandEvent &event);
+        void restart(wxCommandEvent &event);
+        void stop(wxCommandEvent &event);
         void dropFiles(wxDropFilesEvent &event);
         void close(wxCloseEvent &event);
 
