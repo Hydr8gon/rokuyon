@@ -51,6 +51,7 @@ namespace RDP
 
     uint32_t addrBase;
     uint32_t addrMask;
+    uint64_t texRectOp;
 
     uint32_t fillColor;
     uint32_t texAddress;
@@ -66,6 +67,7 @@ namespace RDP
 
     void runCommand();
     void texRectangle(uint64_t opcode);
+    void texRectangle2(uint64_t opcode);
     void syncFull(uint64_t opcode);
     void loadTile(uint64_t opcode);
     void setTile(uint64_t opcode);
@@ -125,6 +127,7 @@ void RDP::reset()
     status = 0;
     addrBase = 0;
     addrMask = 0;
+    texRectOp = 0;
     fillColor = 0;
     texAddress = 0;
     texWidth = 0;
@@ -205,19 +208,30 @@ void RDP::runCommand()
 {
     // Execute the RDP opcode at the command start address
     uint64_t opcode = Memory::read<uint64_t>(addrBase + (startAddr & addrMask));
-    (*commands[(opcode >> 56) & 0x3F])(opcode);
+    texRectOp ? texRectangle2(opcode) : (*commands[(opcode >> 56) & 0x3F])(opcode);
     startAddr = endAddr;
 }
 
 void RDP::texRectangle(uint64_t opcode)
 {
-    // Decode the operands
-    // TODO: handle the additional 64 bits of this command
-    uint16_t y1 = ((opcode >>  0) & 0xFFF) >> 2;
-    uint16_t x1 = ((opcode >> 12) & 0xFFF) >> 2;
-    uint16_t y2 = ((opcode >> 32) & 0xFFF) >> 2;
-    uint16_t x2 = ((opcode >> 44) & 0xFFF) >> 2;
-    Tile &tile = tiles[(opcode >> 24) & 0x7];
+    // Store the first 64 bits of the command
+    texRectOp = opcode;
+
+    // If the second 64 bits are included in this transfer, process them right away
+    if (endAddr - startAddr >= 16)
+        texRectangle2(Memory::read<uint64_t>(addrBase + ((startAddr + 8) & addrMask)));
+}
+
+void RDP::texRectangle2(uint64_t opcode)
+{
+    // Decode the operands and reset the stored bits
+    // TODO: actually use the second 64 bits of this command
+    Tile &tile = tiles[(texRectOp >> 24) & 0x7];
+    uint16_t y1 = ((texRectOp >>  0) & 0xFFF) >> 2;
+    uint16_t x1 = ((texRectOp >> 12) & 0xFFF) >> 2;
+    uint16_t y2 = ((texRectOp >> 32) & 0xFFF) >> 2;
+    uint16_t x2 = ((texRectOp >> 44) & 0xFFF) >> 2;
+    texRectOp = 0;
 
     switch (colorFormat)
     {
@@ -284,11 +298,11 @@ void RDP::syncFull(uint64_t opcode)
 void RDP::loadTile(uint64_t opcode)
 {
     // Decode the operands
+    Tile &tile = tiles[(opcode >> 24) & 0x7];
     uint16_t t2 = ((opcode >>  0) & 0xFFF) >> 2;
     uint16_t s2 = ((opcode >> 12) & 0xFFF) >> 2;
     uint16_t t1 = ((opcode >> 32) & 0xFFF) >> 2;
     uint16_t s1 = ((opcode >> 44) & 0xFFF) >> 2;
-    Tile &tile = tiles[(opcode >> 24) & 0x7];
 
     // Only support loading textures without conversion for now
     if (texFormat != tile.format)
@@ -402,5 +416,5 @@ void RDP::setColorImage(uint64_t opcode)
 void RDP::unknown(uint64_t opcode)
 {
     // Warn about unknown commands
-    LOG_CRIT("Unknown RDP opcode: 0x%lX @ 0x%X\n", opcode, address);
+    LOG_CRIT("Unknown RDP opcode: 0x%016lX\n", opcode);
 }
