@@ -47,7 +47,8 @@ struct Tile
 
 namespace RDP
 {
-    extern void (*commands[])(uint64_t);
+    extern void (*commands[])();
+    extern uint8_t paramCounts[];
 
     uint8_t tmem[0x1000]; // 4KB TMEM
     uint32_t startAddr;
@@ -56,7 +57,8 @@ namespace RDP
 
     uint32_t addrBase;
     uint32_t addrMask;
-    uint64_t texRectOp;
+    uint8_t paramCount;
+    uint64_t opcode[22];
 
     CycleType cycleType;
     uint32_t fillColor;
@@ -71,22 +73,21 @@ namespace RDP
     uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
 
-    void runCommand();
-    void texRectangle(uint64_t opcode);
-    void texRectangle2(uint64_t opcode);
-    void syncFull(uint64_t opcode);
-    void setOtherModes(uint64_t opcode);
-    void loadTile(uint64_t opcode);
-    void setTile(uint64_t opcode);
-    void fillRectangle(uint64_t opcode);
-    void setFillColor(uint64_t opcode);
-    void setTexImage(uint64_t opcode);
-    void setColorImage(uint64_t opcode);
-    void unknown(uint64_t opcode);
+    void runCommands();
+    void texRectangle();
+    void syncFull();
+    void setOtherModes();
+    void loadTile();
+    void setTile();
+    void fillRectangle();
+    void setFillColor();
+    void setTexImage();
+    void setColorImage();
+    void unknown();
 }
 
 // RDP command lookup table, based on opcode bits 56-61
-void (*RDP::commands[0x40])(uint64_t) =
+void (*RDP::commands[0x40])() =
 {
     unknown,      unknown,     unknown,       unknown,       // 0x00-0x03
     unknown,      unknown,     unknown,       unknown,       // 0x04-0x07
@@ -104,6 +105,18 @@ void (*RDP::commands[0x40])(uint64_t) =
     loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
     unknown,      unknown,     unknown,       unknown,       // 0x38-0x3B
     unknown,      setTexImage, unknown,       setColorImage  // 0x3C-0x3F
+};
+
+uint8_t RDP::paramCounts[0x40] =
+{
+    1, 1,  1,  1,  1,  1,  1,  1, // 0x00-0x07
+    4, 6, 12, 14, 12, 14, 20, 22, // 0x08-0x0F
+    1, 1,  1,  1,  1,  1,  1,  1, // 0x10-0x17
+    1, 1,  1,  1,  1,  1,  1,  1, // 0x18-0x1F
+    1, 1,  1,  1,  2,  2,  1,  1, // 0x20-0x27
+    1, 1,  1,  1,  1,  1,  1,  1, // 0x28-0x2F
+    1, 1,  1,  1,  1,  1,  1,  1, // 0x30-0x37
+    1, 1,  1,  1,  1,  1,  1,  1  // 0x38-0x3F
 };
 
 inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
@@ -129,18 +142,19 @@ inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
 void RDP::reset()
 {
     // Reset the RDP to its initial state
+    memset(tmem, 0, sizeof(tmem));
     startAddr = 0;
     endAddr = 0;
     status = 0;
-    addrBase = 0;
-    addrMask = 0;
-    texRectOp = 0;
+    addrBase = 0xA0000000;
+    addrMask = 0x3FFFFF;
+    paramCount = 0;
     cycleType = ONE_CYCLE;
     fillColor = 0;
-    texAddress = 0;
+    texAddress = 0xA0000000;
     texWidth = 0;
     texFormat = RGBA4;
-    colorAddress = 0;
+    colorAddress = 0xA0000000;
     colorWidth = 0;
     colorFormat = RGBA4;
     memset(tiles, 0, sizeof(tiles));
@@ -181,10 +195,10 @@ void RDP::write(int index, uint32_t value)
             return;
 
         case 1: // DP_END
-            // Set the command end address and run a command
+            // Set the command end address and run the commands
             // TODO: make commands not instant
             endAddr = value;
-            runCommand();
+            runCommands();
             return;
 
         case 3: // DP_STATUS
@@ -212,36 +226,37 @@ void RDP::write(int index, uint32_t value)
     }
 }
 
-void RDP::runCommand()
+void RDP::runCommands()
 {
-    // Execute the RDP opcode at the command start address
-    uint64_t opcode = Memory::read<uint64_t>(addrBase + (startAddr & addrMask));
-    texRectOp ? texRectangle2(opcode) : (*commands[(opcode >> 56) & 0x3F])(opcode);
-    startAddr = endAddr;
+    // Process RDP commands until the end address is reached
+    while (startAddr < endAddr)
+    {
+        // Add a parameter to the buffer
+        opcode[paramCount++] = Memory::read<uint64_t>(addrBase + (startAddr & addrMask));
+
+        // Execute a command once all of its parameters have been received
+        if (paramCount >= paramCounts[(opcode[0] >> 56) & 0x3F])
+        {
+            (*commands[(opcode[0] >> 56) & 0x3F])();
+            paramCount = 0;
+        }
+
+        // Move to the next parameter
+        startAddr += 8;
+    }
 }
 
-void RDP::texRectangle(uint64_t opcode)
+void RDP::texRectangle()
 {
-    // Store the first 64 bits of the command
-    texRectOp = opcode;
-
-    // If the second 64 bits are included in this transfer, process them right away
-    if (endAddr - startAddr >= 16)
-        texRectangle2(Memory::read<uint64_t>(addrBase + ((startAddr + 8) & addrMask)));
-}
-
-void RDP::texRectangle2(uint64_t opcode)
-{
-    // Decode the operands and reset the stored bits
+    // Decode the operands
     // TODO: actually use the texture coordinate bits
-    Tile &tile = tiles[(texRectOp >> 24) & 0x7];
-    uint16_t y1 = ((texRectOp >>  0) & 0xFFF) >> 2;
-    uint16_t x1 = ((texRectOp >> 12) & 0xFFF) >> 2;
-    uint16_t y2 = ((texRectOp >> 32) & 0xFFF) >> 2;
-    uint16_t x2 = ((texRectOp >> 44) & 0xFFF) >> 2;
-    int16_t dtdy = opcode >>  0;
-    int16_t dsdx = opcode >> 16;
-    texRectOp = 0;
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    uint16_t y1 = ((opcode[0] >>  0) & 0xFFF) >> 2;
+    uint16_t x1 = ((opcode[0] >> 12) & 0xFFF) >> 2;
+    uint16_t y2 = ((opcode[0] >> 32) & 0xFFF) >> 2;
+    uint16_t x2 = ((opcode[0] >> 44) & 0xFFF) >> 2;
+    int16_t dtdy = opcode[1] >>  0;
+    int16_t dsdx = opcode[1] >> 16;
 
     // Adjust some things based on the cycle type
     // TODO: hardware test this
@@ -308,27 +323,27 @@ void RDP::texRectangle2(uint64_t opcode)
     }
 }
 
-void RDP::syncFull(uint64_t opcode)
+void RDP::syncFull()
 {
     // Trigger a DP interrupt right away because everything finishes instantly
     MI::setInterrupt(5);
 }
 
-void RDP::setOtherModes(uint64_t opcode)
+void RDP::setOtherModes()
 {
     // Set the cycle type
     // TODO: actually use the other bits
-    cycleType = (CycleType)((opcode >> 52) & 0x3);
+    cycleType = (CycleType)((opcode[0] >> 52) & 0x3);
 }
 
-void RDP::loadTile(uint64_t opcode)
+void RDP::loadTile()
 {
     // Decode the operands
-    Tile &tile = tiles[(opcode >> 24) & 0x7];
-    uint16_t t2 = ((opcode >>  0) & 0xFFF) >> 2;
-    uint16_t s2 = ((opcode >> 12) & 0xFFF) >> 2;
-    uint16_t t1 = ((opcode >> 32) & 0xFFF) >> 2;
-    uint16_t s1 = ((opcode >> 44) & 0xFFF) >> 2;
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    uint16_t t2 = ((opcode[0] >>  0) & 0xFFF) >> 2;
+    uint16_t s2 = ((opcode[0] >> 12) & 0xFFF) >> 2;
+    uint16_t t1 = ((opcode[0] >> 32) & 0xFFF) >> 2;
+    uint16_t s1 = ((opcode[0] >> 44) & 0xFFF) >> 2;
 
     // Only support loading textures without conversion for now
     if (texFormat != tile.format)
@@ -377,23 +392,23 @@ void RDP::loadTile(uint64_t opcode)
     }
 }
 
-void RDP::setTile(uint64_t opcode)
+void RDP::setTile()
 {
     // Set parameters for the specified tile
     // TODO: Actually use bits 0-23
-    Tile &tile = tiles[(opcode >> 24) & 0x7];
-    tile.address = (opcode >> 29) & 0xFF8;
-    tile.width = (opcode >> 38) & 0xFF8;
-    tile.format = (Format)((opcode >> 51) & 0x1F);
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    tile.address = (opcode[0] >> 29) & 0xFF8;
+    tile.width = (opcode[0] >> 38) & 0xFF8;
+    tile.format = (Format)((opcode[0] >> 51) & 0x1F);
 }
 
-void RDP::fillRectangle(uint64_t opcode)
+void RDP::fillRectangle()
 {
     // Decode the operands
-    uint16_t y1 = ((opcode >>  0) & 0xFFF) >> 2;
-    uint16_t x1 = ((opcode >> 12) & 0xFFF) >> 2;
-    uint16_t y2 = ((opcode >> 32) & 0xFFF) >> 2;
-    uint16_t x2 = ((opcode >> 44) & 0xFFF) >> 2;
+    uint16_t y1 = ((opcode[0] >>  0) & 0xFFF) >> 2;
+    uint16_t x1 = ((opcode[0] >> 12) & 0xFFF) >> 2;
+    uint16_t y2 = ((opcode[0] >> 32) & 0xFFF) >> 2;
+    uint16_t x2 = ((opcode[0] >> 44) & 0xFFF) >> 2;
 
     // Adjust some things based on the cycle type
     // TODO: hardware test this
@@ -425,30 +440,30 @@ void RDP::fillRectangle(uint64_t opcode)
     }
 }
 
-void RDP::setFillColor(uint64_t opcode)
+void RDP::setFillColor()
 {
     // Set the fill color
-    fillColor = opcode;
+    fillColor = opcode[0];
 }
 
-void RDP::setTexImage(uint64_t opcode)
+void RDP::setTexImage()
 {
     // Set the texture buffer parameters
-    texAddress = 0xA0000000 + (opcode & 0x3FFFFF);
-    texWidth = ((opcode >> 32) & 0x3FF) + 1;
-    texFormat = (Format)((opcode >> 51) & 0x1F);
+    texAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
+    texWidth = ((opcode[0] >> 32) & 0x3FF) + 1;
+    texFormat = (Format)((opcode[0] >> 51) & 0x1F);
 }
 
-void RDP::setColorImage(uint64_t opcode)
+void RDP::setColorImage()
 {
     // Set the color buffer parameters
-    colorAddress = 0xA0000000 + (opcode & 0x3FFFFF);
-    colorWidth = ((opcode >> 32) & 0x3FF) + 1;
-    colorFormat = (Format)((opcode >> 51) & 0x1F);
+    colorAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
+    colorWidth = ((opcode[0] >> 32) & 0x3FF) + 1;
+    colorFormat = (Format)((opcode[0] >> 51) & 0x1F);
 }
 
-void RDP::unknown(uint64_t opcode)
+void RDP::unknown()
 {
     // Warn about unknown commands
-    LOG_CRIT("Unknown RDP opcode: 0x%016lX\n", opcode);
+    LOG_CRIT("Unknown RDP opcode: 0x%016lX\n", opcode[0]);
 }
