@@ -33,6 +33,11 @@ enum Format
     I4,    I8,    I16,    I32
 };
 
+enum CycleType
+{
+    ONE_CYCLE, TWO_CYCLE, COPY_MODE, FILL_MODE
+};
+
 struct Tile
 {
     uint16_t address;
@@ -53,6 +58,7 @@ namespace RDP
     uint32_t addrMask;
     uint64_t texRectOp;
 
+    CycleType cycleType;
     uint32_t fillColor;
     uint32_t texAddress;
     uint16_t texWidth;
@@ -69,6 +75,7 @@ namespace RDP
     void texRectangle(uint64_t opcode);
     void texRectangle2(uint64_t opcode);
     void syncFull(uint64_t opcode);
+    void setOtherModes(uint64_t opcode);
     void loadTile(uint64_t opcode);
     void setTile(uint64_t opcode);
     void fillRectangle(uint64_t opcode);
@@ -81,22 +88,22 @@ namespace RDP
 // RDP command lookup table, based on opcode bits 56-61
 void (*RDP::commands[0x40])(uint64_t) =
 {
-    unknown,      unknown,     unknown,       unknown,      // 0x00-0x03
-    unknown,      unknown,     unknown,       unknown,      // 0x04-0x07
-    unknown,      unknown,     unknown,       unknown,      // 0x08-0x0B
-    unknown,      unknown,     unknown,       unknown,      // 0x0C-0x0F
-    unknown,      unknown,     unknown,       unknown,      // 0x10-0x13
-    unknown,      unknown,     unknown,       unknown,      // 0x14-0x17
-    unknown,      unknown,     unknown,       unknown,      // 0x18-0x1B
-    unknown,      unknown,     unknown,       unknown,      // 0x1C-0x1F
-    unknown,      unknown,     unknown,       unknown,      // 0x20-0x23
-    texRectangle, unknown,     unknown,       unknown,      // 0x24-0x27
-    unknown,      syncFull,    unknown,       unknown,      // 0x28-0x2B
-    unknown,      unknown,     unknown,       unknown,      // 0x2C-0x2F
-    unknown,      unknown,     unknown,       unknown,      // 0x30-0x33
-    loadTile,     setTile,     fillRectangle, setFillColor, // 0x34-0x37
-    unknown,      unknown,     unknown,       unknown,      // 0x38-0x3B
-    unknown,      setTexImage, unknown,       setColorImage // 0x3C-0x3F
+    unknown,      unknown,     unknown,       unknown,       // 0x00-0x03
+    unknown,      unknown,     unknown,       unknown,       // 0x04-0x07
+    unknown,      unknown,     unknown,       unknown,       // 0x08-0x0B
+    unknown,      unknown,     unknown,       unknown,       // 0x0C-0x0F
+    unknown,      unknown,     unknown,       unknown,       // 0x10-0x13
+    unknown,      unknown,     unknown,       unknown,       // 0x14-0x17
+    unknown,      unknown,     unknown,       unknown,       // 0x18-0x1B
+    unknown,      unknown,     unknown,       unknown,       // 0x1C-0x1F
+    unknown,      unknown,     unknown,       unknown,       // 0x20-0x23
+    texRectangle, unknown,     unknown,       unknown,       // 0x24-0x27
+    unknown,      syncFull,    unknown,       unknown,       // 0x28-0x2B
+    unknown,      unknown,     unknown,       setOtherModes, // 0x2C-0x2F
+    unknown,      unknown,     unknown,       unknown,       // 0x30-0x33
+    loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
+    unknown,      unknown,     unknown,       unknown,       // 0x38-0x3B
+    unknown,      setTexImage, unknown,       setColorImage  // 0x3C-0x3F
 };
 
 inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
@@ -128,6 +135,7 @@ void RDP::reset()
     addrBase = 0;
     addrMask = 0;
     texRectOp = 0;
+    cycleType = ONE_CYCLE;
     fillColor = 0;
     texAddress = 0;
     texWidth = 0;
@@ -225,13 +233,24 @@ void RDP::texRectangle(uint64_t opcode)
 void RDP::texRectangle2(uint64_t opcode)
 {
     // Decode the operands and reset the stored bits
-    // TODO: actually use the second 64 bits of this command
+    // TODO: actually use the texture coordinate bits
     Tile &tile = tiles[(texRectOp >> 24) & 0x7];
     uint16_t y1 = ((texRectOp >>  0) & 0xFFF) >> 2;
     uint16_t x1 = ((texRectOp >> 12) & 0xFFF) >> 2;
     uint16_t y2 = ((texRectOp >> 32) & 0xFFF) >> 2;
     uint16_t x2 = ((texRectOp >> 44) & 0xFFF) >> 2;
+    int16_t dtdy = opcode >>  0;
+    int16_t dsdx = opcode >> 16;
     texRectOp = 0;
+
+    // Adjust some things based on the cycle type
+    // TODO: hardware test this
+    if (cycleType >= COPY_MODE)
+    {
+        dsdx >>= 2;
+        x2++;
+        y2++;
+    }
 
     switch (colorFormat)
     {
@@ -240,18 +259,18 @@ void RDP::texRectangle2(uint64_t opcode)
             {
                 case RGBA16:
                     // Draw a rectangle to an RGBA16 buffer using an RGBA16 texture
-                    for (uint16_t y = y1; y < y2; y++)
-                        for (uint16_t x = x1; x < x2; x++)
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
                             Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2,
-                                *(uint16_t*)&tmem[(tile.address + (y - y1) * tile.width + (x - x1) * 2) & 0xFFE]);
+                                *(uint16_t*)&tmem[(tile.address + (t >> 10) * tile.width + (s >> 10) * 2) & 0xFFE]);
                     return;
 
                 case RGBA32:
                     // Draw a rectangle to an RGBA16 buffer using an RGBA32 texture
-                    for (uint16_t y = y1; y < y2; y++)
-                        for (uint16_t x = x1; x < x2; x++)
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
                             Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(
-                                *(uint32_t*)&tmem[(tile.address + (y - y1) * tile.width * 2 + (x - x1) * 4) & 0xFFC]));
+                                *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]));
                     return;
 
                 default:
@@ -264,18 +283,18 @@ void RDP::texRectangle2(uint64_t opcode)
             {
                 case RGBA16:
                     // Draw a rectangle to an RGBA32 buffer using an RGBA16 texture
-                    for (uint16_t y = y1; y < y2; y++)
-                        for (uint16_t x = x1; x < x2; x++)
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
                             Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, RGBA16toRGBA32(
-                                *(uint16_t*)&tmem[(tile.address + (y - y1) * tile.width + (x - x1) * 2) & 0xFFE]));
+                                *(uint16_t*)&tmem[(tile.address + (t >> 10) * tile.width + (s >> 10) * 2) & 0xFFE]));
                     return;
 
                 case RGBA32:
                     // Draw a rectangle to an RGBA32 buffer using an RGBA32 texture
-                    for (uint16_t y = y1; y < y2; y++)
-                        for (uint16_t x = x1; x < x2; x++)
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
                             Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4,
-                                *(uint32_t*)&tmem[(tile.address + (y - y1) * tile.width * 2 + (x - x1) * 4) & 0xFFC]);
+                                *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]);
                     return;
 
                 default:
@@ -293,6 +312,13 @@ void RDP::syncFull(uint64_t opcode)
 {
     // Trigger a DP interrupt right away because everything finishes instantly
     MI::setInterrupt(5);
+}
+
+void RDP::setOtherModes(uint64_t opcode)
+{
+    // Set the cycle type
+    // TODO: actually use the other bits
+    cycleType = (CycleType)((opcode >> 52) & 0x3);
 }
 
 void RDP::loadTile(uint64_t opcode)
@@ -316,8 +342,8 @@ void RDP::loadTile(uint64_t opcode)
         case 0x0: // 4-bit
             // Copy a 4-bit texture from the texture buffer to a tile address in TMEM
             // TODO: arrange the data properly
-            for (uint16_t t = t1; t <= t2; t++)
-                for (uint16_t s = s1; s <= s2; s += 2)
+            for (int t = t1; t <= t2; t++)
+                for (int s = s1; s <= s2; s += 2)
                     tmem[(tile.address + (t - t1) * tile.width + (s - s1) / 2) & 0xFFF] =
                         Memory::read<uint8_t>(texAddress + (t * texWidth + s) / 2);
             return;
@@ -325,8 +351,8 @@ void RDP::loadTile(uint64_t opcode)
         case 0x1: // 8-bit
             // Copy an 8-bit texture from the texture buffer to a tile address in TMEM
             // TODO: arrange the data properly
-            for (uint16_t t = t1; t <= t2; t++)
-                for (uint16_t s = s1; s <= s2; s++)
+            for (int t = t1; t <= t2; t++)
+                for (int s = s1; s <= s2; s++)
                     tmem[(tile.address + (t - t1) * tile.width + (s - s1)) & 0xFFF] =
                         Memory::read<uint8_t>(texAddress + t * texWidth + s);
             return;
@@ -334,8 +360,8 @@ void RDP::loadTile(uint64_t opcode)
         case 0x2: // 16-bit
             // Copy a 16-bit texture from the texture buffer to a tile address in TMEM
             // TODO: arrange the data properly
-            for (uint16_t t = t1; t <= t2; t++)
-                for (uint16_t s = s1; s <= s2; s++)
+            for (int t = t1; t <= t2; t++)
+                for (int s = s1; s <= s2; s++)
                     *(uint16_t*)&tmem[(tile.address + (t - t1) * tile.width + (s - s1) * 2) & 0xFFE] =
                         Memory::read<uint16_t>(texAddress + (t * texWidth + s) * 2);
             return;
@@ -343,8 +369,8 @@ void RDP::loadTile(uint64_t opcode)
         case 0x3: // 32-bit
             // Copy a 32-bit texture from the texture buffer to a tile address in TMEM
             // TODO: arrange the data properly and split across high and low banks
-            for (uint16_t t = t1; t <= t2; t++)
-                for (uint16_t s = s1; s <= s2; s++)
+            for (int t = t1; t <= t2; t++)
+                for (int s = s1; s <= s2; s++)
                     *(uint32_t*)&tmem[(tile.address + (t - t1) * tile.width * 2 + (s - s1) * 4) & 0xFFC] =
                         Memory::read<uint32_t>(texAddress + (t * texWidth + s) * 4);
             return;
@@ -369,19 +395,27 @@ void RDP::fillRectangle(uint64_t opcode)
     uint16_t y2 = ((opcode >> 32) & 0xFFF) >> 2;
     uint16_t x2 = ((opcode >> 44) & 0xFFF) >> 2;
 
+    // Adjust some things based on the cycle type
+    // TODO: hardware test this
+    if (cycleType >= COPY_MODE)
+    {
+        x2++;
+        y2++;
+    }
+
     switch (colorFormat)
     {
         case RGBA16:
             // Draw a rectangle to an RGBA16 buffer using the fill color
-            for (uint16_t y = y1; y < y2; y++)
-                for (uint16_t x = x1; x < x2; x++)
+            for (int y = y1; y < y2; y++)
+                for (int x = x1; x < x2; x++)
                     Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor >> ((~x & 1) * 16));
             return;
 
         case RGBA32:
             // Draw a rectangle to an RGBA32 buffer using the fill color
-            for (uint16_t y = y1; y < y2; y++)
-                for (uint16_t x = x1; x < x2; x++)
+            for (int y = y1; y < y2; y++)
+                for (int x = x1; x < x2; x++)
                     Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, fillColor);
             return;
 
