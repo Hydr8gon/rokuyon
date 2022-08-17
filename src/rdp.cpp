@@ -72,11 +72,14 @@ namespace RDP
 
     uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
+    uint16_t IA8toRGBA16(uint8_t color);
+    uint32_t IA8toRGBA32(uint8_t color);
 
     void runCommands();
     void texRectangle();
     void syncFull();
     void setOtherModes();
+    void loadBlock();
     void loadTile();
     void setTile();
     void fillRectangle();
@@ -101,7 +104,7 @@ void (*RDP::commands[0x40])() =
     texRectangle, unknown,     unknown,       unknown,       // 0x24-0x27
     unknown,      syncFull,    unknown,       unknown,       // 0x28-0x2B
     unknown,      unknown,     unknown,       setOtherModes, // 0x2C-0x2F
-    unknown,      unknown,     unknown,       unknown,       // 0x30-0x33
+    unknown,      unknown,     unknown,       loadBlock,     // 0x30-0x33
     loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
     unknown,      unknown,     unknown,       unknown,       // 0x38-0x3B
     unknown,      setTexImage, unknown,       setColorImage  // 0x3C-0x3F
@@ -137,6 +140,22 @@ inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
     uint8_t b = ((color >>  8) & 0xFF) * 31 / 255;
     uint8_t a = (color & 0xFF) ? 0x1 : 0x0;
     return (r << 11) | (g << 6) | (b << 1) | a;
+}
+
+inline uint16_t RDP::IA8toRGBA16(uint8_t color)
+{
+    // Convert an IA8 color to RGBA16
+    uint8_t i = ((color >> 4) & 0xF) * 255 / 15;
+    uint8_t a = ((color >> 0) & 0xF) * 255 / 15;
+    return (i << 11) | (i << 6) | (i << 1) | a;
+}
+
+inline uint32_t RDP::IA8toRGBA32(uint8_t color)
+{
+    // Convert an IA8 color to RGBA32
+    uint8_t i = ((color >> 4) & 0xF) * 31 / 15;
+    uint8_t a = (color & 0xF) ? 0x1 : 0x0;
+    return (i << 24) | (i << 16) | (i << 8) | a;
 }
 
 void RDP::reset()
@@ -288,6 +307,14 @@ void RDP::texRectangle()
                                 *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]));
                     return;
 
+                case IA8:
+                    // Draw a rectangle to an RGBA16 buffer using an IA8 texture
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+                            Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, IA8toRGBA16(
+                                tmem[(tile.address + (t >> 10) * tile.width + (s >> 10)) & 0xFFF]));
+                    return;
+
                 default:
                     LOG_CRIT("Unknown RDP texture format: %d\n", tile.format);
                     return;
@@ -310,6 +337,14 @@ void RDP::texRectangle()
                         for (int x = x1, s = 0; x < x2; x++, s += dsdx)
                             Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4,
                                 *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]);
+                    return;
+
+                case IA8:
+                    // Draw a rectangle to an RGBA32 buffer using an IA8 texture
+                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+                            Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, IA8toRGBA32(
+                                    tmem[(tile.address + (t >> 10) * tile.width + (s >> 10)) & 0xFFF]));
                     return;
 
                 default:
@@ -336,6 +371,45 @@ void RDP::setOtherModes()
     cycleType = (CycleType)((opcode[0] >> 52) & 0x3);
 }
 
+void RDP::loadBlock()
+{
+    // Decode the operands
+    // TODO: actually use the other bits
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    uint16_t count = ((opcode[0] >> 12) & 0xFFF);
+
+    switch (texFormat & 0x3)
+    {
+        case 0x0: // 4-bit
+            // Copy 4-bit texture data from the texture buffer to TMEM
+            // TODO: arrange the data properly
+            for (int i = 0; i <= count / 2; i++)
+                tmem[(tile.address + i) & 0xFFF] = Memory::read<uint8_t>(texAddress + i);
+            return;
+
+        case 0x1: // 8-bit
+            // Copy 8-bit texture data from the texture buffer to TMEM
+            // TODO: arrange the data properly
+            for (int i = 0; i <= count; i++)
+                tmem[(tile.address + i) & 0xFFF] = Memory::read<uint8_t>(texAddress + i);
+            return;
+
+        case 0x2: // 16-bit
+            // Copy 16-bit texture data from the texture buffer to TMEM
+            // TODO: arrange the data properly
+            for (int i = 0; i <= count * 2; i += 2)
+                *(uint16_t*)&tmem[(tile.address + i) & 0xFFE] = Memory::read<uint16_t>(texAddress + i);
+            return;
+
+        case 0x3: // 32-bit
+            // Copy 32-bit texture data from the texture buffer to TMEM
+            // TODO: arrange the data properly and split across high and low banks
+            for (int i = 0; i <= count * 4; i += 4)
+                *(uint32_t*)&tmem[(tile.address + i) & 0xFFC] = Memory::read<uint32_t>(texAddress + i);
+            return;
+    }
+}
+
 void RDP::loadTile()
 {
     // Decode the operands
@@ -355,7 +429,7 @@ void RDP::loadTile()
     switch (texFormat & 0x3)
     {
         case 0x0: // 4-bit
-            // Copy a 4-bit texture from the texture buffer to a tile address in TMEM
+            // Cut out a 4-bit texture from the textrue buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s += 2)
@@ -364,7 +438,7 @@ void RDP::loadTile()
             return;
 
         case 0x1: // 8-bit
-            // Copy an 8-bit texture from the texture buffer to a tile address in TMEM
+            // Cut out an 8-bit texture from the textrue buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
@@ -373,7 +447,7 @@ void RDP::loadTile()
             return;
 
         case 0x2: // 16-bit
-            // Copy a 16-bit texture from the texture buffer to a tile address in TMEM
+            // Cut out a 16-bit texture from the textrue buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
@@ -382,7 +456,7 @@ void RDP::loadTile()
             return;
 
         case 0x3: // 32-bit
-            // Copy a 32-bit texture from the texture buffer to a tile address in TMEM
+            // Cut out a 32-bit texture from the textrue buffer and copy it to TMEM
             // TODO: arrange the data properly and split across high and low banks
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
