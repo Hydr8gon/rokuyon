@@ -25,10 +25,10 @@
 namespace CPU
 {
     extern uint32_t programCounter;
+    extern uint32_t nextOpcode;
 
     void reset();
     void runOpcode();
-    void exception(uint8_t type);
 }
 
 #endif // CPU_H

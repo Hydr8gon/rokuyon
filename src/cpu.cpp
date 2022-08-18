@@ -138,7 +138,6 @@ namespace CPU
     void bltzall(uint32_t opcode);
     void bgezall(uint32_t opcode);
 
-    void eret(uint32_t opcode);
     void mfc0(uint32_t opcode);
     void mtc0(uint32_t opcode);
     void mfc1(uint32_t opcode);
@@ -227,18 +226,6 @@ void CPU::runOpcode()
     }
 }
 
-void CPU::exception(uint8_t type)
-{
-    // If an exception happens at a delay slot, execute that first
-    // TODO: handle delay slot exceptions properly
-    if (nextOpcode != Memory::read<uint32_t>(programCounter))
-        runOpcode();
-
-    // Trigger an exception and jump to the handler
-    programCounter = CPU_CP0::exception(programCounter, type) + 0x180 - 4;
-    nextOpcode = 0;
-}
-
 void CPU::j(uint32_t opcode)
 {
     // Jump to an immediate value
@@ -288,7 +275,7 @@ void CPU::addi(uint32_t opcode)
     int32_t op2 = (int16_t)opcode;
     int32_t value = op1 + op2;
     if (!((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
@@ -388,7 +375,7 @@ void CPU::daddi(uint32_t opcode)
     int64_t op2 = (int16_t)opcode;
     int64_t value = op1 + op2;
     if (!((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
@@ -684,13 +671,13 @@ void CPU::jalr(uint32_t opcode)
 void CPU::syscall(uint32_t opcode)
 {
     // Trigger a system call exception
-    exception(8);
+    CPU_CP0::exception(8);
 }
 
 void CPU::break_(uint32_t opcode)
 {
     // Trigger a breakpoint exception
-    exception(9);
+    CPU_CP0::exception(9);
 }
 
 void CPU::mfhi(uint32_t opcode)
@@ -832,7 +819,7 @@ void CPU::add(uint32_t opcode)
     int32_t op2 = registersR[(opcode >> 16) & 0x1F];
     int32_t value = op1 + op2;
     if (!((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -851,7 +838,7 @@ void CPU::sub(uint32_t opcode)
     int32_t op2 = registersR[(opcode >> 16) & 0x1F];
     int32_t value = op1 - op2;
     if (((op1 ^ op2) & (1 << 31)) && ((op1 ^ value) & (1 << 31)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -912,7 +899,7 @@ void CPU::dadd(uint32_t opcode)
     int64_t op2 = registersR[(opcode >> 16) & 0x1F];
     int64_t value = op1 + op2;
     if (!((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -931,7 +918,7 @@ void CPU::dsub(uint32_t opcode)
     int64_t op2 = registersR[(opcode >> 16) & 0x1F];
     int64_t value = op1 - op2;
     if (((op1 ^ op2) & (1LL << 63)) && ((op1 ^ value) & (1LL << 63)))
-        return exception(12);
+        return CPU_CP0::exception(12);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
@@ -1070,15 +1057,6 @@ void CPU::bgezall(uint32_t opcode)
     }
 }
 
-void CPU::eret(uint32_t opcode)
-{
-    // Return from an error exception or exception and clear the ERL or EXL bit
-    uint32_t status = CPU_CP0::read(12);
-    programCounter = CPU_CP0::read((status & 0x4) ? 30 : 14) - 4;
-    nextOpcode = 0;
-    CPU_CP0::write(12, status & ~((status & 0x4) ? 0x4 : 0x2));
-}
-
 void CPU::mfc0(uint32_t opcode)
 {
     // Copy a 32-bit CP0 register value to a CPU register
@@ -1165,14 +1143,14 @@ void CPU::cop0(uint32_t opcode)
 {
     // Trigger a CP0 unusable exception if CP0 is disabled
     if (!CPU_CP0::cpUsable(0))
-        return exception(11);
+        return CPU_CP0::exception(11);
 
     // Look up a CP0 instruction
     switch ((opcode >> 21) & 0x1F)
     {
         case 0x00: return mfc0(opcode);
         case 0x04: return mtc0(opcode);
-        case 0x10: return (opcode == 0x42000018) ? eret(opcode) : unk(opcode);
+        case 0x10: return (*CPU_CP0::cp0Instrs[opcode & 0x3F])(opcode);
         default:   return unk(opcode);
     }
 }
@@ -1181,7 +1159,7 @@ void CPU::cop1(uint32_t opcode)
 {
     // Trigger a CP1 unusable exception if CP1 is disabled
     if (!CPU_CP0::cpUsable(1))
-        return exception(11);
+        return CPU_CP0::exception(11);
 
     // Look up a CP1 instruction
     switch ((opcode >> 21) & 0x1F)
