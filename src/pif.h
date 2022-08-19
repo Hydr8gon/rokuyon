@@ -32,6 +32,7 @@ namespace PIF
 
     void pressKey(int key);
     void releaseKey(int key);
+    void setStick(int x, int y);
 }
 
 #endif // PIF_H

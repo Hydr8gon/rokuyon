@@ -37,7 +37,8 @@ class ryCanvas: public wxGLCanvas
         ryFrame *frame;
         wxGLContext *context;
 
-        static const char keyMap[];
+        static const int keyMap[];
+        bool stickPressed[5] = {};
 
         int frameCount = 0;
         int swapInterval = 0;
@@ -49,6 +50,8 @@ class ryCanvas: public wxGLCanvas
         uint32_t height = 0;
         uint32_t x = 0;
         uint32_t y = 0;
+
+        void updateStick();
 
         void draw(wxPaintEvent &event);
         void resize(wxSizeEvent &event);

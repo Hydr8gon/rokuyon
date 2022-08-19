@@ -23,10 +23,13 @@
 #include "../pif.h"
 #include "../vi.h"
 
-const char ryCanvas::keyMap[16] =
+const int ryCanvas::keyMap[21] =
 {
-    'L', 'K', 'J', 'G', 'W', 'S', 'A', 'D',
-     0 ,  0 , 'Q', 'P', '8', '2', '4', '6'
+    'L', 'K', 'J', 'G', // A, B, Z, Start
+    WXK_UP, WXK_DOWN, WXK_LEFT, WXK_RIGHT, // D-pad
+    0,  0, 'Q', 'P', // L, R
+    '8', 'I', 'U', 'O', // C-buttons
+    'W', 'S', 'A', 'D', WXK_SHIFT // Joystick
 };
 
 wxBEGIN_EVENT_TABLE(ryCanvas, wxGLCanvas)
@@ -49,6 +52,35 @@ void ryCanvas::finish()
 {
     // Tell the canvas to stop rendering
     finished = true;
+}
+
+void ryCanvas::updateStick()
+{
+    int stickX = 0;
+    int stickY = 0;
+
+    // Apply the base stick movement
+    if (stickPressed[0]) stickY += 80;
+    if (stickPressed[1]) stickY -= 80;
+    if (stickPressed[2]) stickX -= 80;
+    if (stickPressed[3]) stickX += 80;
+
+    // Scale diagonals to create a round boundary
+    if (stickX && stickY)
+    {
+        stickX = stickX * 56 / 80;
+        stickY = stickY * 56 / 80;
+    }
+
+    // Half the distance when the modifier is pressed
+    if (stickPressed[4])
+    {
+        stickX /= 2;
+        stickY /= 2;
+    }
+
+    // Set the stick coordinates
+    PIF::setStick(stickX, stickY);
 }
 
 void ryCanvas::draw(wxPaintEvent &event)
@@ -155,7 +187,20 @@ void ryCanvas::pressKey(wxKeyEvent &event)
     for (int i = 0; i < 16; i++)
     {
         if (event.GetKeyCode() == keyMap[i])
+        {
             PIF::pressKey(i);
+            return;
+        }
+    }
+
+    // Update the joystick status if a relevant key was pressed
+    for (int i = 16; i < 21; i++)
+    {
+        if (event.GetKeyCode() == keyMap[i])
+        {
+            stickPressed[i - 16] = true;
+            return updateStick();
+        }
     }
 }
 
@@ -165,6 +210,19 @@ void ryCanvas::releaseKey(wxKeyEvent &event)
     for (int i = 0; i < 16; i++)
     {
         if (event.GetKeyCode() == keyMap[i])
+        {
             PIF::releaseKey(i);
+            return;
+        }
+    }
+
+    // Update the joystick status if a relevant key was released
+    for (int i = 16; i < 21; i++)
+    {
+        if (event.GetKeyCode() == keyMap[i])
+        {
+            stickPressed[i - 16] = false;
+            return updateStick();
+        }
     }
 }

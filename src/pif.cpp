@@ -29,6 +29,8 @@ namespace PIF
     uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
     uint8_t command;
     uint16_t buttons;
+    int8_t stickX;
+    int8_t stickY;
 
     extern void (*pifCommands[])(int);
 
@@ -74,6 +76,8 @@ void PIF::reset(FILE *pifFile)
     clearMemory(0);
     command = 0;
     buttons = 0;
+    stickX = 0;
+    stickY = 0;
 
     // Set the CIC seed based on which bootcode is detected
     // This value is used during boot to calculate a checksum
@@ -145,6 +149,13 @@ void PIF::releaseKey(int key)
         buttons &= ~(1 << (15 - key));
 }
 
+void PIF::setStick(int x, int y)
+{
+    // Update the stick position
+    stickX = x;
+    stickY = y;
+}
+
 void PIF::joybusProtocol(int bit)
 {
     // Attempt to handle joybus commands in PIF RAM
@@ -168,8 +179,8 @@ void PIF::joybusProtocol(int bit)
                 // Report which buttons are pressed for controller 1
                 memory[0x7C4 + i] = (i == 0) ? (buttons >> 8) : 0;
                 memory[0x7C5 + i] = (i == 0) ? (buttons >> 0) : 0;
-                memory[0x7C6 + i] = 0; // Stick X
-                memory[0x7C7 + i] = 0; // Stick Y
+                memory[0x7C6 + i] = stickX;
+                memory[0x7C7 + i] = stickY;
                 break;
 
             default:
