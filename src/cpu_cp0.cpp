@@ -38,7 +38,9 @@ namespace CPU_CP0
     uint32_t epc;
     uint32_t errorEpc;
 
+    void tlbr(uint32_t opcode);
     void tlbwi(uint32_t opcode);
+    void tlbp(uint32_t opcode);
     void eret(uint32_t opcode);
     void unk(uint32_t opcode);
 }
@@ -46,14 +48,14 @@ namespace CPU_CP0
 // CP0 instruction lookup table, using opcode bits 0-5
 void (*CPU_CP0::cp0Instrs[0x40])(uint32_t) =
 {
-    unk,  unk, tlbwi, unk, unk, unk, unk, unk, // 0x00-0x07
-    unk,  unk, unk,   unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk,  unk, unk,   unk, unk, unk, unk, unk, // 0x10-0x17
-    eret, unk, unk,   unk, unk, unk, unk, unk, // 0x18-0x1F
-    unk,  unk, unk,   unk, unk, unk, unk, unk, // 0x20-0x27
-    unk,  unk, unk,   unk, unk, unk, unk, unk, // 0x28-0x2F
-    unk,  unk, unk,   unk, unk, unk, unk, unk, // 0x30-0x37
-    unk,  unk, unk,   unk, unk, unk, unk, unk  // 0x38-0x3F
+    unk,  tlbr, tlbwi, unk, unk, unk, unk, unk, // 0x00-0x07
+    tlbp, unk,  unk,   unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x10-0x17
+    eret, unk,  unk,   unk, unk, unk, unk, unk, // 0x18-0x1F
+    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x20-0x27
+    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x30-0x37
+    unk,  unk,  unk,   unk, unk, unk, unk, unk  // 0x38-0x3F
 };
 
 void CPU_CP0::reset()
@@ -249,10 +251,37 @@ bool CPU_CP0::cpUsable(uint8_t cp)
     return true;
 }
 
+void CPU_CP0::tlbr(uint32_t opcode)
+{
+    // Get the TLB entry at the current index
+    Memory::getEntry(_index, entryLo0, entryLo1, entryHi, pageMask);
+}
+
 void CPU_CP0::tlbwi(uint32_t opcode)
 {
     // Set the TLB entry at the current index
     Memory::setEntry(_index, entryLo0, entryLo1, entryHi, pageMask);
+}
+
+void CPU_CP0::tlbp(uint32_t opcode)
+{
+    // Search the TLB entries for one that matches the current high register
+    for (int i = 0; i < 32; i++)
+    {
+        // Get a TLB entry
+        uint32_t _entryLo0, _entryLo1, _entryHi, _pageMask;
+        Memory::getEntry(i, _entryLo0, _entryLo1, _entryHi, _pageMask);
+
+        // Set the index to the TLB entry if it matches
+        if (entryHi == _entryHi)
+        {
+            _index = i;
+            return;
+        }
+    }
+
+    // Set the index high bit if no match was found
+    _index = (1 << 31);
 }
 
 void CPU_CP0::eret(uint32_t opcode)

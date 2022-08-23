@@ -54,6 +54,8 @@ namespace RSP_CP2
     void vaddc(uint32_t opcode);
     void vsubc(uint32_t opcode);
     void vsar(uint32_t opcode);
+    void vlt(uint32_t opcode);
+    void vge(uint32_t opcode);
     void vand(uint32_t opcode);
     void vnand(uint32_t opcode);
     void vor(uint32_t opcode);
@@ -71,7 +73,7 @@ void (*RSP_CP2::vecInstrs[0x40])(uint32_t) =
     vmacf, vmacu, unk, unk,  vmadl, vmadm, vmadn, vmadh, // 0x08-0x0F
     vadd,  vsub,  unk, unk,  vaddc, vsubc, unk,   unk,   // 0x10-0x17
     unk,   unk,   unk, unk,  unk,   vsar,  unk,   unk,   // 0x18-0x1F
-    unk,   unk,   unk, unk,  unk,   unk,   unk,   unk,   // 0x20-0x27
+    vlt,   unk,   unk, vge,  unk,   unk,   unk,   unk,   // 0x20-0x27
     vand,  vnand, vor, vnor, vxor,  vnxor, unk,   unk,   // 0x28-0x2F
     unk,   unk,   unk, unk,  unk,   unk,   unk,   unk,   // 0x30-0x37
     unk,   unk,   unk, unk,  unk,   unk,   unk,   unk    // 0x38-0x3F
@@ -483,6 +485,34 @@ void RSP_CP2::vsar(uint32_t opcode)
     // Load a vector register with 16-bit portions of the accumulator
     for (int i = 0; i < 8; i++)
         vd[i] = accumulator[i] >> shift;
+}
+
+void RSP_CP2::vlt(uint32_t opcode)
+{
+    // Decode the operands
+    int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
+    int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
+    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    const uint8_t *e = elements[(opcode >> 21) & 0xF];
+
+    // Select the lesser values between two vector registers with modifier for the second
+    // TODO: update VCC
+    for (int i = 0; i < 8; i++)
+        accumulator[i] = vd[i] = std::min(vs[i], vt[e[i]]);
+}
+
+void RSP_CP2::vge(uint32_t opcode)
+{
+    // Decode the operands
+    int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
+    int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
+    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    const uint8_t *e = elements[(opcode >> 21) & 0xF];
+    
+    // Select the greater values between two vector registers with modifier for the second
+    // TODO: update VCC
+    for (int i = 0; i < 8; i++)
+        accumulator[i] = vd[i] = std::max(vs[i], vt[e[i]]);
 }
 
 void RSP_CP2::vand(uint32_t opcode)

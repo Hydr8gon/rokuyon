@@ -55,6 +55,16 @@ void Memory::reset()
     memset(entries, 0, sizeof(entries));
 }
 
+void Memory::getEntry(uint32_t index, uint32_t &entryLo0, uint32_t &entryLo1, uint32_t &entryHi, uint32_t &pageMask)
+{
+    // Get the TLB entry at the given index
+    TLBEntry &entry = entries[index & 0x1F];
+    entryLo0 = entry.entryLo0;
+    entryLo1 = entry.entryLo1;
+    entryHi = entry.entryHi;
+    pageMask = entry.pageMask;
+}
+
 void Memory::setEntry(uint32_t index, uint32_t entryLo0, uint32_t entryLo1, uint32_t entryHi, uint32_t pageMask)
 {
     // Set the TLB entry at the given index

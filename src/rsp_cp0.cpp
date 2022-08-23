@@ -29,6 +29,7 @@ namespace RSP_CP0
     uint32_t memAddr;
     uint32_t dramAddr;
     uint32_t status;
+    uint32_t semaphore;
 
     void performReadDma(uint32_t address);
     void performWriteDma(uint32_t address);
@@ -40,6 +41,7 @@ void RSP_CP0::reset()
     memAddr = 0;
     dramAddr = 0;
     status = 0x1;
+    semaphore = 0;
 }
 
 uint32_t RSP_CP0::read(int index)
@@ -50,6 +52,14 @@ uint32_t RSP_CP0::read(int index)
         case 4: // SP_STATUS
             // Get the status register
             return status;
+
+        case 7: // SP_SEMAPHORE
+        {
+            // Set the semaphore to 1 and get the previous value
+            uint32_t value = semaphore;
+            semaphore = 1;
+            return value;
+        }
 
         case  8: case  9: case 10: case 11:
         case 12: case 13: case 14: case 15:
@@ -125,6 +135,11 @@ void RSP_CP0::write(int index, uint32_t value)
             // Keep track of unimplemented bits that should do something
             if (uint32_t bits = (status & 0x20))
                 LOG_WARN("Unimplemented RSP CP0 status bits set: 0x%X\n", bits);
+            return;
+
+        case 7: // SP_SEMAPHORE
+            // Set the semaphore value
+            semaphore = value & 0x1;
             return;
 
         case  8: case  9: case 10: case 11:
