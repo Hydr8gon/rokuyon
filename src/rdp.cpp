@@ -17,6 +17,7 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <cstring>
 
 #include "rdp.h"
@@ -70,14 +71,21 @@ namespace RDP
     Format colorFormat;
     Tile tiles[8];
 
+    uint16_t scissorX1;
+    uint16_t scissorX2;
+    uint16_t scissorY1;
+    uint16_t scissorY2;
+
     uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
     uint16_t IA8toRGBA16(uint8_t color);
     uint32_t IA8toRGBA32(uint8_t color);
 
     void runCommands();
+    void triangle();
     void texRectangle();
     void syncFull();
+    void setScissor();
     void setOtherModes();
     void loadBlock();
     void loadTile();
@@ -94,8 +102,8 @@ void (*RDP::commands[0x40])() =
 {
     unknown,      unknown,     unknown,       unknown,       // 0x00-0x03
     unknown,      unknown,     unknown,       unknown,       // 0x04-0x07
-    unknown,      unknown,     unknown,       unknown,       // 0x08-0x0B
-    unknown,      unknown,     unknown,       unknown,       // 0x0C-0x0F
+    triangle,     triangle,    triangle,      triangle,      // 0x08-0x0B
+    triangle,     triangle,    triangle,      triangle,      // 0x0C-0x0F
     unknown,      unknown,     unknown,       unknown,       // 0x10-0x13
     unknown,      unknown,     unknown,       unknown,       // 0x14-0x17
     unknown,      unknown,     unknown,       unknown,       // 0x18-0x1B
@@ -103,7 +111,7 @@ void (*RDP::commands[0x40])() =
     unknown,      unknown,     unknown,       unknown,       // 0x20-0x23
     texRectangle, unknown,     unknown,       unknown,       // 0x24-0x27
     unknown,      syncFull,    unknown,       unknown,       // 0x28-0x2B
-    unknown,      unknown,     unknown,       setOtherModes, // 0x2C-0x2F
+    unknown,      setScissor,  unknown,       setOtherModes, // 0x2C-0x2F
     unknown,      unknown,     unknown,       loadBlock,     // 0x30-0x33
     loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
     unknown,      unknown,     unknown,       unknown,       // 0x38-0x3B
@@ -177,6 +185,10 @@ void RDP::reset()
     colorWidth = 0;
     colorFormat = RGBA4;
     memset(tiles, 0, sizeof(tiles));
+    scissorX1 = 0;
+    scissorX2 = 0;
+    scissorY1 = 0;
+    scissorY2 = 0;
 }
 
 uint32_t RDP::read(int index)
@@ -265,6 +277,16 @@ void RDP::runCommands()
     }
 }
 
+void RDP::triangle()
+{
+    // Draw a pixel at the topmost vertex of a triangle, just to see something
+    // TODO: properly implement triangles
+    uint16_t x = ((opcode[2] >> 48) & 0xFFFF);
+    uint16_t y = ((opcode[0] >> 32) & 0xFFFF) >> 2;
+    if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+        Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, ~fillColor);
+}
+
 void RDP::texRectangle()
 {
     // Decode the operands
@@ -285,6 +307,12 @@ void RDP::texRectangle()
         x2++;
         y2++;
     }
+
+    // Clip the coordinates to be within scissor bounds
+    x1 = std::max(x1, scissorX1);
+    x2 = std::min(x2, scissorX2);
+    y1 = std::max(y1, scissorY1);
+    y2 = std::min(y2, scissorY2);
 
     switch (colorFormat)
     {
@@ -362,6 +390,16 @@ void RDP::syncFull()
 {
     // Trigger a DP interrupt right away because everything finishes instantly
     MI::setInterrupt(5);
+}
+
+void RDP::setScissor()
+{
+    // Set the scissor bounds
+    // TODO: actually use the scissor field bits
+    scissorY2 = ((opcode[0] >>  0) & 0xFFF) >> 2;
+    scissorX2 = ((opcode[0] >> 12) & 0xFFF) >> 2;
+    scissorY1 = ((opcode[0] >> 32) & 0xFFF) >> 2;
+    scissorX1 = ((opcode[0] >> 44) & 0xFFF) >> 2;
 }
 
 void RDP::setOtherModes()
@@ -491,6 +529,12 @@ void RDP::fillRectangle()
         x2++;
         y2++;
     }
+
+    // Clip the coordinates to be within scissor bounds
+    x1 = std::max(x1, scissorX1);
+    x2 = std::min(x2, scissorX2);
+    y1 = std::max(y1, scissorY1);
+    y2 = std::min(y2, scissorY2);
 
     switch (colorFormat)
     {
