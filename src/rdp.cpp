@@ -279,12 +279,30 @@ void RDP::runCommands()
 
 void RDP::triangle()
 {
-    // Draw a pixel at the topmost vertex of a triangle, just to see something
+    // Get the vertex Y coordinates and sort them for each edge
+    int y1 = (int16_t)(opcode[0] <<  2) >> 4;
+    int y2 = (int16_t)(opcode[0] >> 14) >> 4;
+    int y3 = (int16_t)(opcode[0] >> 30) >> 4;
+    int ys[3][2] = { { y2, y3 }, { y1, y3 }, { y1, y2 } };
+
+    // Draw the lower, higher, and middle edges
     // TODO: properly implement triangles
-    uint16_t x = ((opcode[2] >> 48) & 0xFFFF);
-    uint16_t y = ((opcode[0] >> 32) & 0xFFFF) >> 2;
-    if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-        Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, ~fillColor);
+    for (int i = 0; i < 3; i++)
+    {
+        // Get the slope and starting X-coordinate
+        int32_t slope = opcode[i + 1];
+        int32_t x1 = opcode[i + 1] >> 32;
+        int32_t x = x1;
+
+        // Draw a line between two Y-coordinates, incrementing X along the way
+        for (int y = ys[i][0]; y < ys[i][1]; y++)
+        {
+            int32_t x0 = x >> 16;
+            if (x0 >= scissorX1 && x0 < scissorX2 && y >= scissorY1 && y < scissorY2)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x0) * 2, ~fillColor);
+            x += slope;
+        }
+    }
 }
 
 void RDP::texRectangle()
