@@ -95,12 +95,18 @@ namespace RSP
     void ldv(uint32_t opcode);
     void lqv(uint32_t opcode);
     void lrv(uint32_t opcode);
+    void lpv(uint32_t opcode);
+    void luv(uint32_t opcode);
+    void ltv(uint32_t opcode);
     void sbv(uint32_t opcode);
     void ssv(uint32_t opcode);
     void slv(uint32_t opcode);
     void sdv(uint32_t opcode);
     void sqv(uint32_t opcode);
     void srv(uint32_t opcode);
+    void spv(uint32_t opcode);
+    void suv(uint32_t opcode);
+    void stv(uint32_t opcode);
 
     void cop0(uint32_t opcode);
     void cop2(uint32_t opcode);
@@ -596,6 +602,39 @@ void RSP::lrv(uint32_t opcode)
         RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i - 16) & 0xFFF)));
 }
 
+void RSP::lpv(uint32_t opcode)
+{
+    // Load 8 signed 8-bit values from memory to a vector register
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i++)
+        RSP_CP2::write(false, index, byte + i * 2, Memory::read<uint8_t>(0xA4000000 | ((address + i) & 0xFFF)) << 8);
+}
+
+void RSP::luv(uint32_t opcode)
+{
+    // Load 8 unsigned 8-bit values from memory to a vector register
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i++)
+        RSP_CP2::write(false, index, byte + i * 2, Memory::read<uint8_t>(0xA4000000 | ((address + i) & 0xFFF)) << 7);
+}
+
+void RSP::ltv(uint32_t opcode)
+{
+    // Transpose 16 bytes from memory across 8 vector registers
+    int index = (opcode >> 16) & 0x18;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 0; i < 16; i += 2)
+    {
+        uint8_t b = (byte + i) & 0xF;
+        RSP_CP2::write(false, index + b / 2, i, Memory::read<uint16_t>(0xA4000000 | ((address + b) & 0xFFF)));
+    }
+}
+
 void RSP::sbv(uint32_t opcode)
 {
     // Store an 8-bit value from a vector register to memory
@@ -670,6 +709,40 @@ void RSP::srv(uint32_t opcode)
     }
 }
 
+void RSP::spv(uint32_t opcode)
+{
+    // Store 8 signed 8-bit values from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i++)
+        Memory::write<uint8_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i * 2) >> 8);
+}
+
+void RSP::suv(uint32_t opcode)
+{
+    // Store 8 unsigned 8-bit values from a vector register to memory
+    int index = (opcode >> 16) & 0x1F;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 2);
+    for (int i = 0; i < 8; i++)
+        Memory::write<uint8_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i * 2) >> 7);
+}
+
+void RSP::stv(uint32_t opcode)
+{
+    // Store 16 bytes transposed across 8 vector registers to memory
+    int index = (opcode >> 16) & 0x18;
+    int byte = (opcode >> 7) & 0xF;
+    uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
+    for (int i = 0; i < 16; i += 2)
+    {
+        uint16_t a = (address & 0xFF0) + ((address + i) & 0xF);
+        uint16_t b = index + ((byte + i) & 0xF) / 2;
+        Memory::write<uint16_t>(0xA4000000 | a, RSP_CP2::read(false, b, i));
+    }
+}
+
 void RSP::cop0(uint32_t opcode)
 {
     // Look up a CP0 instruction
@@ -709,6 +782,9 @@ void RSP::lwc2(uint32_t opcode)
         case 0x03: return ldv(opcode);
         case 0x04: return lqv(opcode);
         case 0x05: return lrv(opcode);
+        case 0x06: return lpv(opcode);
+        case 0x07: return luv(opcode);
+        case 0x0B: return ltv(opcode);
         default:   return unk(opcode);
     }
 }
@@ -724,6 +800,9 @@ void RSP::swc2(uint32_t opcode)
         case 0x03: return sdv(opcode);
         case 0x04: return sqv(opcode);
         case 0x05: return srv(opcode);
+        case 0x06: return spv(opcode);
+        case 0x07: return suv(opcode);
+        case 0x0B: return stv(opcode);
         default:   return unk(opcode);
     }
 }
