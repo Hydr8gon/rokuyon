@@ -82,7 +82,7 @@ template uint64_t Memory::read(uint32_t address);
 template <typename T> T Memory::read(uint32_t address)
 {
     uint8_t *data = nullptr;
-    uint32_t pAddr = 0;
+    uint32_t pAddr = 0x80000000;
 
     // Get a physical address from a virtual one
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
@@ -112,9 +112,10 @@ template <typename T> T Memory::read(uint32_t address)
     }
 
     // Look up the physical address
-    if (pAddr < 0x3F00000)
+    if (pAddr < 0x400000)
     {
         // Get a pointer to data in RDRAM
+        // TODO: figure out RDRAM registers and how they affect mapping
         data = &rdram[pAddr & 0x3FFFFF];
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
@@ -189,7 +190,7 @@ template void Memory::write(uint32_t address, uint64_t value);
 template <typename T> void Memory::write(uint32_t address, T value)
 {
     uint8_t *data = nullptr;
-    uint32_t pAddr = 0;
+    uint32_t pAddr = 0x80000000;
 
     // Get a physical address from a virtual one
     if ((address & 0xC0000000) == 0x80000000) // kseg0, kseg1
@@ -219,9 +220,10 @@ template <typename T> void Memory::write(uint32_t address, T value)
     }
 
     // Look up the physical address
-    if (pAddr < 0x3F00000)
+    if (pAddr < 0x400000)
     {
         // Get a pointer to data in RDRAM
+        // TODO: figure out RDRAM registers and how they affect mapping
         data = &rdram[pAddr & 0x3FFFFF];
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
