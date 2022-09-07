@@ -396,10 +396,9 @@ void RSP_CP2::vmulf(uint32_t opcode)
 
     // Multiply two signed vector registers with rounding and signed clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = ((vs[i] * vt[e[i]]) << 1) + 0x8000;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmulu(uint32_t opcode)
@@ -412,10 +411,9 @@ void RSP_CP2::vmulu(uint32_t opcode)
 
     // Multiply two signed vector registers with rounding and unsigned clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = ((vs[i] * vt[e[i]]) << 1) + 0x8000;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampUnsigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmudl(uint32_t opcode)
@@ -428,10 +426,9 @@ void RSP_CP2::vmudl(uint32_t opcode)
 
     // Multiply two unsigned vector registers with signed clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = ((vs[i] * vt[e[i]]) >> 16) & 0xFFFF;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i]);
-    }
 }
 
 void RSP_CP2::vmudm(uint32_t opcode)
@@ -444,10 +441,9 @@ void RSP_CP2::vmudm(uint32_t opcode)
 
     // Multiply a signed and an unsigned vector register with signed clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = vs[i] * vt[e[i]];
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmudn(uint32_t opcode)
@@ -460,7 +456,9 @@ void RSP_CP2::vmudn(uint32_t opcode)
 
     // Multiply an unsigned and a signed vector register
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i] = vs[i] * vt[e[i]];
+        accumulator[i] = vs[i] * vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vmudh(uint32_t opcode)
@@ -473,11 +471,9 @@ void RSP_CP2::vmudh(uint32_t opcode)
 
     // Multiply two signed vector registers with signed clamping
     for (int i = 0; i < 8; i++)
-    {
-        accumulator[i] = (int32_t)(vs[i] * vt[e[i]]);
-        accumulator[i] <<= 16;
+        accumulator[i] = (int64_t)(int32_t)(vs[i] * vt[e[i]]) << 16;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmacf(uint32_t opcode)
@@ -490,10 +486,9 @@ void RSP_CP2::vmacf(uint32_t opcode)
 
     // Accumulate the product of two signed vector registers with signed clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] += (vs[i] * vt[e[i]]) << 1;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmacu(uint32_t opcode)
@@ -506,10 +501,9 @@ void RSP_CP2::vmacu(uint32_t opcode)
 
     // Accumulate the product of two signed vector registers with unsigned clamping
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] += (vs[i] * vt[e[i]]) << 1;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampUnsigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vmadl(uint32_t opcode)
@@ -522,10 +516,9 @@ void RSP_CP2::vmadl(uint32_t opcode)
 
     // Accumulate the product of two unsigned vector registers
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] += ((vs[i] * vt[e[i]]) >> 16) & 0xFFFF;
+    for (int i = 0; i < 8; i++)
         vd[i] = accumulator[i];
-    }
 }
 
 void RSP_CP2::vmadm(uint32_t opcode)
@@ -538,10 +531,9 @@ void RSP_CP2::vmadm(uint32_t opcode)
 
     // Accumulate the product of a signed and an unsigned vector register
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] += vs[i] * vt[e[i]];
+    for (int i = 0; i < 8; i++)
         vd[i] = accumulator[i] >> 16;
-    }
 }
 
 void RSP_CP2::vmadn(uint32_t opcode)
@@ -554,7 +546,9 @@ void RSP_CP2::vmadn(uint32_t opcode)
 
     // Accumulate the product of an unsigned and a signed vector register
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i] += vs[i] * vt[e[i]];
+        accumulator[i] += vs[i] * vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vmadh(uint32_t opcode)
@@ -567,11 +561,9 @@ void RSP_CP2::vmadh(uint32_t opcode)
 
     // Accumulate the product of two signed vector registers
     for (int i = 0; i < 8; i++)
-    {
-        int64_t value = (int32_t)(vs[i] * vt[e[i]]);
-        accumulator[i] += value << 16;
+        accumulator[i] += (int64_t)(int32_t)(vs[i] * vt[e[i]]) << 16;
+    for (int i = 0; i < 8; i++)
         vd[i] = clampSigned(accumulator[i] >> 16);
-    }
 }
 
 void RSP_CP2::vadd(uint32_t opcode)
@@ -584,8 +576,9 @@ void RSP_CP2::vadd(uint32_t opcode)
 
     // Add two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = vs[i] + vt[e[i]];
+    for (int i = 0; i < 8; i++)
+    {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
@@ -601,8 +594,9 @@ void RSP_CP2::vsub(uint32_t opcode)
 
     // Subtract two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
-    {
         accumulator[i] = vs[i] - vt[e[i]];
+    for (int i = 0; i < 8; i++)
+    {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
@@ -619,7 +613,9 @@ void RSP_CP2::vabs(uint32_t opcode)
     // Negate one vector register based on the sign of another register
     // TODO: figure out off-by-one in some cases
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = (vt[e[i]] & 0x8000) ? -vs[i] : vs[i];
+        accumulator[i] = (vt[e[i]] & 0x8000) ? -vs[i] : vs[i];
+    for (int i = 0; i < 8; i++)
+        accumulator[i] = vd[i];
 }
 
 void RSP_CP2::vaddc(uint32_t opcode)
@@ -636,8 +632,9 @@ void RSP_CP2::vaddc(uint32_t opcode)
     {
         accumulator[i] = vs[i] + vt[e[i]];
         vco |= ((accumulator[i] >> 16) & 1) << i;
-        vd[i] = (accumulator[i] &= 0xFFFF);
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = (accumulator[i] &= 0xFFFF);
 }
 
 void RSP_CP2::vsubc(uint32_t opcode)
@@ -654,8 +651,9 @@ void RSP_CP2::vsubc(uint32_t opcode)
     {
         accumulator[i] = vs[i] - vt[e[i]];
         vco |= (((accumulator[i] & 0x1FFF) ? 0x100 : 0) | ((accumulator[i] >> 16) & 1)) << i;
-        vd[i] = (accumulator[i] &= 0xFFFF);
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = (accumulator[i] &= 0xFFFF);
 }
 
 void RSP_CP2::vsar(uint32_t opcode)
@@ -682,9 +680,11 @@ void RSP_CP2::vlt(uint32_t opcode)
     for (int i = 0; i < 8; i++)
     {
         bool res = (vs[i] < vt[e[i]] || (vs[i] == vt[e[i]] && (((vco & (vco >> 8)) >> i) & 1)));
-        accumulator[i] = vd[i] = res ? vs[i] : vt[e[i]];
+        accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
     vco = 0;
 }
 
@@ -701,9 +701,11 @@ void RSP_CP2::veq(uint32_t opcode)
     for (int i = 0; i < 8; i++)
     {
         bool res = (vs[i] == vt[e[i]] && !(vco & (0x100 << i)));
-        accumulator[i] = vd[i] = res ? vs[i] : vt[e[i]];
+        accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
     vco = 0;
 }
 
@@ -720,9 +722,11 @@ void RSP_CP2::vne(uint32_t opcode)
     for (int i = 0; i < 8; i++)
     {
         bool res = (vs[i] != vt[e[i]] || (vco & (0x100 << i)));
-        accumulator[i] = vd[i] = res ? vs[i] : vt[e[i]];
+        accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
     vco = 0;
 }
 
@@ -739,9 +743,11 @@ void RSP_CP2::vge(uint32_t opcode)
     for (int i = 0; i < 8; i++)
     {
         bool res = (vs[i] > vt[e[i]] || (vs[i] == vt[e[i]] && !(((vco & (vco >> 8)) >> i) & 1)));
-        accumulator[i] = vd[i] = res ? vs[i] : vt[e[i]];
+        accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
     vco = 0;
 }
 
@@ -762,8 +768,10 @@ void RSP_CP2::vcl(uint32_t opcode)
             vcc = (vcc & ~(1 << i)) | ((((vce >> i) & 1) ? (vs[i] <= -vt[e[i]]) : (vs[i] == -vt[e[i]])) << i);
         bool diff = (vco >> i) & 1;
         int16_t abs = (diff ? -vt[e[i]] : vt[e[i]]);
-        accumulator[i] = vd[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
+        accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vch(uint32_t opcode)
@@ -784,8 +792,10 @@ void RSP_CP2::vch(uint32_t opcode)
         vco |= (((!comp && vs[i] != abs) << 8) | diff) << i;
         vcc |= (((vs[i] >= vt[e[i]]) << 8) | (vs[i] <= -vt[e[i]])) << i;
         vce |= comp << i;
-        accumulator[i] = vd[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
+        accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vcr(uint32_t opcode)
@@ -803,8 +813,10 @@ void RSP_CP2::vcr(uint32_t opcode)
         bool diff = (vs[i] ^ vt[e[i]]) & 0x8000;
         int16_t abs = (diff ? ~vt[e[i]] : vt[e[i]]);
         vcc |= (((vs[i] >= vt[e[i]]) << 8) | (vs[i] <= ~vt[e[i]])) << i;
-        accumulator[i] = vd[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
+        accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vmrg(uint32_t opcode)
@@ -817,7 +829,9 @@ void RSP_CP2::vmrg(uint32_t opcode)
 
     // Merge two vector registers using the compare bits to choose lanes
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = (vcc & (1 << i)) ? vs[i] : vt[e[i]];
+        accumulator[i] = (vcc & (1 << i)) ? vs[i] : vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vand(uint32_t opcode)
@@ -830,7 +844,9 @@ void RSP_CP2::vand(uint32_t opcode)
 
     // Bitwise and two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = vs[i] & vt[e[i]];
+        accumulator[i] = vs[i] & vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vnand(uint32_t opcode)
@@ -843,7 +859,9 @@ void RSP_CP2::vnand(uint32_t opcode)
 
     // Negated bitwise and two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = ~(vs[i] & vt[e[i]]);
+        accumulator[i] = (vs[i] & vt[e[i]]) ^ 0xFFFF;
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vor(uint32_t opcode)
@@ -856,7 +874,9 @@ void RSP_CP2::vor(uint32_t opcode)
 
     // Bitwise or two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = vs[i] | vt[e[i]];
+        accumulator[i] = vs[i] | vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vnor(uint32_t opcode)
@@ -869,7 +889,9 @@ void RSP_CP2::vnor(uint32_t opcode)
 
     // Negated bitwise or two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = ~(vs[i] | vt[e[i]]);
+        accumulator[i] = (vs[i] | vt[e[i]]) ^ 0xFFFF;
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vxor(uint32_t opcode)
@@ -882,7 +904,9 @@ void RSP_CP2::vxor(uint32_t opcode)
 
     // Bitwise exclusive or two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = vs[i] ^ vt[e[i]];
+        accumulator[i] = vs[i] ^ vt[e[i]];
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vnxor(uint32_t opcode)
@@ -895,7 +919,9 @@ void RSP_CP2::vnxor(uint32_t opcode)
 
     // Negated bitwise exclusive or two vector registers with modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i] = ~(vs[i] ^ vt[e[i]]);
+        accumulator[i] = (vs[i] ^ vt[e[i]]) ^ 0xFFFF;
+    for (int i = 0; i < 8; i++)
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vrcp(uint32_t opcode)
