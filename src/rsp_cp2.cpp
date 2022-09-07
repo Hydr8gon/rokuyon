@@ -576,12 +576,13 @@ void RSP_CP2::vadd(uint32_t opcode)
 
     // Add two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vs[i] + vt[e[i]];
+        accumulator[i] = vs[i] + vt[e[i]] + ((vco >> i) & 1);
     for (int i = 0; i < 8; i++)
     {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
+    vco = 0;
 }
 
 void RSP_CP2::vsub(uint32_t opcode)
@@ -594,12 +595,13 @@ void RSP_CP2::vsub(uint32_t opcode)
 
     // Subtract two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vs[i] - vt[e[i]];
+        accumulator[i] = vs[i] - vt[e[i]] - ((vco >> i) & 1);
     for (int i = 0; i < 8; i++)
     {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
+    vco = 0;
 }
 
 void RSP_CP2::vabs(uint32_t opcode)
