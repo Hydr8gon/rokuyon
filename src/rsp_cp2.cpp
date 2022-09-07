@@ -774,6 +774,7 @@ void RSP_CP2::vcl(uint32_t opcode)
     }
     for (int i = 0; i < 8; i++)
         vd[i] = accumulator[i];
+    vco = vce = 0;
 }
 
 void RSP_CP2::vch(uint32_t opcode)
