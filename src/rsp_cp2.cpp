@@ -933,6 +933,7 @@ void RSP_CP2::vrcp(uint32_t opcode)
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (int16_t)vt[(opcode >> 21) & 0x7];
     uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    divIn = 0;
 
     // Lookup the 32-bit reciprocal of a signed 16-bit value
     for (int i = 0; i < 8; i++)
@@ -995,6 +996,7 @@ void RSP_CP2::vrsq(uint32_t opcode)
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (int16_t)vt[(opcode >> 21) & 0x7];
     uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    divIn = 0;
 
     // Lookup the 32-bit reciprocal of the square root of a signed 16-bit value
     for (int i = 0; i < 8; i++)

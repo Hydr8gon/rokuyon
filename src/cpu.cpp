@@ -1009,52 +1009,40 @@ void CPU::bltzal(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Also, save the return address
+    *registersW[31] = programCounter + 4;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] < 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
 }
 
 void CPU::bgezal(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Also, save the return address
+    *registersW[31] = programCounter + 4;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] >= 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
 }
 
 void CPU::bltzall(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Also, save the return address; otherwise, discard the delay slot opcode
+    *registersW[31] = programCounter + 4;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] < 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
     else
-    {
         nextOpcode = 0;
-    }
 }
 
 void CPU::bgezall(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Also, save the return address; otherwise, discard the delay slot opcode
+    *registersW[31] = programCounter + 4;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] >= 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
     else
-    {
         nextOpcode = 0;
-    }
 }
 
 void CPU::mfc0(uint32_t opcode)

@@ -166,13 +166,13 @@ void RSP::reset()
 uint32_t RSP::readPC()
 {
     // Get the effective bits of the RSP program counter
-    return programCounter & 0xFFF;
+    return programCounter & 0xFFC;
 }
 
 void RSP::writePC(uint32_t value)
 {
     // Set the effective bits of the RSP program counter
-    programCounter = 0xA4001000 | (value & 0xFFF);
+    programCounter = 0xA4001000 | (value & 0xFFC);
 }
 
 void RSP::setState(bool halted)
@@ -186,7 +186,7 @@ void RSP::runOpcode()
 {
     // Move an opcode through the pipeline
     uint32_t opcode = nextOpcode;
-    programCounter = 0xA4001000 | ((programCounter + 4) & 0xFFF);
+    programCounter = 0xA4001000 | ((programCounter + 4) & 0xFFC);
     nextOpcode = Memory::read<uint32_t>(programCounter);
 
     // Look up and execute an instruction
@@ -208,7 +208,7 @@ void RSP::j(uint32_t opcode)
 void RSP::jal(uint32_t opcode)
 {
     // Save the return address and jump to an immediate value
-    *registersW[31] = programCounter + 4;
+    *registersW[31] = (programCounter + 4) & 0xFFF;
     programCounter = ((programCounter & 0xF0000000) | ((opcode & 0x3FFFFFF) << 2)) - 4;
 }
 
@@ -395,7 +395,7 @@ void RSP::jr(uint32_t opcode)
 void RSP::jalr(uint32_t opcode)
 {
     // Save the return address and jump to an address stored in a register
-    *registersW[(opcode >> 11) & 0x1F] = programCounter + 4;
+    *registersW[(opcode >> 11) & 0x1F] = (programCounter + 4) & 0xFFF;
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
@@ -479,22 +479,18 @@ void RSP::bltzal(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Also, save the return address
+    *registersW[31] = (programCounter + 4) & 0xFFF;
     if ((int32_t)registersR[(opcode >> 21) & 0x1F] < 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
 }
 
 void RSP::bgezal(uint32_t opcode)
 {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Also, save the return address
+    *registersW[31] = (programCounter + 4) & 0xFFF;
     if ((int32_t)registersR[(opcode >> 21) & 0x1F] >= 0)
-    {
-        *registersW[31] = programCounter + 4;
         programCounter += ((int16_t)opcode << 2) - 4;
-    }
 }
 
 void RSP::mfc0(uint32_t opcode)

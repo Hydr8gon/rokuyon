@@ -120,8 +120,11 @@ template <typename T> T Memory::read(uint32_t address)
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
     {
-        // Get a pointer to data in RSP DMEM/IMEM
-        data = &rspMem[pAddr & 0x1FFF];
+        // Read a value from RSP DMEM/IMEM, with wraparound
+        T value = 0;
+        for (size_t i = 0; i < sizeof(T); i++)
+            value |= (T)rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] << ((sizeof(T) - 1 - i) * 8);
+        return value;
     }
     else if (pAddr >= 0x10000000 && pAddr < 0x10000000 + std::min(PI::romSize, 0xFC00000U))
     {
@@ -228,8 +231,10 @@ template <typename T> void Memory::write(uint32_t address, T value)
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
     {
-        // Get a pointer to data in RSP DMEM/IMEM
-        data = &rspMem[pAddr & 0x1FFF];
+        // Write a value to RSP DMEM/IMEM, with wraparound
+        for (size_t i = 0; i < sizeof(T); i++)
+            rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] = value >> ((sizeof(T) - 1 - i) * 8);
+        return;
     }
     else if (pAddr >= 0x1FC007C0 && pAddr < 0x1FC00800)
     {
