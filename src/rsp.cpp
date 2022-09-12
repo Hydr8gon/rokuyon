@@ -159,27 +159,27 @@ void RSP::reset()
 
     // Reset the RSP to its initial state
     memset(registersR, 0, sizeof(registersR));
-    programCounter = 0xA4001000;
+    writePC(0);
     setState(true);
 }
 
 uint32_t RSP::readPC()
 {
     // Get the effective bits of the RSP program counter
-    return programCounter & 0xFFC;
+    return (programCounter + 4) & 0xFFC;
 }
 
 void RSP::writePC(uint32_t value)
 {
     // Set the effective bits of the RSP program counter
-    programCounter = 0xA4001000 | (value & 0xFFC);
+    programCounter = 0xA4001000 | ((value - 4) & 0xFFC);
+    nextOpcode = 0;
 }
 
 void RSP::setState(bool halted)
 {
-    // Update the RSP state and fill the pipeline when unhalted
-    if (Core::rspRunning = !halted)
-        nextOpcode = Memory::read<uint32_t>(programCounter);
+    // Update the RSP running state
+    Core::rspRunning = !halted;
 }
 
 void RSP::runOpcode()
