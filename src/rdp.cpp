@@ -77,8 +77,6 @@ namespace RDP
     uint16_t scissorY1;
     uint16_t scissorY2;
 
-    uint8_t triShade;
-
     uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
     uint16_t IA8toRGBA16(uint8_t color);
@@ -87,6 +85,8 @@ namespace RDP
     void runCommands();
     void triangle();
     void triDepth();
+    void triShade();
+    void triDepthShade();
     void texRectangle();
     void syncFull();
     void setScissor();
@@ -105,22 +105,22 @@ namespace RDP
 // RDP command lookup table, based on opcode bits 56-61
 void (*RDP::commands[0x40])() =
 {
-    unknown,      unknown,     unknown,       unknown,       // 0x00-0x03
-    unknown,      unknown,     unknown,       unknown,       // 0x04-0x07
-    triangle,     triDepth,    triangle,      triDepth,      // 0x08-0x0B
-    triangle,     triDepth,    triangle,      triDepth,      // 0x0C-0x0F
-    unknown,      unknown,     unknown,       unknown,       // 0x10-0x13
-    unknown,      unknown,     unknown,       unknown,       // 0x14-0x17
-    unknown,      unknown,     unknown,       unknown,       // 0x18-0x1B
-    unknown,      unknown,     unknown,       unknown,       // 0x1C-0x1F
-    unknown,      unknown,     unknown,       unknown,       // 0x20-0x23
-    texRectangle, unknown,     unknown,       unknown,       // 0x24-0x27
-    unknown,      syncFull,    unknown,       unknown,       // 0x28-0x2B
-    unknown,      setScissor,  unknown,       setOtherModes, // 0x2C-0x2F
-    unknown,      unknown,     unknown,       loadBlock,     // 0x30-0x33
-    loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
-    unknown,      unknown,     unknown,       unknown,       // 0x38-0x3B
-    unknown,      setTexImage, setZImage,     setColorImage  // 0x3C-0x3F
+    unknown,      unknown,       unknown,       unknown,       // 0x00-0x03
+    unknown,      unknown,       unknown,       unknown,       // 0x04-0x07
+    triangle,     triDepth,      triangle,      triDepth,      // 0x08-0x0B
+    triShade,     triDepthShade, triShade,      triDepthShade, // 0x0C-0x0F
+    unknown,      unknown,       unknown,       unknown,       // 0x10-0x13
+    unknown,      unknown,       unknown,       unknown,       // 0x14-0x17
+    unknown,      unknown,       unknown,       unknown,       // 0x18-0x1B
+    unknown,      unknown,       unknown,       unknown,       // 0x1C-0x1F
+    unknown,      unknown,       unknown,       unknown,       // 0x20-0x23
+    texRectangle, unknown,       unknown,       unknown,       // 0x24-0x27
+    unknown,      syncFull,      unknown,       unknown,       // 0x28-0x2B
+    unknown,      setScissor,    unknown,       setOtherModes, // 0x2C-0x2F
+    unknown,      unknown,       unknown,       loadBlock,     // 0x30-0x33
+    loadTile,     setTile,       fillRectangle, setFillColor,  // 0x34-0x37
+    unknown,      unknown,       unknown,       unknown,       // 0x38-0x3B
+    unknown,      setTexImage,   setZImage,     setColorImage  // 0x3C-0x3F
 };
 
 uint8_t RDP::paramCounts[0x40] =
@@ -195,7 +195,6 @@ void RDP::reset()
     scissorX2 = 0;
     scissorY1 = 0;
     scissorY2 = 0;
-    triShade = 0;
 }
 
 uint32_t RDP::read(int index)
@@ -297,11 +296,6 @@ void RDP::triangle()
     int32_t x2 = opcode[2] >> 32; // High edge X-coord
     int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
 
-    // Use incrementing greyscale colors to differentiate triangles
-    // TODO: implement proper triangle shading/texturing
-    uint16_t color = (triShade << 11) | (triShade << 6) | (triShade << 1) | 1;
-    triShade = (triShade + 1) & 0x1F;
-
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
     {
@@ -313,9 +307,9 @@ void RDP::triangle()
         int inc = (xa < xb) ? 1 : -1;
 
         // Draw pixels if they're within scissor bounds
-        for (int x = xa; x != xb; x += inc)
+        for (int x = xa; x != xb + inc; x += inc)
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor);
     }
 }
 
@@ -333,18 +327,9 @@ void RDP::triDepth()
     int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
 
     // Get the base triangle depth
-    // TODO: properly interpolate depth values
-    int ofs = 4;
-    if ((opcode[0] >> 56) & 0x4) // Shading
-        ofs += 8;
-    if ((opcode[0] >> 56) & 0x2) // Texture
-        ofs += 8;
+    // TODO: implement textures, interpolate depth values
+    int ofs = ((opcode[0] >> 56) & 0x2) ? 12 : 4; // Texture
     uint16_t depth = opcode[ofs] >> 48;
-
-    // Use incrementing greyscale colors to differentiate triangles
-    // TODO: implement proper triangle shading/texturing
-    uint16_t color = (triShade << 11) | (triShade << 6) | (triShade << 1) | 1;
-    triShade = (triShade + 1) & 0x1F;
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -357,7 +342,92 @@ void RDP::triDepth()
         int inc = (xa < xb) ? 1 : -1;
 
         // Draw pixels and update depth if within scissor bounds and the depth test passes
-        for (int x = xa; x != xb; x += inc)
+        for (int x = xa; x != xb + inc; x += inc)
+        {
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
+                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > depth)
+            {
+                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, depth);
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor);
+            }
+        }
+    }
+}
+
+void RDP::triShade()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
+    int32_t x2 = opcode[2] >> 32; // High edge X-coord
+    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+
+    // Get the base triangle color
+    // TODO: interpolate color values
+    uint8_t r = ((opcode[4] >> 48) & 0xFF) * 31 / 255;
+    uint8_t g = ((opcode[4] >> 32) & 0xFF) * 31 / 255;
+    uint8_t b = ((opcode[4] >> 16) & 0xFF) * 31 / 255;
+    uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Draw pixels if they're within scissor bounds
+        for (int x = xa; x != xb + inc; x += inc)
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
+    }
+}
+
+void RDP::triDepthShade()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
+    int32_t x2 = opcode[2] >> 32; // High edge X-coord
+    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+
+    // Get the base triangle color
+    // TODO: interpolate color values
+    uint8_t r = ((opcode[4] >> 48) & 0xFF) * 31 / 255;
+    uint8_t g = ((opcode[4] >> 32) & 0xFF) * 31 / 255;
+    uint8_t b = ((opcode[4] >> 16) & 0xFF) * 31 / 255;
+    uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+
+    // Get the base triangle depth
+    // TODO: implement textures, interpolate depth values
+    int ofs = ((opcode[0] >> 56) & 0x2) ? 20 : 12; // Texture
+    uint16_t depth = opcode[ofs] >> 48;
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Draw pixels and update depth if within scissor bounds and the depth test passes
+        for (int x = xa; x != xb + inc; x += inc)
         {
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
                 Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > depth)
@@ -472,7 +542,6 @@ void RDP::syncFull()
 {
     // Trigger a DP interrupt right away because everything finishes instantly
     MI::setInterrupt(5);
-    triShade = 0;
 }
 
 void RDP::setScissor()
