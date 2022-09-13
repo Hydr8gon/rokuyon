@@ -81,6 +81,9 @@ int Core::bootRom(const std::string &path)
     FILE *romFile = fopen(path.c_str(), "rb");
     if (!romFile) return 2;
 
+    // Derive the save path from the ROM path
+    std::string savePath = path.substr(0, path.rfind(".")) + ".sav";
+
     // Ensure the emulator is stopped
     stop();
 
@@ -98,7 +101,7 @@ int Core::bootRom(const std::string &path)
     PI::reset(romFile);
     SI::reset();
     VI::reset();
-    PIF::reset(pifFile);
+    PIF::reset(pifFile, savePath);
     CPU::reset();
     CPU_CP0::reset();
     CPU_CP1::reset();

@@ -27,6 +27,9 @@
 namespace PIF
 {
     uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
+    uint8_t save[0x200]; // 0.5KB EEPROM
+    std::string savePath;
+
     uint8_t command;
     uint16_t buttons;
     int8_t stickX;
@@ -66,11 +69,23 @@ uint32_t PIF::crc32(uint8_t *data, size_t size)
     return ~r;
 }
 
-void PIF::reset(FILE *pifFile)
+void PIF::reset(FILE *pifFile, std::string savePath2)
 {
     // Load the PIF ROM into memory
     fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
     fclose(pifFile);
+
+    if (FILE *file = fopen((savePath = savePath2).c_str(), "rb"))
+    {
+        // Load the ROM's save file into memory
+        fread(&save, sizeof(uint8_t), sizeof(save), file);
+        fclose(file);
+    }
+    else
+    {
+        // If no save file exists, clear the save memory
+        memset(save, 0, sizeof(save));
+    }
 
     // Reset the PIF to its initial state
     clearMemory(0);
@@ -158,34 +173,105 @@ void PIF::setStick(int x, int y)
 
 void PIF::joybusProtocol(int bit)
 {
-    // Attempt to handle joybus commands in PIF RAM
-    // TODO: actually figure out how this works
-    for (int i = 0; i < 4 * 8; i += 8)
+    uint8_t channel = 0;
+
+    // Loop through PIF RAM and process joybus commands
+    for (uint16_t i = 0x7C0; i < 0x7FF; i++)
     {
-        switch (uint8_t cmd = memory[0x7C3 + i])
+        int8_t txSize = memory[i];
+
+        if (txSize > 0)
         {
-            case 0xFF: // Reset
-            case 0x00: // Info
-                // Report a standard controller with no pak
-                memory[0x7C4 + i] = 0x05; // ID high
-                memory[0x7C5 + i] = 0x00; // ID low
-                memory[0x7C6 + i] = 0x02; // Status
+            uint8_t rxSize = memory[i + 1];
 
-                // Dumb hack to make EEPROM not fail
-                memory[0x7C1 + i] = 0x00;
-                break;
+            switch (uint8_t cmd = memory[i + 2])
+            {
+                case 0xFF: // Reset
+                case 0x00: // Info
+                    if (channel < 4)
+                    {
+                        // Report a standard controller with no pak
+                        memory[i + 3] = 0x05; // ID high
+                        memory[i + 4] = 0x00; // ID low
+                        memory[i + 5] = 0x02; // Status
+                    }
+                    else if (channel < 6)
+                    {
+                        // Report 0.5KB EEPROM
+                        // TODO: support 2KB EEPROM (detect it somehow?)
+                        memory[i + 3] = 0x00; // ID high
+                        memory[i + 4] = 0x80; // ID low
+                        memory[i + 5] = 0x00; // Status
+                    }
+                    else
+                    {
+                        // Report nothing
+                        memory[i + 3] = 0x00; // ID high
+                        memory[i + 4] = 0x00; // ID low
+                        memory[i + 5] = 0x00; // Status
+                    }
+                    break;
 
-            case 0x01: // Controller state
-                // Report which buttons are pressed for controller 1
-                memory[0x7C4 + i] = (i == 0) ? (buttons >> 8) : 0;
-                memory[0x7C5 + i] = (i == 0) ? (buttons >> 0) : 0;
-                memory[0x7C6 + i] = stickX;
-                memory[0x7C7 + i] = stickY;
-                break;
+                case 0x01: // Controller state
+                    // Report the state of controller 1 if the channel is 0
+                    memory[i + 3] = channel ? 0 : (buttons >> 8);
+                    memory[i + 4] = channel ? 0 : (buttons >> 0);
+                    memory[i + 5] = channel ? 0 : stickX;
+                    memory[i + 6] = channel ? 0 : stickY;
+                    break;
 
-            default:
-                LOG_WARN("Unknown controller %d command: 0x%02X\n", i / 8, cmd);
-                return;
+                case 0x04: // Read EEPROM block
+                    if ((channel & ~1) == 4) // Channels 4 and 5
+                    {
+                        // Get an EEPROM address from the page number
+                        uint16_t address = (memory[i + 3] * 8) & 0x1FF;
+                        LOG_INFO("Reading 8 bytes from EEPROM address 0x%X\n", address);
+
+                        // Read 8 bytes from the save to PIF memory
+                        for (int j = 0; j < 8; j++)
+                            memory[i + 4 + j] = save[address + j];
+                    }
+                    break;
+
+                case 0x05: // Write EEPROM block
+                    if ((channel & ~1) == 4) // Channels 4 and 5
+                    {
+                        // Get an EEPROM address from the page number
+                        uint16_t address = (memory[i + 3] * 8) & 0x1FF;
+                        LOG_INFO("Writing 8 bytes to EEPROM address 0x%X\n", address);
+
+                        // Write 8 bytes from PIF memory to the save
+                        for (int j = 0; j < 8; j++)
+                            save[address + j] = memory[i + 4 + j];
+
+                        // Flush data to the save file
+                        // TODO: handle this asynchronously
+                        if (FILE *file = fopen(savePath.c_str(), "wb"))
+                        {
+                            fwrite(save, sizeof(uint8_t), sizeof(save), file);
+                            fclose(file);
+                        }
+                    }
+                    break;
+
+                default:
+                    LOG_WARN("Unknown joybus command: 0x%02X\n", cmd);
+                    break;
+            }
+
+            // Skip the transferred bytes and move to the next channel
+            i += txSize + rxSize + 1;
+            channel++;
+        }
+        else if (txSize == 0)
+        {
+            // Move to the next channel without transferring anything
+            channel++;
+        }
+        else if (txSize == (int8_t)0xFE)
+        {
+            // Finish executing commands early
+            return;
         }
     }
 }

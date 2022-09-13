@@ -22,12 +22,13 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <string>
 
 namespace PIF
 {
     extern uint8_t memory[0x800];
 
-    void reset(FILE *pifFile);
+    void reset(FILE *pifFile, std::string savePath);
     void runCommand();
 
     void pressKey(int key);
