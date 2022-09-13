@@ -292,9 +292,9 @@ void RDP::triangle()
     int32_t slope1 = opcode[1]; // Low edge slope
     int32_t slope2 = opcode[2]; // High edge slope
     int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
-    int32_t x2 = opcode[2] >> 32; // High edge X-coord
-    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -322,9 +322,9 @@ void RDP::triDepth()
     int32_t slope1 = opcode[1]; // Low edge slope
     int32_t slope2 = opcode[2]; // High edge slope
     int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
-    int32_t x2 = opcode[2] >> 32; // High edge X-coord
-    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle depth
     // TODO: implement textures, interpolate depth values
@@ -363,9 +363,9 @@ void RDP::triShade()
     int32_t slope1 = opcode[1]; // Low edge slope
     int32_t slope2 = opcode[2]; // High edge slope
     int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
-    int32_t x2 = opcode[2] >> 32; // High edge X-coord
-    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color
     // TODO: interpolate color values
@@ -400,9 +400,9 @@ void RDP::triDepthShade()
     int32_t slope1 = opcode[1]; // Low edge slope
     int32_t slope2 = opcode[2]; // High edge slope
     int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = opcode[1] >> 32; // Low edge X-coord
-    int32_t x2 = opcode[2] >> 32; // High edge X-coord
-    int32_t x3 = opcode[3] >> 32; // Middle edge X-coord
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color
     // TODO: interpolate color values
