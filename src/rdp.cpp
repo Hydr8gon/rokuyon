@@ -326,10 +326,12 @@ void RDP::triDepth()
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
-    // Get the base triangle depth
-    // TODO: implement textures, interpolate depth values
-    int ofs = ((opcode[0] >> 56) & 0x2) ? 12 : 4; // Texture
-    uint16_t depth = opcode[ofs] >> 48;
+    // Get the base triangle depth and gradients
+    // TODO: implement textures
+    int ofs = ((opcode[0] >> 56) & 0x2) ? 20 : 12; // Texture
+    uint32_t z1 = (opcode[ofs] >> 32);
+    uint32_t dzdx = (opcode[ofs] >> 0);
+    uint32_t dzde = (opcode[ofs + 1] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -341,15 +343,26 @@ void RDP::triDepth()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Draw pixels and update depth if within scissor bounds and the depth test passes
+        // Get the interpolated depth value at the start of the line
+        uint32_t za = (z1 += dzde);
+
+        // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
         {
+            // Get the current pixel's depth value
+            uint16_t z = za >> 16;
+
+            // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > depth)
+                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, depth);
+                // Update the Z buffer and color buffer
+                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
                 Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor);
             }
+
+            // Interpolate the depth value across the line
+            za += dzdx * inc;
         }
     }
 }
@@ -367,12 +380,16 @@ void RDP::triShade()
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
-    // Get the base triangle color
-    // TODO: interpolate color values
-    uint8_t r = ((opcode[4] >> 48) & 0xFF) * 31 / 255;
-    uint8_t g = ((opcode[4] >> 32) & 0xFF) * 31 / 255;
-    uint8_t b = ((opcode[4] >> 16) & 0xFF) * 31 / 255;
-    uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+    // Get the base triangle color components and gradients
+    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -384,10 +401,32 @@ void RDP::triShade()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Draw pixels if they're within scissor bounds
+        // Get the interpolated color values at the start of the line
+        uint32_t ra = (r1 += drde);
+        uint32_t ga = (g1 += dgde);
+        uint32_t ba = (b1 += dbde);
+
+        // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
+        {
+            // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+            {
+                // Get the current pixel's color value
+                uint8_t r = ((ra >> 16) & 0xFF) * 31 / 255;
+                uint8_t g = ((ga >> 16) & 0xFF) * 31 / 255;
+                uint8_t b = ((ba >> 16) & 0xFF) * 31 / 255;
+                uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+
+                // Update the color buffer
                 Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
+            }
+
+            // Interpolate the color values across the line
+            ra += drdx * inc;
+            ga += dgdx * inc;
+            ba += dbdx * inc;
+        }
     }
 }
 
@@ -404,17 +443,23 @@ void RDP::triDepthShade()
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
-    // Get the base triangle color
-    // TODO: interpolate color values
-    uint8_t r = ((opcode[4] >> 48) & 0xFF) * 31 / 255;
-    uint8_t g = ((opcode[4] >> 32) & 0xFF) * 31 / 255;
-    uint8_t b = ((opcode[4] >> 16) & 0xFF) * 31 / 255;
-    uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+    // Get the base triangle color components and gradients
+    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
-    // Get the base triangle depth
-    // TODO: implement textures, interpolate depth values
+    // Get the base triangle depth and gradients
+    // TODO: implement textures
     int ofs = ((opcode[0] >> 56) & 0x2) ? 20 : 12; // Texture
-    uint16_t depth = opcode[ofs] >> 48;
+    uint32_t z1 = (opcode[ofs] >> 32);
+    uint32_t dzdx = (opcode[ofs] >> 0);
+    uint32_t dzde = (opcode[ofs + 1] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -426,15 +471,38 @@ void RDP::triDepthShade()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Draw pixels and update depth if within scissor bounds and the depth test passes
+        // Get the interpolated values at the start of the line
+        uint32_t ra = (r1 += drde);
+        uint32_t ga = (g1 += dgde);
+        uint32_t ba = (b1 += dbde);
+        uint32_t za = (z1 += dzde);
+
+        // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
         {
+            // Get the current pixel's Z value
+            uint16_t z = za >> 16;
+
+            // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > depth)
+                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, depth);
+                // Get the current pixel's color value
+                uint8_t r = ((ra >> 16) & 0xFF) * 31 / 255;
+                uint8_t g = ((ga >> 16) & 0xFF) * 31 / 255;
+                uint8_t b = ((ba >> 16) & 0xFF) * 31 / 255;
+                uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+
+                // Update the Z buffer and color buffer
+                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
                 Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
             }
+
+            // Interpolate the values across the line
+            ra += drdx * inc;
+            ga += dgdx * inc;
+            ba += dbdx * inc;
+            za += dzdx * inc;
         }
     }
 }
