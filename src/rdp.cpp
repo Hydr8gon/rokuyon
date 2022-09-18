@@ -77,10 +77,8 @@ namespace RDP
     uint16_t scissorY1;
     uint16_t scissorY2;
 
-    uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
-    uint16_t IA8toRGBA16(uint8_t color);
-    uint32_t IA8toRGBA32(uint8_t color);
+    uint32_t getTexel(Tile &tile, int s, int t);
 
     void runCommands();
     void triangle();
@@ -135,16 +133,6 @@ uint8_t RDP::paramCounts[0x40] =
     1, 1,  1,  1,  1,  1,  1,  1  // 0x38-0x3F
 };
 
-inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
-{
-    // Convert an RGBA16 color to RGBA32
-    uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
-    uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
-    uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
-    uint8_t a = (color & 0x1) ? 0xFF : 0x00;
-    return (r << 24) | (g << 16) | (b << 8) | a;
-}
-
 inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
 {
     // Convert an RGBA32 color to RGBA16
@@ -155,20 +143,68 @@ inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
     return (r << 11) | (g << 6) | (b << 1) | a;
 }
 
-inline uint16_t RDP::IA8toRGBA16(uint8_t color)
+uint32_t RDP::getTexel(Tile &tile, int s, int t)
 {
-    // Convert an IA8 color to RGBA16
-    uint8_t i = ((color >> 4) & 0xF) * 255 / 15;
-    uint8_t a = ((color >> 0) & 0xF) * 255 / 15;
-    return (i << 11) | (i << 6) | (i << 1) | a;
-}
+    // Get an RGBA32 texel from a tile at the given coordinates
+    switch (tile.format)
+    {
+        case RGBA16:
+        {
+            // Convert an RGBA16 texel to RGBA32
+            uint16_t value = *(uint16_t*)&tmem[(tile.address + t * tile.width + s * 2) & 0xFFF];
+            uint8_t r = ((value >> 11) & 0x1F) * 255 / 31;
+            uint8_t g = ((value >>  6) & 0x1F) * 255 / 31;
+            uint8_t b = ((value >>  1) & 0x1F) * 255 / 31;
+            uint8_t a = (value & 0x1) ? 0xFF : 0x00;
+            return (r << 24) | (g << 16) | (b << 8) | a;
+        }
 
-inline uint32_t RDP::IA8toRGBA32(uint8_t color)
-{
-    // Convert an IA8 color to RGBA32
-    uint8_t i = ((color >> 4) & 0xF) * 31 / 15;
-    uint8_t a = (color & 0xF) ? 0x1 : 0x0;
-    return (i << 24) | (i << 16) | (i << 8) | a;
+        case RGBA32:
+        {
+            // Read an RGBA32 texel
+            uint32_t value = *(uint32_t*)&tmem[(tile.address + t * tile.width * 2 + s * 4) & 0xFFF];
+            return value;
+        }
+
+        case IA4:
+        {
+            // Convert an IA4 texel to RGBA32
+            uint8_t value = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
+            uint8_t i = ((value >> 1) & 0x7) * 255 / 7;
+            uint8_t a = (value & 0x1) ? 0xFF : 0x0;
+            return (i << 24) | (i << 16) | (i << 8) | a;
+        }
+
+        case IA8:
+        {
+            // Convert an IA8 texel to RGBA32
+            uint8_t value = tmem[(tile.address + t * tile.width + s) & 0xFFF];
+            uint8_t i = ((value >> 4) & 0xF) * 255 / 15;
+            uint8_t a = ((value >> 0) & 0xF) * 255 / 15;
+            return (i << 24) | (i << 16) | (i << 8) | a;
+        }
+
+        case CI4: // TODO: TLUT
+        case I4:
+        {
+            // Convert an I4 texel to RGBA32
+            uint8_t value = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
+            uint8_t i = value * 255 / 15;
+            return (i << 24) | (i << 16) | (i << 8) | 0xFF;
+        }
+
+        case CI8: // TODO: TLUT
+        case I8:
+        {
+            // Convert an I8 texel to RGBA32
+            uint8_t i = tmem[(tile.address + t * tile.width + s) & 0xFFF];
+            return (i << 24) | (i << 16) | (i << 8) | 0xFF;
+        }
+
+        default:
+            LOG_WARN("Unknown RDP texture format: %d\n", tile.format);
+            return fillColor;
+    }
 }
 
 void RDP::reset()
@@ -537,68 +573,20 @@ void RDP::texRectangle()
     switch (colorFormat)
     {
         case RGBA16:
-            switch (tile.format)
-            {
-                case RGBA16:
-                    // Draw a rectangle to an RGBA16 buffer using an RGBA16 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2,
-                                *(uint16_t*)&tmem[(tile.address + (t >> 10) * tile.width + (s >> 10) * 2) & 0xFFE]);
-                    return;
-
-                case RGBA32:
-                    // Draw a rectangle to an RGBA16 buffer using an RGBA32 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(
-                                *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]));
-                    return;
-
-                case IA8:
-                    // Draw a rectangle to an RGBA16 buffer using an IA8 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, IA8toRGBA16(
-                                tmem[(tile.address + (t >> 10) * tile.width + (s >> 10)) & 0xFFF]));
-                    return;
-
-                default:
-                    LOG_CRIT("Unknown RDP texture format: %d\n", tile.format);
-                    return;
-            }
+            // Draw a rectangle to an RGBA16 buffer using a texture
+            for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2,
+                        RGBA32toRGBA16(getTexel(tile, s >> 10, t >> 10)));
+            return;
 
         case RGBA32:
-            switch (tile.format)
-            {
-                case RGBA16:
-                    // Draw a rectangle to an RGBA32 buffer using an RGBA16 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, RGBA16toRGBA32(
-                                *(uint16_t*)&tmem[(tile.address + (t >> 10) * tile.width + (s >> 10) * 2) & 0xFFE]));
-                    return;
-
-                case RGBA32:
-                    // Draw a rectangle to an RGBA32 buffer using an RGBA32 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4,
-                                *(uint32_t*)&tmem[(tile.address + (t >> 10) * tile.width * 2 + (s >> 10) * 4) & 0xFFC]);
-                    return;
-
-                case IA8:
-                    // Draw a rectangle to an RGBA32 buffer using an IA8 texture
-                    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                            Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, IA8toRGBA32(
-                                    tmem[(tile.address + (t >> 10) * tile.width + (s >> 10)) & 0xFFF]));
-                    return;
-
-                default:
-                    LOG_CRIT("Unknown RDP texture format: %d\n", tile.format);
-                    return;
-            }
+            // Draw a rectangle to an RGBA32 buffer using a texture
+            for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+                for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4,
+                        getTexel(tile, s >> 10, t >> 10));
+            return;
 
         default:
             LOG_CRIT("Unknown RDP color buffer format: %d\n", colorFormat);
