@@ -62,7 +62,6 @@ namespace RDP
     uint64_t opcode[22];
 
     CycleType cycleType;
-    uint32_t fillColor;
     uint32_t texAddress;
     uint16_t texWidth;
     Format texFormat;
@@ -77,14 +76,33 @@ namespace RDP
     uint16_t scissorY1;
     uint16_t scissorY2;
 
+    uint32_t fillColor;
+    uint32_t combColor;
+    uint32_t texelColor;
+    uint32_t primColor;
+    uint32_t shadeColor;
+    uint32_t envColor;
+    uint32_t maxColor;
+    uint32_t minColor;
+
+    uint32_t *combineA[2];
+    uint32_t *combineB[2];
+    uint32_t *combineC[2];
+    uint32_t *combineD[2];
+
     uint16_t RGBA32toRGBA16(uint32_t color);
     uint32_t getTexel(Tile &tile, int s, int t);
+    void drawPixel(int x, int y);
 
     void runCommands();
     void triangle();
     void triDepth();
+    void triTexture();
+    void triDepthTex();
     void triShade();
-    void triDepthShade();
+    void triDepthSha();
+    void triShadeTex();
+    void triDepShaTex();
     void texRectangle();
     void syncFull();
     void setScissor();
@@ -94,6 +112,9 @@ namespace RDP
     void setTile();
     void fillRectangle();
     void setFillColor();
+    void setPrimColor();
+    void setEnvColor();
+    void setCombine();
     void setTexImage();
     void setZImage();
     void setColorImage();
@@ -103,22 +124,22 @@ namespace RDP
 // RDP command lookup table, based on opcode bits 56-61
 void (*RDP::commands[0x40])() =
 {
-    unknown,      unknown,       unknown,       unknown,       // 0x00-0x03
-    unknown,      unknown,       unknown,       unknown,       // 0x04-0x07
-    triangle,     triDepth,      triangle,      triDepth,      // 0x08-0x0B
-    triShade,     triDepthShade, triShade,      triDepthShade, // 0x0C-0x0F
-    unknown,      unknown,       unknown,       unknown,       // 0x10-0x13
-    unknown,      unknown,       unknown,       unknown,       // 0x14-0x17
-    unknown,      unknown,       unknown,       unknown,       // 0x18-0x1B
-    unknown,      unknown,       unknown,       unknown,       // 0x1C-0x1F
-    unknown,      unknown,       unknown,       unknown,       // 0x20-0x23
-    texRectangle, unknown,       unknown,       unknown,       // 0x24-0x27
-    unknown,      syncFull,      unknown,       unknown,       // 0x28-0x2B
-    unknown,      setScissor,    unknown,       setOtherModes, // 0x2C-0x2F
-    unknown,      unknown,       unknown,       loadBlock,     // 0x30-0x33
-    loadTile,     setTile,       fillRectangle, setFillColor,  // 0x34-0x37
-    unknown,      unknown,       unknown,       unknown,       // 0x38-0x3B
-    unknown,      setTexImage,   setZImage,     setColorImage  // 0x3C-0x3F
+    unknown,      unknown,     unknown,       unknown,       // 0x00-0x03
+    unknown,      unknown,     unknown,       unknown,       // 0x04-0x07
+    triangle,     triDepth,    triTexture,    triDepthTex,   // 0x08-0x0B
+    triShade,     triDepthSha, triShadeTex,   triDepShaTex,  // 0x0C-0x0F
+    unknown,      unknown,     unknown,       unknown,       // 0x10-0x13
+    unknown,      unknown,     unknown,       unknown,       // 0x14-0x17
+    unknown,      unknown,     unknown,       unknown,       // 0x18-0x1B
+    unknown,      unknown,     unknown,       unknown,       // 0x1C-0x1F
+    unknown,      unknown,     unknown,       unknown,       // 0x20-0x23
+    texRectangle, unknown,     unknown,       unknown,       // 0x24-0x27
+    unknown,      syncFull,    unknown,       unknown,       // 0x28-0x2B
+    unknown,      setScissor,  unknown,       setOtherModes, // 0x2C-0x2F
+    unknown,      unknown,     unknown,       loadBlock,     // 0x30-0x33
+    loadTile,     setTile,     fillRectangle, setFillColor,  // 0x34-0x37
+    unknown,      unknown,     setPrimColor,  setEnvColor,   // 0x38-0x3B
+    setCombine,   setTexImage, setZImage,     setColorImage  // 0x3C-0x3F
 };
 
 uint8_t RDP::paramCounts[0x40] =
@@ -132,6 +153,109 @@ uint8_t RDP::paramCounts[0x40] =
     1, 1,  1,  1,  1,  1,  1,  1, // 0x30-0x37
     1, 1,  1,  1,  1,  1,  1,  1  // 0x38-0x3F
 };
+
+void RDP::reset()
+{
+    // Reset the RDP to its initial state
+    memset(tmem, 0, sizeof(tmem));
+    startAddr = 0;
+    endAddr = 0;
+    status = 0;
+    addrBase = 0xA0000000;
+    addrMask = 0x3FFFFF;
+    paramCount = 0;
+    cycleType = ONE_CYCLE;
+    texAddress = 0xA0000000;
+    texWidth = 0;
+    texFormat = RGBA4;
+    zAddress = 0xA0000000;
+    colorAddress = 0xA0000000;
+    colorWidth = 0;
+    colorFormat = RGBA4;
+    memset(tiles, 0, sizeof(tiles));
+    scissorX1 = 0;
+    scissorX2 = 0;
+    scissorY1 = 0;
+    scissorY2 = 0;
+    fillColor = 0x00000000;
+    combColor = 0x00000000;
+    texelColor = 0x00000000;
+    primColor = 0x00000000;
+    shadeColor = 0x00000000;
+    envColor = 0x00000000;
+    maxColor = 0xFFFFFFFF;
+    minColor = 0x00000000;
+    combineA[0] = combineA[1] = &maxColor;
+    combineB[0] = combineB[1] = &minColor;
+    combineC[0] = combineC[1] = &maxColor;
+    combineD[0] = combineD[1] = &minColor;
+}
+
+uint32_t RDP::read(int index)
+{
+    // Read from an RDP register if one exists at the given index
+    switch (index)
+    {
+        case 0: // DP_START
+            // Get the command start address
+            return startAddr;
+
+        case 1: // DP_END
+        case 2: // DP_CURRENT
+            // Get the command end address
+            return endAddr;
+
+        case 3: // DP_STATUS
+            // Get the status register
+            return status;
+
+        default:
+            LOG_WARN("Read from unknown RDP register: %d\n", index);
+            return 0;
+    }
+}
+
+void RDP::write(int index, uint32_t value)
+{
+    // Write to an RDP register if one exists at the given index
+    switch (index)
+    {
+        case 0: // DP_START
+            // Set the command start address
+            startAddr = value;
+            return;
+
+        case 1: // DP_END
+            // Set the command end address and run the commands
+            // TODO: make commands not instant
+            endAddr = value;
+            runCommands();
+            return;
+
+        case 3: // DP_STATUS
+            // Set or clear some status bits
+            for (int i = 0; i < 6; i += 2)
+            {
+                if (value & (1 << i))
+                    status &= ~(1 << (i / 2));
+                else if (value & (1 << (i + 1)))
+                    status |= (1 << (i / 2));
+            }
+
+            // Update the command address base and mask based on the RDRAM/DMEM bit
+            addrBase = (status & 0x1) ? 0xA4000000 : 0xA0000000;
+            addrMask = (status & 0x1) ? 0x00000FFF : 0x003FFFFF;
+
+            // Keep track of unimplemented bits that should do something
+            if (uint32_t bits = (value & 0x3C0))
+                LOG_WARN("Unimplemented RDP status bits set: 0x%X\n", bits);
+            return;
+
+        default:
+            LOG_WARN("Write to unknown RDP register: %d\n", index);
+            return;
+    }
+}
 
 inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
 {
@@ -203,98 +327,71 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         default:
             LOG_WARN("Unknown RDP texture format: %d\n", tile.format);
-            return fillColor;
+            return maxColor;
     }
 }
 
-void RDP::reset()
+void RDP::drawPixel(int x, int y)
 {
-    // Reset the RDP to its initial state
-    memset(tmem, 0, sizeof(tmem));
-    startAddr = 0;
-    endAddr = 0;
-    status = 0;
-    addrBase = 0xA0000000;
-    addrMask = 0x3FFFFF;
-    paramCount = 0;
-    cycleType = ONE_CYCLE;
-    fillColor = 0;
-    texAddress = 0xA0000000;
-    texWidth = 0;
-    texFormat = RGBA4;
-    zAddress = 0xA0000000;
-    colorAddress = 0xA0000000;
-    colorWidth = 0;
-    colorFormat = RGBA4;
-    memset(tiles, 0, sizeof(tiles));
-    scissorX1 = 0;
-    scissorX2 = 0;
-    scissorY1 = 0;
-    scissorY2 = 0;
-}
-
-uint32_t RDP::read(int index)
-{
-    // Read from an RDP register if one exists at the given index
-    switch (index)
+    switch (cycleType)
     {
-        case 0: // DP_START
-            // Get the command start address
-            return startAddr;
+        case ONE_CYCLE:
+        {
+            // Combine cycle 0 RGB channels using the formula (A - B) * C + D
+            // TODO: alpha channel
+            uint8_t r = (((((*combineA[0] >> 24) - (*combineB[0] >> 24)) & 0xFF) * ((*combineC[0] >> 24) & 0xFF)) >> 8) + (*combineD[0] >> 24);
+            uint8_t g = (((((*combineA[0] >> 16) - (*combineB[0] >> 16)) & 0xFF) * ((*combineC[0] >> 16) & 0xFF)) >> 8) + (*combineD[0] >> 16);
+            uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) >> 8) + (*combineD[0] >>  8);
+            uint32_t color = (r << 24) | (g << 16) | (b << 8) | 0xFF;
 
-        case 1: // DP_END
-        case 2: // DP_CURRENT
-            // Get the command end address
-            return endAddr;
+            // Draw the resulting pixel to the color buffer
+            // TODO: alpha blending
+            if (colorFormat == RGBA16)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
+            else
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
+            return;
+        }
 
-        case 3: // DP_STATUS
-            // Get the status register
-            return status;
+        case TWO_CYCLE:
+        {
+            // Combine cycle 0 RGB channels using the formula (A - B) * C + D
+            // TODO: alpha channel
+            uint8_t r = (((((*combineA[0] >> 24) - (*combineB[0] >> 24)) & 0xFF) * ((*combineC[0] >> 24) & 0xFF)) >> 8) + (*combineD[0] >> 24);
+            uint8_t g = (((((*combineA[0] >> 16) - (*combineB[0] >> 16)) & 0xFF) * ((*combineC[0] >> 16) & 0xFF)) >> 8) + (*combineD[0] >> 16);
+            uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) >> 8) + (*combineD[0] >>  8);
+            combColor = (r << 24) | (g << 16) | (b << 8) | 0xFF;
 
-        default:
-            LOG_WARN("Read from unknown RDP register: %d\n", index);
-            return 0;
-    }
-}
+            // Combine cycle 1 RGB channels using the formula (A - B) * C + D
+            // TODO: alpha channel
+            r = (((((*combineA[1] >> 24) - (*combineB[1] >> 24)) & 0xFF) * ((*combineC[1] >> 24) & 0xFF)) >> 8) + (*combineD[1] >> 24);
+            g = (((((*combineA[1] >> 16) - (*combineB[1] >> 16)) & 0xFF) * ((*combineC[1] >> 16) & 0xFF)) >> 8) + (*combineD[1] >> 16);
+            b = (((((*combineA[1] >>  8) - (*combineB[1] >>  8)) & 0xFF) * ((*combineC[1] >>  8) & 0xFF)) >> 8) + (*combineD[1] >>  8);
+            uint32_t color = (r << 24) | (g << 16) | (b << 8) | 0xFF;
 
-void RDP::write(int index, uint32_t value)
-{
-    // Write to an RDP register if one exists at the given index
-    switch (index)
-    {
-        case 0: // DP_START
-            // Set the command start address
-            startAddr = value;
+            // Draw the resulting pixel to the color buffer
+            // TODO: alpha blending
+            if (colorFormat == RGBA16)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
+            else
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
+            return;
+        }
+
+        case COPY_MODE:
+            // Copy a texel directly to the color buffer
+            if (colorFormat == RGBA16)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(texelColor));
+            else
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, texelColor);
             return;
 
-        case 1: // DP_END
-            // Set the command end address and run the commands
-            // TODO: make commands not instant
-            endAddr = value;
-            runCommands();
-            return;
-
-        case 3: // DP_STATUS
-            // Set or clear some status bits
-            for (int i = 0; i < 6; i += 2)
-            {
-                if (value & (1 << i))
-                    status &= ~(1 << (i / 2));
-                else if (value & (1 << (i + 1)))
-                    status |= (1 << (i / 2));
-            }
-
-            // Update the command address base and mask based on the RDRAM/DMEM bit
-            addrBase = (status & 0x1) ? 0xA4000000 : 0xA0000000;
-            addrMask = (status & 0x1) ? 0x00000FFF : 0x003FFFFF;
-
-            // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (value & 0x3C0))
-                LOG_WARN("Unimplemented RDP status bits set: 0x%X\n", bits);
-            return;
-
-        default:
-            LOG_WARN("Write to unknown RDP register: %d\n", index);
+        case FILL_MODE:
+            // Copy the fill color directly to the color buffer
+            if (colorFormat == RGBA16)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor >> ((~x & 1) * 16));
+            else
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, fillColor);
             return;
     }
 }
@@ -345,7 +442,7 @@ void RDP::triangle()
         // Draw pixels if they're within scissor bounds
         for (int x = xa; x != xb + inc; x += inc)
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor);
+                drawPixel(x, y);
     }
 }
 
@@ -363,11 +460,9 @@ void RDP::triDepth()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle depth and gradients
-    // TODO: implement textures
-    int ofs = ((opcode[0] >> 56) & 0x2) ? 20 : 12; // Texture
-    uint32_t z1 = (opcode[ofs] >> 32);
-    uint32_t dzdx = (opcode[ofs] >> 0);
-    uint32_t dzde = (opcode[ofs + 1] >> 32);
+    uint32_t z1 = (opcode[4] >> 32);
+    uint32_t dzdx = (opcode[4] >> 0);
+    uint32_t dzde = (opcode[5] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -394,7 +489,99 @@ void RDP::triDepth()
             {
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor);
+                drawPixel(x, y);
+            }
+
+            // Interpolate the depth value across the line
+            za += dzdx * inc;
+        }
+    }
+}
+
+void RDP::triTexture()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+
+    // Set the texel color to the first texel of the tile
+    // TODO: interpolate texture coordinates
+    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
+    texelColor = getTexel(tile, 0, 0);
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Draw pixels if they're within scissor bounds
+        for (int x = xa; x != xb + inc; x += inc)
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+                drawPixel(x, y);
+    }
+}
+
+void RDP::triDepthTex()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+
+    // Set the texel color to the first texel of the tile
+    // TODO: interpolate texture coordinates
+    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
+    texelColor = getTexel(tile, 0, 0);
+
+    // Get the base triangle depth and gradients
+    uint32_t z1 = (opcode[12] >> 32);
+    uint32_t dzdx = (opcode[12] >> 0);
+    uint32_t dzde = (opcode[13] >> 32);
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Get the interpolated depth value at the start of the line
+        uint32_t za = (z1 += dzde);
+
+        // Draw a line of the triangle
+        for (int x = xa; x != xb + inc; x += inc)
+        {
+            // Get the current pixel's depth value
+            uint16_t z = za >> 16;
+
+            // Draw a pixel if within scissor bounds and the depth test passes
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
+                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+            {
+                // Update the Z buffer and color buffer
+                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
+                drawPixel(x, y);
             }
 
             // Interpolate the depth value across the line
@@ -448,14 +635,15 @@ void RDP::triShade()
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
             {
-                // Get the current pixel's color value
-                uint8_t r = ((ra >> 16) & 0xFF) * 31 / 255;
-                uint8_t g = ((ga >> 16) & 0xFF) * 31 / 255;
-                uint8_t b = ((ba >> 16) & 0xFF) * 31 / 255;
-                uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+                // Update the shade color for the current pixel
+                // TODO: alpha channel
+                uint8_t r = ((ra >> 16) & 0xFF);
+                uint8_t g = ((ga >> 16) & 0xFF);
+                uint8_t b = ((ba >> 16) & 0xFF);
+                shadeColor = (r << 24) | (g << 16) | (b << 8) | 0xFF;
 
                 // Update the color buffer
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
+                drawPixel(x, y);
             }
 
             // Interpolate the color values across the line
@@ -466,7 +654,7 @@ void RDP::triShade()
     }
 }
 
-void RDP::triDepthShade()
+void RDP::triDepthSha()
 {
     // Decode the base triangle parameters
     int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
@@ -491,11 +679,9 @@ void RDP::triDepthShade()
     uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
     // Get the base triangle depth and gradients
-    // TODO: implement textures
-    int ofs = ((opcode[0] >> 56) & 0x2) ? 20 : 12; // Texture
-    uint32_t z1 = (opcode[ofs] >> 32);
-    uint32_t dzdx = (opcode[ofs] >> 0);
-    uint32_t dzde = (opcode[ofs + 1] >> 32);
+    uint32_t z1 = (opcode[12] >> 32);
+    uint32_t dzdx = (opcode[12] >> 0);
+    uint32_t dzde = (opcode[13] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -523,15 +709,166 @@ void RDP::triDepthShade()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
                 Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
-                // Get the current pixel's color value
-                uint8_t r = ((ra >> 16) & 0xFF) * 31 / 255;
-                uint8_t g = ((ga >> 16) & 0xFF) * 31 / 255;
-                uint8_t b = ((ba >> 16) & 0xFF) * 31 / 255;
-                uint16_t color = (r << 11) | (g << 6) | (b << 1) | 1;
+                // Update the shade color for the current pixel
+                // TODO: alpha channel
+                uint8_t r = ((ra >> 16) & 0xFF);
+                uint8_t g = ((ga >> 16) & 0xFF);
+                uint8_t b = ((ba >> 16) & 0xFF);
+                shadeColor = (r << 24) | (g << 16) | (b << 8) | 0xFF;
 
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, color);
+                drawPixel(x, y);
+            }
+
+            // Interpolate the values across the line
+            ra += drdx * inc;
+            ga += dgdx * inc;
+            ba += dbdx * inc;
+            za += dzdx * inc;
+        }
+    }
+}
+
+void RDP::triShadeTex()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+
+    // Get the base triangle color components and gradients
+    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+
+    // Set the texel color to the first texel of the tile
+    // TODO: interpolate texture coordinates
+    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
+    texelColor = getTexel(tile, 0, 0);
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Get the interpolated color values at the start of the line
+        uint32_t ra = (r1 += drde);
+        uint32_t ga = (g1 += dgde);
+        uint32_t ba = (b1 += dbde);
+
+        // Draw a line of the triangle
+        for (int x = xa; x != xb + inc; x += inc)
+        {
+            // Draw a pixel if it's within scissor bounds
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+            {
+                // Update the shade color for the current pixel
+                // TODO: alpha channel
+                uint8_t r = ((ra >> 16) & 0xFF);
+                uint8_t g = ((ga >> 16) & 0xFF);
+                uint8_t b = ((ba >> 16) & 0xFF);
+                shadeColor = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+
+                // Update the color buffer
+                drawPixel(x, y);
+            }
+
+            // Interpolate the color values across the line
+            ra += drdx * inc;
+            ga += dgdx * inc;
+            ba += dbdx * inc;
+        }
+    }
+}
+
+void RDP::triDepShaTex()
+{
+    // Decode the base triangle parameters
+    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
+    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t slope1 = opcode[1]; // Low edge slope
+    int32_t slope2 = opcode[2]; // High edge slope
+    int32_t slope3 = opcode[3]; // Middle edge slope
+    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
+    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
+    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+
+    // Get the base triangle color components and gradients
+    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+
+    // Set the texel color to the first texel of the tile
+    // TODO: interpolate texture coordinates
+    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
+    texelColor = getTexel(tile, 0, 0);
+
+    // Get the base triangle depth and gradients
+    uint32_t z1 = (opcode[20] >> 32);
+    uint32_t dzdx = (opcode[20] >> 0);
+    uint32_t dzde = (opcode[21] >> 32);
+
+    // Draw a triangle from top to bottom
+    for (int y = y1; y < y3; y++)
+    {
+        // Get the X-bounds of the triangle on the current line
+        // From Y1 to Y2, the high and middle edges are used
+        // From Y2 to Y3, the high and low edges are used
+        int xa = (x2 += slope2) >> 16;
+        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
+        int inc = (xa < xb) ? 1 : -1;
+
+        // Get the interpolated values at the start of the line
+        uint32_t ra = (r1 += drde);
+        uint32_t ga = (g1 += dgde);
+        uint32_t ba = (b1 += dbde);
+        uint32_t za = (z1 += dzde);
+
+        // Draw a line of the triangle
+        for (int x = xa; x != xb + inc; x += inc)
+        {
+            // Get the current pixel's Z value
+            uint16_t z = za >> 16;
+
+            // Draw a pixel if within scissor bounds and the depth test passes
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
+                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+            {
+                // Update the shade color for the current pixel
+                // TODO: alpha channel
+                uint8_t r = ((ra >> 16) & 0xFF);
+                uint8_t g = ((ga >> 16) & 0xFF);
+                uint8_t b = ((ba >> 16) & 0xFF);
+                shadeColor = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+
+                // Update the Z buffer and color buffer
+                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
+                drawPixel(x, y);
             }
 
             // Interpolate the values across the line
@@ -556,7 +893,7 @@ void RDP::texRectangle()
     int16_t dsdx = opcode[1] >> 16;
 
     // Adjust some things based on the cycle type
-    // TODO: hardware test this
+    // TODO: handle this more accurately
     if (cycleType >= COPY_MODE)
     {
         dsdx >>= 2;
@@ -570,27 +907,14 @@ void RDP::texRectangle()
     y1 = std::max(y1, scissorY1);
     y2 = std::min(y2, scissorY2);
 
-    switch (colorFormat)
+    // Draw a rectangle using a texture
+    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
     {
-        case RGBA16:
-            // Draw a rectangle to an RGBA16 buffer using a texture
-            for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2,
-                        RGBA32toRGBA16(getTexel(tile, s >> 10, t >> 10)));
-            return;
-
-        case RGBA32:
-            // Draw a rectangle to an RGBA32 buffer using a texture
-            for (int y = y1, t = 0; y < y2; y++, t += dtdy)
-                for (int x = x1, s = 0; x < x2; x++, s += dsdx)
-                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4,
-                        getTexel(tile, s >> 10, t >> 10));
-            return;
-
-        default:
-            LOG_CRIT("Unknown RDP color buffer format: %d\n", colorFormat);
-            return;
+        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+        {
+            texelColor = getTexel(tile, s >> 10, t >> 10);
+            drawPixel(x, y);
+        }
     }
 }
 
@@ -668,7 +992,7 @@ void RDP::loadTile()
     // Only support loading textures without conversion for now
     if (texFormat != tile.format)
     {
-        LOG_CRIT("Unimplemented RDP texture conversion: %d to %d\n", texFormat, tile.format);
+        LOG_WARN("Unimplemented RDP texture conversion: %d to %d\n", texFormat, tile.format);
         return;
     }
 
@@ -731,7 +1055,7 @@ void RDP::fillRectangle()
     uint16_t x2 = ((opcode[0] >> 44) & 0xFFF) >> 2;
 
     // Adjust some things based on the cycle type
-    // TODO: hardware test this
+    // TODO: handle this more accurately
     if (cycleType >= COPY_MODE)
     {
         x2++;
@@ -744,32 +1068,124 @@ void RDP::fillRectangle()
     y1 = std::max(y1, scissorY1);
     y2 = std::min(y2, scissorY2);
 
-    switch (colorFormat)
-    {
-        case RGBA16:
-            // Draw a rectangle to an RGBA16 buffer using the fill color
-            for (int y = y1; y < y2; y++)
-                for (int x = x1; x < x2; x++)
-                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor >> ((~x & 1) * 16));
-            return;
-
-        case RGBA32:
-            // Draw a rectangle to an RGBA32 buffer using the fill color
-            for (int y = y1; y < y2; y++)
-                for (int x = x1; x < x2; x++)
-                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, fillColor);
-            return;
-
-        default:
-            LOG_CRIT("Unknown RDP color buffer format: %d\n", colorFormat);
-            return;
-    }
+    // Draw a rectangle
+    for (int y = y1; y < y2; y++)
+        for (int x = x1; x < x2; x++)
+            drawPixel(x, y);
 }
 
 void RDP::setFillColor()
 {
     // Set the fill color
     fillColor = opcode[0];
+}
+
+void RDP::setPrimColor()
+{
+    // Set the primitive color
+    // TODO: actually use LOD bits
+    primColor = opcode[0];
+}
+
+void RDP::setEnvColor()
+{
+    // Set the environment color
+    envColor = opcode[0];
+}
+
+void RDP::setCombine()
+{
+    for (int i = 0; i < 2; i++)
+    {
+        // Set the A input for color combiner RGB components
+        // TODO: alpha component
+        static const uint8_t shiftsA[2] = { 52, 37 };
+        switch (uint8_t srcA = (opcode[0] >> shiftsA[i]) & 0xF)
+        {
+            case  0: combineA[i] = &combColor;  break;
+            case  1: combineA[i] = &texelColor; break;
+            case  3: combineA[i] = &primColor;  break;
+            case  4: combineA[i] = &shadeColor; break;
+            case  5: combineA[i] = &envColor;   break;
+            case  6: combineA[i] = &maxColor;   break;
+
+            default:
+                if (srcA >= 8)
+                {
+                    combineA[i] = &minColor;
+                    break;
+                }
+
+                LOG_WARN("Unimplemented CC cycle %d source A: %d\n", i, srcA);
+                combineA[i] = &maxColor;
+                break;
+        }
+
+        // Set the B input for color combiner RGB components
+        // TODO: alpha component
+        static const uint8_t shiftsB[2] = { 28, 24 };
+        switch (uint8_t srcB = (opcode[0] >> shiftsB[i]) & 0xF)
+        {
+            case  0: combineB[i] = &combColor;  break;
+            case  1: combineB[i] = &texelColor; break;
+            case  3: combineB[i] = &primColor;  break;
+            case  4: combineB[i] = &shadeColor; break;
+            case  5: combineB[i] = &envColor;   break;
+
+            default:
+                if (srcB >= 8)
+                {
+                    combineB[i] = &minColor;
+                    break;
+                }
+
+                LOG_WARN("Unimplemented CC cycle %d source B: %d\n", i, srcB);
+                combineB[i] = &minColor;
+                break;
+        }
+
+        // Set the C input for color combiner RGB components
+        // TODO: alpha component
+        static const uint8_t shiftsC[2] = { 47, 32 };
+        switch (uint8_t srcC = (opcode[0] >> shiftsC[i]) & 0x1F)
+        {
+            case  0: combineC[i] = &combColor;  break;
+            case  1: combineC[i] = &texelColor; break;
+            case  3: combineC[i] = &primColor;  break;
+            case  4: combineC[i] = &shadeColor; break;
+            case  5: combineC[i] = &envColor;   break;
+
+            default:
+                if (srcC >= 16)
+                {
+                    combineC[i] = &minColor;
+                    break;
+                }
+
+                LOG_WARN("Unimplemented CC cycle %d source C: %d\n", i, srcC);
+                combineC[i] = &maxColor;
+                break;
+        }
+
+        // Set the D input for color combiner RGB components
+        // TODO: alpha component
+        static const uint8_t shiftsD[2] = { 15, 6 };
+        switch (uint8_t srcD = (opcode[0] >> shiftsD[i]) & 0x7)
+        {
+            case  0: combineD[i] = &combColor;  break;
+            case  1: combineD[i] = &texelColor; break;
+            case  3: combineD[i] = &primColor;  break;
+            case  4: combineD[i] = &shadeColor; break;
+            case  5: combineD[i] = &envColor;   break;
+            case  6: combineD[i] = &maxColor;   break;
+            case  7: combineD[i] = &minColor;   break;
+
+            default:
+                LOG_WARN("Unimplemented CC cycle %d source D: %d\n", i, srcD);
+                combineD[i] = &minColor;
+                break;
+        }
+    }
 }
 
 void RDP::setTexImage()
@@ -792,6 +1208,12 @@ void RDP::setColorImage()
     colorAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
     colorWidth = ((opcode[0] >> 32) & 0x3FF) + 1;
     colorFormat = (Format)((opcode[0] >> 51) & 0x1F);
+
+    if (colorFormat != RGBA16 && colorFormat != RGBA32)
+    {
+        LOG_CRIT("Unknown RDP color buffer format: %d\n", colorFormat);
+        colorFormat = RGBA16;
+    }
 }
 
 void RDP::unknown()
