@@ -41,6 +41,8 @@ enum CycleType
 
 struct Tile
 {
+    uint16_t sMask;
+    uint16_t tMask;
     uint16_t address;
     uint16_t width;
     Format format;
@@ -301,6 +303,10 @@ inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
 
 uint32_t RDP::getTexel(Tile &tile, int s, int t)
 {
+    // Mask the texture coordinates
+    s &= tile.sMask;
+    t &= tile.tMask;
+
     // Get an RGBA32 texel from a tile at the given coordinates
     switch (tile.format)
     {
@@ -560,9 +566,9 @@ void RDP::triDepth()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle depth and gradients
-    uint32_t z1 = (opcode[4] >> 32);
-    uint32_t dzdx = (opcode[4] >> 0);
-    uint32_t dzde = (opcode[5] >> 32);
+    int32_t z1 = (opcode[4] >> 32);
+    int32_t dzdx = (opcode[4] >> 0);
+    int32_t dzde = (opcode[5] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -574,8 +580,8 @@ void RDP::triDepth()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Get the interpolated depth value at the start of the line
-        uint32_t za = (z1 += dzde);
+        // Get the interpolated values at the start of the line
+        int32_t za = (z1 += dzde);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -592,7 +598,7 @@ void RDP::triDepth()
                 drawPixel(x, y);
             }
 
-            // Interpolate the depth value across the line
+            // Interpolate the values across the line
             za += dzdx * inc;
         }
     }
@@ -611,10 +617,17 @@ void RDP::triTexture()
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
-    // Set the texel color to the first texel of the tile
-    // TODO: interpolate texture coordinates
+    // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    texelColor = getTexel(tile, 0, 0) | 0xFF;
+    int32_t s1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t t1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t w1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t dsdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dtdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dwdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dsde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dtde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dwde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -626,10 +639,30 @@ void RDP::triTexture()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Draw pixels if they're within scissor bounds
+        // Get the interpolated values at the start of the line
+        int32_t sa = (s1 += dsde);
+        int32_t ta = (t1 += dtde);
+        int32_t wa = (w1 += dwde);
+
+        // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
+        {
+            // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+            {
+                // Update the texel color for the current pixel, with perspective correction
+                if (wa >> 16)
+                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+
+                // Update the color buffer
                 drawPixel(x, y);
+            }
+
+            // Interpolate the values across the line
+            sa += dsdx * inc;
+            ta += dtdx * inc;
+            wa += dwdx * inc;
+        }
     }
 }
 
@@ -646,15 +679,22 @@ void RDP::triDepthTex()
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
-    // Set the texel color to the first texel of the tile
-    // TODO: interpolate texture coordinates
+    // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    texelColor = getTexel(tile, 0, 0) | 0xFF;
+    int32_t s1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t t1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t w1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t dsdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dtdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dwdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dsde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dtde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dwde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
     // Get the base triangle depth and gradients
-    uint32_t z1 = (opcode[12] >> 32);
-    uint32_t dzdx = (opcode[12] >> 0);
-    uint32_t dzde = (opcode[13] >> 32);
+    int32_t z1 = (opcode[12] >> 32);
+    int32_t dzdx = (opcode[12] >> 0);
+    int32_t dzde = (opcode[13] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -666,8 +706,11 @@ void RDP::triDepthTex()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Get the interpolated depth value at the start of the line
-        uint32_t za = (z1 += dzde);
+        // Get the interpolated values at the start of the line
+        int32_t sa = (s1 += dsde);
+        int32_t ta = (t1 += dtde);
+        int32_t wa = (w1 += dwde);
+        int32_t za = (z1 += dzde);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -679,12 +722,19 @@ void RDP::triDepthTex()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
                 Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
+                // Update the texel color for the current pixel, with perspective correction
+                if (wa >> 16)
+                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
                 drawPixel(x, y);
             }
 
-            // Interpolate the depth value across the line
+            // Interpolate the values across the line
+            sa += dsdx * inc;
+            ta += dtdx * inc;
+            wa += dwdx * inc;
             za += dzdx * inc;
         }
     }
@@ -704,18 +754,18 @@ void RDP::triShade()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color components and gradients
-    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    uint32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    uint32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    uint32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
+    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
+    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
+    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -727,11 +777,11 @@ void RDP::triShade()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Get the interpolated color values at the start of the line
-        uint32_t ra = (r1 += drde);
-        uint32_t ga = (g1 += dgde);
-        uint32_t ba = (b1 += dbde);
-        uint32_t aa = (a1 += dade);
+        // Get the interpolated values at the start of the line
+        int32_t ra = (r1 += drde);
+        int32_t ga = (g1 += dgde);
+        int32_t ba = (b1 += dbde);
+        int32_t aa = (a1 += dade);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -750,7 +800,7 @@ void RDP::triShade()
                 drawPixel(x, y);
             }
 
-            // Interpolate the color values across the line
+            // Interpolate the values across the line
             ra += drdx * inc;
             ga += dgdx * inc;
             ba += dbdx * inc;
@@ -773,23 +823,23 @@ void RDP::triDepthSha()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color components and gradients
-    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    uint32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    uint32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    uint32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
+    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
+    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
+    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
 
     // Get the base triangle depth and gradients
-    uint32_t z1 = (opcode[12] >> 32);
-    uint32_t dzdx = (opcode[12] >> 0);
-    uint32_t dzde = (opcode[13] >> 32);
+    int32_t z1 = (opcode[12] >> 32);
+    int32_t dzdx = (opcode[12] >> 0);
+    int32_t dzde = (opcode[13] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -802,11 +852,11 @@ void RDP::triDepthSha()
         int inc = (xa < xb) ? 1 : -1;
 
         // Get the interpolated values at the start of the line
-        uint32_t ra = (r1 += drde);
-        uint32_t ga = (g1 += dgde);
-        uint32_t ba = (b1 += dbde);
-        uint32_t aa = (a1 += dade);
-        uint32_t za = (z1 += dzde);
+        int32_t ra = (r1 += drde);
+        int32_t ga = (g1 += dgde);
+        int32_t ba = (b1 += dbde);
+        int32_t aa = (a1 += dade);
+        int32_t za = (z1 += dzde);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -854,23 +904,30 @@ void RDP::triShadeTex()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color components and gradients
-    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    uint32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    uint32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    uint32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
+    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
+    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
+    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
 
-    // Set the texel color to the first texel of the tile
-    // TODO: interpolate texture coordinates
+    // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    texelColor = getTexel(tile, 0, 0) | 0xFF;
+    int32_t s1 = (((opcode[12] >> 48) & 0xFFFF) << 16) | ((opcode[14] >> 48) & 0xFFFF);
+    int32_t t1 = (((opcode[12] >> 32) & 0xFFFF) << 16) | ((opcode[14] >> 32) & 0xFFFF);
+    int32_t w1 = (((opcode[12] >> 16) & 0xFFFF) << 16) | ((opcode[14] >> 16) & 0xFFFF);
+    int32_t dsdx = (((opcode[13] >> 48) & 0xFFFF) << 16) | ((opcode[15] >> 48) & 0xFFFF);
+    int32_t dtdx = (((opcode[13] >> 32) & 0xFFFF) << 16) | ((opcode[15] >> 32) & 0xFFFF);
+    int32_t dwdx = (((opcode[13] >> 16) & 0xFFFF) << 16) | ((opcode[15] >> 16) & 0xFFFF);
+    int32_t dsde = (((opcode[16] >> 48) & 0xFFFF) << 16) | ((opcode[18] >> 48) & 0xFFFF);
+    int32_t dtde = (((opcode[16] >> 32) & 0xFFFF) << 16) | ((opcode[18] >> 32) & 0xFFFF);
+    int32_t dwde = (((opcode[16] >> 16) & 0xFFFF) << 16) | ((opcode[18] >> 16) & 0xFFFF);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -882,11 +939,14 @@ void RDP::triShadeTex()
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
         int inc = (xa < xb) ? 1 : -1;
 
-        // Get the interpolated color values at the start of the line
-        uint32_t ra = (r1 += drde);
-        uint32_t ga = (g1 += dgde);
-        uint32_t ba = (b1 += dbde);
-        uint32_t aa = (a1 += dade);
+        // Get the interpolated values at the start of the line
+        int32_t ra = (r1 += drde);
+        int32_t ga = (g1 += dgde);
+        int32_t ba = (b1 += dbde);
+        int32_t aa = (a1 += dade);
+        int32_t sa = (s1 += dsde);
+        int32_t ta = (t1 += dtde);
+        int32_t wa = (w1 += dwde);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -901,15 +961,22 @@ void RDP::triShadeTex()
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
 
+                // Update the texel color for the current pixel, with perspective correction
+                if (wa >> 16)
+                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+
                 // Update the color buffer
                 drawPixel(x, y);
             }
 
-            // Interpolate the color values across the line
+            // Interpolate the values across the line
             ra += drdx * inc;
             ga += dgdx * inc;
             ba += dbdx * inc;
             aa += dadx * inc;
+            sa += dsdx * inc;
+            ta += dtdx * inc;
+            wa += dwdx * inc;
         }
     }
 }
@@ -928,28 +995,35 @@ void RDP::triDepShaTex()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
 
     // Get the base triangle color components and gradients
-    uint32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    uint32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    uint32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    uint32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    uint32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    uint32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    uint32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    uint32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    uint32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    uint32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    uint32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    uint32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
+    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
+    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
+    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
+    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
+    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
+    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
 
-    // Set the texel color to the first texel of the tile
-    // TODO: interpolate texture coordinates
+    // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    texelColor = getTexel(tile, 0, 0) | 0xFF;
+    int32_t s1 = (((opcode[12] >> 48) & 0xFFFF) << 16) | ((opcode[14] >> 48) & 0xFFFF);
+    int32_t t1 = (((opcode[12] >> 32) & 0xFFFF) << 16) | ((opcode[14] >> 32) & 0xFFFF);
+    int32_t w1 = (((opcode[12] >> 16) & 0xFFFF) << 16) | ((opcode[14] >> 16) & 0xFFFF);
+    int32_t dsdx = (((opcode[13] >> 48) & 0xFFFF) << 16) | ((opcode[15] >> 48) & 0xFFFF);
+    int32_t dtdx = (((opcode[13] >> 32) & 0xFFFF) << 16) | ((opcode[15] >> 32) & 0xFFFF);
+    int32_t dwdx = (((opcode[13] >> 16) & 0xFFFF) << 16) | ((opcode[15] >> 16) & 0xFFFF);
+    int32_t dsde = (((opcode[16] >> 48) & 0xFFFF) << 16) | ((opcode[18] >> 48) & 0xFFFF);
+    int32_t dtde = (((opcode[16] >> 32) & 0xFFFF) << 16) | ((opcode[18] >> 32) & 0xFFFF);
+    int32_t dwde = (((opcode[16] >> 16) & 0xFFFF) << 16) | ((opcode[18] >> 16) & 0xFFFF);
 
     // Get the base triangle depth and gradients
-    uint32_t z1 = (opcode[20] >> 32);
-    uint32_t dzdx = (opcode[20] >> 0);
-    uint32_t dzde = (opcode[21] >> 32);
+    int32_t z1 = (opcode[20] >> 32);
+    int32_t dzdx = (opcode[20] >> 0);
+    int32_t dzde = (opcode[21] >> 32);
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -962,11 +1036,14 @@ void RDP::triDepShaTex()
         int inc = (xa < xb) ? 1 : -1;
 
         // Get the interpolated values at the start of the line
-        uint32_t ra = (r1 += drde);
-        uint32_t ga = (g1 += dgde);
-        uint32_t ba = (b1 += dbde);
-        uint32_t aa = (a1 += dade);
-        uint32_t za = (z1 += dzde);
+        int32_t ra = (r1 += drde);
+        int32_t ga = (g1 += dgde);
+        int32_t ba = (b1 += dbde);
+        int32_t aa = (a1 += dade);
+        int32_t sa = (s1 += dsde);
+        int32_t ta = (t1 += dtde);
+        int32_t wa = (w1 += dwde);
+        int32_t za = (z1 += dzde);
 
         // Draw a line of the triangle
         for (int x = xa; x != xb + inc; x += inc)
@@ -985,6 +1062,10 @@ void RDP::triDepShaTex()
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
 
+                // Update the texel color for the current pixel, with perspective correction
+                if (wa >> 16)
+                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
                 drawPixel(x, y);
@@ -995,6 +1076,9 @@ void RDP::triDepShaTex()
             ga += dgdx * inc;
             ba += dbdx * inc;
             aa += dadx * inc;
+            sa += dsdx * inc;
+            ta += dtdx * inc;
+            wa += dwdx * inc;
             za += dzdx * inc;
         }
     }
@@ -1127,7 +1211,7 @@ void RDP::loadTile()
     switch (texFormat & 0x3)
     {
         case 0x0: // 4-bit
-            // Cut out a 4-bit texture from the textrue buffer and copy it to TMEM
+            // Cut out a 4-bit texture from the texture buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s += 2)
@@ -1136,7 +1220,7 @@ void RDP::loadTile()
             return;
 
         case 0x1: // 8-bit
-            // Cut out an 8-bit texture from the textrue buffer and copy it to TMEM
+            // Cut out an 8-bit texture from the texture buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
@@ -1145,7 +1229,7 @@ void RDP::loadTile()
             return;
 
         case 0x2: // 16-bit
-            // Cut out a 16-bit texture from the textrue buffer and copy it to TMEM
+            // Cut out a 16-bit texture from the texture buffer and copy it to TMEM
             // TODO: arrange the data properly
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
@@ -1154,7 +1238,7 @@ void RDP::loadTile()
             return;
 
         case 0x3: // 32-bit
-            // Cut out a 32-bit texture from the textrue buffer and copy it to TMEM
+            // Cut out a 32-bit texture from the texture buffer and copy it to TMEM
             // TODO: arrange the data properly and split across high and low banks
             for (int t = t1; t <= t2; t++)
                 for (int s = s1; s <= s2; s++)
@@ -1167,8 +1251,10 @@ void RDP::loadTile()
 void RDP::setTile()
 {
     // Set parameters for the specified tile
-    // TODO: Actually use bits 0-23
+    // TODO: Actually use other bits
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    tile.sMask = (((opcode[0] >>  4) & 0xF) ? (1 << ((opcode[0] >>  4) & 0xF)) : 0) - 1;
+    tile.tMask = (((opcode[0] >> 14) & 0xF) ? (1 << ((opcode[0] >> 14) & 0xF)) : 0) - 1;
     tile.address = (opcode[0] >> 29) & 0xFF8;
     tile.width = (opcode[0] >> 38) & 0xFF8;
     tile.format = (Format)((opcode[0] >> 51) & 0x1F);
