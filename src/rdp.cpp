@@ -45,6 +45,7 @@ struct Tile
     uint16_t tMask;
     uint16_t address;
     uint16_t width;
+    uint8_t palette;
     Format format;
 };
 
@@ -119,6 +120,7 @@ namespace RDP
     void syncFull();
     void setScissor();
     void setOtherModes();
+    void loadTlut();
     void loadBlock();
     void loadTile();
     void setTile();
@@ -150,7 +152,7 @@ void (*RDP::commands[0x40])() =
     texRectangle, unknown,       unknown,       unknown,       // 0x24-0x27
     unknown,      syncFull,      unknown,       unknown,       // 0x28-0x2B
     unknown,      setScissor,    unknown,       setOtherModes, // 0x2C-0x2F
-    unknown,      unknown,       unknown,       loadBlock,     // 0x30-0x33
+    loadTlut,     unknown,       unknown,       loadBlock,     // 0x30-0x33
     loadTile,     setTile,       fillRectangle, setFillColor,  // 0x34-0x37
     setFogColor,  setBlendColor, setPrimColor,  setEnvColor,   // 0x38-0x3B
     setCombine,   setTexImage,   setZImage,     setColorImage  // 0x3C-0x3F
@@ -324,6 +326,22 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
             return value;
         }
 
+        case CI4:
+        {
+            // Convert a CI4 texel to RGBA32
+            uint8_t index = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
+            uint16_t value = *(uint16_t*)&tmem[(tile.address + 0x800 + (tile.palette + index) * 2) & 0xFFF];
+            return RGBA16toRGBA32(value);
+        }
+
+        case CI8:
+        {
+            // Convert a CI8 texel to RGBA32
+            uint8_t index = tmem[(tile.address + t * tile.width + s) & 0xFFF];
+            uint16_t value = *(uint16_t*)&tmem[(tile.address + 0x800 + index * 2) & 0xFFF];
+            return RGBA16toRGBA32(value);
+        }
+
         case IA4:
         {
             // Convert an IA4 texel to RGBA32
@@ -342,21 +360,19 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
             return (i << 24) | (i << 16) | (i << 8) | a;
         }
 
-        case CI4: // TODO: TLUT
         case I4:
         {
             // Convert an I4 texel to RGBA32
             uint8_t value = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
             uint8_t i = value * 255 / 15;
-            return (i << 24) | (i << 16) | (i << 8) | 0xFF;
+            return (i << 24) | (i << 16) | (i << 8) | i;
         }
 
-        case CI8: // TODO: TLUT
         case I8:
         {
             // Convert an I8 texel to RGBA32
             uint8_t i = tmem[(tile.address + t * tile.width + s) & 0xFFF];
-            return (i << 24) | (i << 16) | (i << 8) | 0xFF;
+            return (i << 24) | (i << 16) | (i << 8) | i;
         }
 
         default:
@@ -1153,6 +1169,18 @@ void RDP::setOtherModes()
     blendD[1] = (opcode[0] >> 16) & 0x3;
 }
 
+void RDP::loadTlut()
+{
+    // Decode the operands
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    uint16_t indexL = ((opcode[0] >> 44) & 0xFFF) >> 1;
+    uint16_t indexH = ((opcode[0] >> 12) & 0xFFF) >> 1;
+
+    // Copy 16-bit texture lookup values into TMEM
+    for (int i = indexL; i < indexH; i += 2)
+        *(uint16_t*)&tmem[(tile.address + i) & 0xFFE] = Memory::read<uint16_t>(texAddress + i);
+}
+
 void RDP::loadBlock()
 {
     // Decode the operands
@@ -1255,6 +1283,7 @@ void RDP::setTile()
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
     tile.sMask = (((opcode[0] >>  4) & 0xF) ? (1 << ((opcode[0] >>  4) & 0xF)) : 0) - 1;
     tile.tMask = (((opcode[0] >> 14) & 0xF) ? (1 << ((opcode[0] >> 14) & 0xF)) : 0) - 1;
+    tile.palette = ((opcode[0] >> 20) & 0xF) << 4;
     tile.address = (opcode[0] >> 29) & 0xFF8;
     tile.width = (opcode[0] >> 38) & 0xFF8;
     tile.format = (Format)((opcode[0] >> 51) & 0x1F);
