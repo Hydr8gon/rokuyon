@@ -157,6 +157,8 @@ void ryCanvas::draw(wxPaintEvent &event)
 
 void ryCanvas::resize(wxSizeEvent &event)
 {
+    SetCurrent(*context);
+
     // Update the canvas dimensions
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
