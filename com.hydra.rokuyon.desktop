@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=rokuyon
+Comment=An experimental N64 emulator
+GenericName=Nintendo 64 Emulator
+Icon=com.hydra.rokuyon
+Exec=rokuyon %U
+StartupNotify=true
+Terminal=false
+MimeType=application/x-n64-rom
+Categories=Game;Emulator
+Keywords=emulator;nintendo;64;n64

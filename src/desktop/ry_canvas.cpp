@@ -23,6 +23,11 @@
 #include "../pif.h"
 #include "../vi.h"
 
+#ifdef _WIN32
+#include <GL/gl.h>
+#include <GL/glext.h>
+#endif
+
 const int ryCanvas::keyMap[21] =
 {
     'L', 'K', 'J', 'G', // A, B, Z, Start
