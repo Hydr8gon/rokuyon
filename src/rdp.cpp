@@ -42,7 +42,11 @@ enum CycleType
 struct Tile
 {
     uint16_t sMask;
+    bool sMirror;
+    bool sClamp;
     uint16_t tMask;
+    bool tMirror;
+    bool tClamp;
     uint16_t address;
     uint16_t width;
     uint8_t palette;
@@ -90,6 +94,11 @@ namespace RDP
     uint32_t primColor;
     uint32_t shadeColor;
     uint32_t envColor;
+    uint32_t combAlpha;
+    uint32_t texelAlpha;
+    uint32_t primAlpha;
+    uint32_t shadeAlpha;
+    uint32_t envAlpha;
     uint32_t fogColor;
     uint32_t blendColor;
     uint32_t memColor;
@@ -101,8 +110,10 @@ namespace RDP
     uint32_t *combineC[4];
     uint32_t *combineD[4];
 
-    uint32_t RGBA16toRGBA32(uint32_t color);
+    uint32_t RGBA16toRGBA32(uint16_t color);
     uint16_t RGBA32toRGBA16(uint32_t color);
+    uint32_t colorToAlpha(uint32_t color);
+
     uint32_t getTexel(Tile &tile, int s, int t);
     uint32_t blendPixel(bool cycle);
     void drawPixel(int x, int y);
@@ -203,6 +214,11 @@ void RDP::reset()
     primColor = 0x00000000;
     shadeColor = 0x00000000;
     envColor = 0x00000000;
+    combAlpha = 0x00000000;
+    texelAlpha = 0x00000000;
+    primAlpha = 0x00000000;
+    shadeAlpha = 0x00000000;
+    envAlpha = 0x00000000;
     fogColor = 0x00000000;
     blendColor = 0x00000000;
     memColor = 0x00000000;
@@ -283,7 +299,7 @@ void RDP::write(int index, uint32_t value)
     }
 }
 
-inline uint32_t RDP::RGBA16toRGBA32(uint32_t color)
+inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
 {
     // Convert an RGBA16 color to RGBA32
     uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
@@ -303,11 +319,30 @@ inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
     return (r << 11) | (g << 6) | (b << 1) | a;
 }
 
+inline uint32_t RDP::colorToAlpha(uint32_t color)
+{
+    // Mirror an RGBA32 color's alpha to all components
+    uint8_t a = color & 0xFF;
+    return (a << 24) | (a << 16) | (a << 8) | a;
+}
+
 uint32_t RDP::getTexel(Tile &tile, int s, int t)
 {
-    // Mask the texture coordinates
-    s &= tile.sMask;
-    t &= tile.tMask;
+    // Clamp, mirror, or mask the S-coordinate based on tile settings
+    if (tile.sClamp)
+        s = std::max<int>(std::min<int>(s, tile.sMask), 0);
+    else if (tile.sMirror)
+        s = ((s & (tile.sMask + 1)) ? ~s : s) & tile.sMask;
+    else
+        s &= tile.sMask;
+
+    // Clamp, mirror, or mask the T-coordinate based on tile settings
+    if (tile.tClamp)
+        t = std::max<int>(std::min<int>(t, tile.tMask), 0);
+    else if (tile.tMirror)
+        t = ((t & (tile.tMask + 1)) ? ~t : t) & tile.tMask;
+    else
+        t &= tile.tMask;
 
     // Get an RGBA32 texel from a tile at the given coordinates
     switch (tile.format)
@@ -448,20 +483,21 @@ void RDP::drawPixel(int x, int y)
             uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) / 0xFF) + (*combineD[0] >>  8);
             uint8_t a = (((((*combineA[2] >>  0) - (*combineB[2] >>  0)) & 0xFF) * ((*combineC[2] >>  0) & 0xFF)) / 0xFF) + (*combineD[2] >>  0);
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
+            combAlpha = colorToAlpha(combColor);
 
             if (colorFormat == RGBA16)
             {
                 // Blend the pixel with the previous RGBA16 pixel in the color buffer
                 memColor = RGBA16toRGBA32(Memory::read<uint16_t>(colorAddress + (y * colorWidth + x) * 2)) & ~0xFF;
-                combColor = blendPixel(false);
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(combColor));
+                uint32_t color = blendPixel(false);
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
             }
             else
             {
                 // Blend the pixel with the previous RGBA32 pixel in the color buffer
                 memColor = Memory::read<uint32_t>(colorAddress + (y * colorWidth + x) * 4) & ~0xFF;
-                combColor = blendPixel(false);
-                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, combColor);
+                uint32_t color = blendPixel(false);
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
             }
             return;
         }
@@ -474,6 +510,7 @@ void RDP::drawPixel(int x, int y)
             uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) / 0xFF) + (*combineD[0] >>  8);
             uint8_t a = (((((*combineA[2] >>  0) - (*combineB[2] >>  0)) & 0xFF) * ((*combineC[2] >>  0) & 0xFF)) / 0xFF) + (*combineD[2] >>  0);
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
+            combAlpha = colorToAlpha(combColor);
 
             // Blend the pixel with the previous pixel in the color buffer
             if (colorFormat == RGBA16)
@@ -481,6 +518,7 @@ void RDP::drawPixel(int x, int y)
             else
                 memColor = Memory::read<uint32_t>(colorAddress + (y * colorWidth + x) * 4) & ~0xFF;
             combColor = blendPixel(false);
+            combAlpha = colorToAlpha(combColor);
 
             // Combine cycle 1 RGB channels using the formula (A - B) * C + D
             r = (((((*combineA[1] >> 24) - (*combineB[1] >> 24)) & 0xFF) * ((*combineC[1] >> 24) & 0xFF)) / 0xFF) + (*combineD[1] >> 24);
@@ -488,13 +526,14 @@ void RDP::drawPixel(int x, int y)
             b = (((((*combineA[1] >>  8) - (*combineB[1] >>  8)) & 0xFF) * ((*combineC[1] >>  8) & 0xFF)) / 0xFF) + (*combineD[1] >>  8);
             a = (((((*combineA[3] >>  0) - (*combineB[3] >>  0)) & 0xFF) * ((*combineC[3] >>  0) & 0xFF)) / 0xFF) + (*combineD[3] >>  0);
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
+            combAlpha = colorToAlpha(combColor);
 
             // Blend the pixel again and write it to the color buffer
-            combColor = blendPixel(true);
+            uint32_t color = blendPixel(true);
             if (colorFormat == RGBA16)
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(combColor) & ~1);
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
             else
-                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, combColor);
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
             return;
         }
 
@@ -669,7 +708,10 @@ void RDP::triTexture()
             {
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 16)
+                {
                     texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelAlpha = colorToAlpha(texelColor);
+                }
 
                 // Update the color buffer
                 drawPixel(x, y);
@@ -741,7 +783,10 @@ void RDP::triDepthTex()
             {
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 16)
+                {
                     texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelAlpha = colorToAlpha(texelColor);
+                }
 
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
@@ -812,6 +857,7 @@ void RDP::triShade()
                 uint8_t b = ((ba >> 16) & 0xFF);
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
+                shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the color buffer
                 drawPixel(x, y);
@@ -891,6 +937,7 @@ void RDP::triDepthSha()
                 uint8_t b = ((ba >> 16) & 0xFF);
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
+                shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
@@ -977,10 +1024,14 @@ void RDP::triShadeTex()
                 uint8_t b = ((ba >> 16) & 0xFF);
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
+                shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 16)
+                {
                     texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelAlpha = colorToAlpha(texelColor);
+                }
 
                 // Update the color buffer
                 drawPixel(x, y);
@@ -1078,10 +1129,14 @@ void RDP::triDepShaTex()
                 uint8_t b = ((ba >> 16) & 0xFF);
                 uint8_t a = ((aa >> 16) & 0xFF);
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
+                shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 16)
+                {
                     texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelAlpha = colorToAlpha(texelColor);
+                }
 
                 // Update the Z buffer and color buffer
                 Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
@@ -1134,6 +1189,7 @@ void RDP::texRectangle()
         for (int x = x1, s = 0; x < x2; x++, s += dsdx)
         {
             texelColor = getTexel(tile, s >> 10, t >> 10);
+            texelAlpha = colorToAlpha(texelColor);
             drawPixel(x, y);
         }
     }
@@ -1299,10 +1355,14 @@ void RDP::loadTile()
 void RDP::setTile()
 {
     // Set parameters for the specified tile
-    // TODO: Actually use other bits
+    // TODO: Actually use the detail shifts
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
-    tile.sMask = (((opcode[0] >>  4) & 0xF) ? (1 << ((opcode[0] >>  4) & 0xF)) : 0) - 1;
+    tile.sMask = (((opcode[0] >> 4) & 0xF) ? (1 << ((opcode[0] >> 4) & 0xF)) : 0) - 1;
+    tile.sMirror = ((opcode[0] >> 8) & 0x1);
+    tile.sClamp = ((opcode[0] >> 9) & 0x1);
     tile.tMask = (((opcode[0] >> 14) & 0xF) ? (1 << ((opcode[0] >> 14) & 0xF)) : 0) - 1;
+    tile.tMirror = ((opcode[0] >> 18) & 0x1);
+    tile.tClamp = ((opcode[0] >> 19) & 0x1);
     tile.palette = ((opcode[0] >> 20) & 0xF) << 4;
     tile.address = (opcode[0] >> 29) & 0xFF8;
     tile.width = (opcode[0] >> 38) & 0xFF8;
@@ -1360,12 +1420,14 @@ void RDP::setPrimColor()
     // Set the primitive color
     // TODO: actually use LOD bits
     primColor = opcode[0];
+    primAlpha = colorToAlpha(primColor);
 }
 
 void RDP::setEnvColor()
 {
     // Set the environment color
     envColor = opcode[0];
+    envAlpha = colorToAlpha(envColor);
 }
 
 void RDP::setCombine()
@@ -1376,12 +1438,12 @@ void RDP::setCombine()
         static const uint8_t shiftsA[2] = { 52, 37 };
         switch (uint8_t srcA = (opcode[0] >> shiftsA[i]) & 0xF)
         {
-            case  0: combineA[i] = &combColor;  break;
-            case  1: combineA[i] = &texelColor; break;
-            case  3: combineA[i] = &primColor;  break;
-            case  4: combineA[i] = &shadeColor; break;
-            case  5: combineA[i] = &envColor;   break;
-            case  6: combineA[i] = &maxColor;   break;
+            case 0: combineA[i] = &combColor;  break;
+            case 1: combineA[i] = &texelColor; break;
+            case 3: combineA[i] = &primColor;  break;
+            case 4: combineA[i] = &shadeColor; break;
+            case 5: combineA[i] = &envColor;   break;
+            case 6: combineA[i] = &maxColor;   break;
 
             default:
                 if (srcA >= 8)
@@ -1399,11 +1461,11 @@ void RDP::setCombine()
         static const uint8_t shiftsB[2] = { 28, 24 };
         switch (uint8_t srcB = (opcode[0] >> shiftsB[i]) & 0xF)
         {
-            case  0: combineB[i] = &combColor;  break;
-            case  1: combineB[i] = &texelColor; break;
-            case  3: combineB[i] = &primColor;  break;
-            case  4: combineB[i] = &shadeColor; break;
-            case  5: combineB[i] = &envColor;   break;
+            case 0: combineB[i] = &combColor;  break;
+            case 1: combineB[i] = &texelColor; break;
+            case 3: combineB[i] = &primColor;  break;
+            case 4: combineB[i] = &shadeColor; break;
+            case 5: combineB[i] = &envColor;   break;
 
             default:
                 if (srcB >= 8)
@@ -1426,6 +1488,11 @@ void RDP::setCombine()
             case  3: combineC[i] = &primColor;  break;
             case  4: combineC[i] = &shadeColor; break;
             case  5: combineC[i] = &envColor;   break;
+            case  7: combineC[i] = &combAlpha;  break;
+            case  8: combineC[i] = &texelAlpha; break;
+            case 10: combineC[i] = &primAlpha;  break;
+            case 11: combineC[i] = &shadeAlpha; break;
+            case 12: combineC[i] = &envAlpha;   break;
 
             default:
                 if (srcC >= 16)
@@ -1443,13 +1510,13 @@ void RDP::setCombine()
         static const uint8_t shiftsD[2] = { 15, 6 };
         switch (uint8_t srcD = (opcode[0] >> shiftsD[i]) & 0x7)
         {
-            case  0: combineD[i] = &combColor;  break;
-            case  1: combineD[i] = &texelColor; break;
-            case  3: combineD[i] = &primColor;  break;
-            case  4: combineD[i] = &shadeColor; break;
-            case  5: combineD[i] = &envColor;   break;
-            case  6: combineD[i] = &maxColor;   break;
-            case  7: combineD[i] = &minColor;   break;
+            case 0: combineD[i] = &combColor;  break;
+            case 1: combineD[i] = &texelColor; break;
+            case 3: combineD[i] = &primColor;  break;
+            case 4: combineD[i] = &shadeColor; break;
+            case 5: combineD[i] = &envColor;   break;
+            case 6: combineD[i] = &maxColor;   break;
+            case 7: combineD[i] = &minColor;   break;
 
             default:
                 LOG_WARN("Unimplemented CC cycle %d RGB source D: %d\n", i, srcD);
@@ -1464,13 +1531,13 @@ void RDP::setCombine()
         static const uint8_t shiftsA[2] = { 44, 21 };
         switch (uint8_t srcA = (opcode[0] >> shiftsA[i - 2]) & 0x7)
         {
-            case  0: combineA[i] = &combColor;  break;
-            case  1: combineA[i] = &texelColor; break;
-            case  3: combineA[i] = &primColor;  break;
-            case  4: combineA[i] = &shadeColor; break;
-            case  5: combineA[i] = &envColor;   break;
-            case  6: combineA[i] = &maxColor;   break;
-            case  7: combineA[i] = &minColor;   break;
+            case 0: combineA[i] = &combAlpha;  break;
+            case 1: combineA[i] = &texelAlpha; break;
+            case 3: combineA[i] = &primAlpha;  break;
+            case 4: combineA[i] = &shadeAlpha; break;
+            case 5: combineA[i] = &envAlpha;   break;
+            case 6: combineA[i] = &maxColor;   break;
+            case 7: combineA[i] = &minColor;   break;
 
             default:
                 LOG_WARN("Unimplemented CC cycle %d alpha source A: %d\n", i, srcA);
@@ -1482,13 +1549,13 @@ void RDP::setCombine()
         static const uint8_t shiftsB[2] = { 12, 3 };
         switch (uint8_t srcB = (opcode[0] >> shiftsB[i - 2]) & 0x7)
         {
-            case  0: combineB[i] = &combColor;  break;
-            case  1: combineB[i] = &texelColor; break;
-            case  3: combineB[i] = &primColor;  break;
-            case  4: combineB[i] = &shadeColor; break;
-            case  5: combineB[i] = &envColor;   break;
-            case  6: combineB[i] = &maxColor;   break;
-            case  7: combineB[i] = &minColor;   break;
+            case 0: combineB[i] = &combAlpha;  break;
+            case 1: combineB[i] = &texelAlpha; break;
+            case 3: combineB[i] = &primAlpha;  break;
+            case 4: combineB[i] = &shadeAlpha; break;
+            case 5: combineB[i] = &envAlpha;   break;
+            case 6: combineB[i] = &maxColor;   break;
+            case 7: combineB[i] = &minColor;   break;
 
             default:
                 LOG_WARN("Unimplemented CC cycle %d alpha source B: %d\n", i, srcB);
@@ -1500,11 +1567,11 @@ void RDP::setCombine()
         static const uint8_t shiftsC[2] = { 41, 18 };
         switch (uint8_t srcC = (opcode[0] >> shiftsC[i - 2]) & 0x7)
         {
-            case  1: combineC[i] = &texelColor; break;
-            case  3: combineC[i] = &primColor;  break;
-            case  4: combineC[i] = &shadeColor; break;
-            case  5: combineC[i] = &envColor;   break;
-            case  7: combineC[i] = &minColor;   break;
+            case 1: combineC[i] = &texelAlpha; break;
+            case 3: combineC[i] = &primAlpha;  break;
+            case 4: combineC[i] = &shadeAlpha; break;
+            case 5: combineC[i] = &envAlpha;   break;
+            case 7: combineC[i] = &minColor;   break;
 
             default:
                 LOG_WARN("Unimplemented CC cycle %d alpha source C: %d\n", i, srcC);
@@ -1516,13 +1583,13 @@ void RDP::setCombine()
         static const uint8_t shiftsD[2] = { 9, 0 };
         switch (uint8_t srcD = (opcode[0] >> shiftsD[i - 2]) & 0x7)
         {
-            case  0: combineD[i] = &combColor;  break;
-            case  1: combineD[i] = &texelColor; break;
-            case  3: combineD[i] = &primColor;  break;
-            case  4: combineD[i] = &shadeColor; break;
-            case  5: combineD[i] = &envColor;   break;
-            case  6: combineD[i] = &maxColor;   break;
-            case  7: combineD[i] = &minColor;   break;
+            case 0: combineD[i] = &combAlpha;  break;
+            case 1: combineD[i] = &texelAlpha; break;
+            case 3: combineD[i] = &primAlpha;  break;
+            case 4: combineD[i] = &shadeAlpha; break;
+            case 5: combineD[i] = &envAlpha;   break;
+            case 6: combineD[i] = &maxColor;   break;
+            case 7: combineD[i] = &minColor;   break;
 
             default:
                 LOG_WARN("Unimplemented CC cycle %d alpha source D: %d\n", i, srcD);
