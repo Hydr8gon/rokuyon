@@ -71,15 +71,14 @@ namespace Core
     void resetCycles();
 }
 
-int Core::bootRom(const std::string &path)
+bool Core::bootRom(const std::string &path)
 {
-    // Try to open the PIF ROM file
-    FILE *pifFile = fopen("pif_rom.bin", "rb");
-    if (!pifFile) return 1;
-
     // Try to open the specified ROM file
     FILE *romFile = fopen(path.c_str(), "rb");
-    if (!romFile) return 2;
+    if (!romFile) return false;
+
+    // Open a PIF ROM file if it exists
+    FILE *pifFile = fopen("pif_rom.bin", "rb");
 
     // Derive the save path from the ROM path
     std::string savePath = path.substr(0, path.rfind(".")) + ".sav";
@@ -97,14 +96,14 @@ int Core::bootRom(const std::string &path)
     // Reset the emulated components
     Memory::reset();
     AI::reset();
+    CPU::reset();
+    CPU_CP0::reset();
+    CPU_CP1::reset();
     MI::reset();
     PI::reset(romFile);
     SI::reset();
     VI::reset();
     PIF::reset(pifFile, savePath);
-    CPU::reset();
-    CPU_CP0::reset();
-    CPU_CP1::reset();
     RDP::reset();
     RSP::reset();
     RSP_CP0::reset();
@@ -112,7 +111,7 @@ int Core::bootRom(const std::string &path)
 
     // Start the emulator
     start();
-    return 0;
+    return true;
 }
 
 void Core::start()

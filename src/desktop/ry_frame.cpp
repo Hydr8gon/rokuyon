@@ -84,18 +84,12 @@ void ryFrame::bootRom(std::string path)
     // Remember the path so the ROM can be restarted
     lastPath = path;
 
-    // Try to boot the specified ROM and handle errors
-    switch (Core::bootRom(path))
+    // Try to boot the specified ROM, and display an error if failed
+    if (!Core::bootRom(path))
     {
-        case 1: // PIF ROM load failed
-            wxMessageDialog(this, "Make sure a valid PIF dump named pif_rom.bin is next to the executable.",
-                            "Error Loading PIF ROM", wxICON_NONE).ShowModal();
-            return;
-
-        case 2: // Cart ROM load failed
-            wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
-                            "Error Loading Cart ROM", wxICON_NONE).ShowModal();
-            return;
+        wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
+            "Error Loading Cart ROM", wxICON_NONE).ShowModal();
+        return;
     }
 
     // Reset the system menu

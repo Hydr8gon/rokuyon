@@ -20,6 +20,7 @@
 #include <cstring>
 
 #include "pif.h"
+#include "cpu.h"
 #include "log.h"
 #include "memory.h"
 #include "pi.h"
@@ -71,22 +72,6 @@ uint32_t PIF::crc32(uint8_t *data, size_t size)
 
 void PIF::reset(FILE *pifFile, std::string savePath2)
 {
-    // Load the PIF ROM into memory
-    fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
-    fclose(pifFile);
-
-    if (FILE *file = fopen((savePath = savePath2).c_str(), "rb"))
-    {
-        // Load the ROM's save file into memory
-        fread(&save, sizeof(uint8_t), sizeof(save), file);
-        fclose(file);
-    }
-    else
-    {
-        // If no save file exists, clear the save memory
-        memset(save, 0, sizeof(save));
-    }
-
     // Reset the PIF to its initial state
     clearMemory(0);
     command = 0;
@@ -126,6 +111,66 @@ void PIF::reset(FILE *pifFile, std::string savePath2)
         default:
             LOG_WARN("Unknown IPL3 CRC32 value: 0x%08X\n", value);
             break;
+    }
+
+    if (pifFile)
+    {
+        // Load the PIF ROM into memory if it exists
+        fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
+        fclose(pifFile);
+    }
+    else
+    {
+        // Set CPU registers as if the PIF ROM was executed
+        // Values from https://github.com/mikeryan/n64dev/blob/master/src/boot/pif.S
+        *CPU::registersW[1]  = 0x0000000000000000;
+        *CPU::registersW[2]  = 0xFFFFFFFFD1731BE9;
+        *CPU::registersW[3]  = 0xFFFFFFFFD1731BE9;
+        *CPU::registersW[4]  = 0x0000000000001BE9;
+        *CPU::registersW[5]  = 0xFFFFFFFFF45231E5;
+        *CPU::registersW[6]  = 0xFFFFFFFFA4001F0C;
+        *CPU::registersW[7]  = 0xFFFFFFFFA4001F08;
+        *CPU::registersW[8]  = 0x00000000000000C0;
+        *CPU::registersW[9]  = 0x0000000000000000;
+        *CPU::registersW[10] = 0x0000000000000040;
+        *CPU::registersW[11] = 0xFFFFFFFFA4000040;
+        *CPU::registersW[12] = 0xFFFFFFFFD1330BC3;
+        *CPU::registersW[13] = 0xFFFFFFFFD1330BC3;
+        *CPU::registersW[14] = 0x0000000025613A26;
+        *CPU::registersW[15] = 0x000000002EA04317;
+        *CPU::registersW[16] = 0x0000000000000000;
+        *CPU::registersW[17] = 0x0000000000000000;
+        *CPU::registersW[18] = 0x0000000000000000;
+        *CPU::registersW[19] = 0x0000000000000000;
+        *CPU::registersW[20] = 0x0000000000000001;
+        *CPU::registersW[21] = 0x0000000000000000;
+        *CPU::registersW[22] = Memory::read<uint8_t>(0xBFC007E6);
+        *CPU::registersW[23] = 0x0000000000000006;
+        *CPU::registersW[24] = 0x0000000000000000;
+        *CPU::registersW[25] = 0xFFFFFFFFD73F2993;
+        *CPU::registersW[26] = 0x0000000000000000;
+        *CPU::registersW[27] = 0x0000000000000000;
+        *CPU::registersW[28] = 0x0000000000000000;
+        *CPU::registersW[29] = 0xFFFFFFFFA4001FF0;
+        *CPU::registersW[30] = 0x0000000000000000;
+        *CPU::registersW[31] = 0xFFFFFFFFA4001554;
+
+        // Copy the IPL3 from ROM to DMEM and jump to the start address
+        for (uint32_t i = 0; i < 0x1000; i++)
+            Memory::write(0xA4000000 + i, PI::rom[i]);
+        CPU::programCounter = 0xA4000040 - 4;
+    }
+
+    if (FILE *file = fopen((savePath = savePath2).c_str(), "rb"))
+    {
+        // Load the ROM's save file into memory if it exists
+        fread(&save, sizeof(uint8_t), sizeof(save), file);
+        fclose(file);
+    }
+    else
+    {
+        // If no save file exists, clear the save memory
+        memset(save, 0, sizeof(save));
     }
 
     // Set the memory size to 4MB

@@ -201,8 +201,8 @@ void CPU::reset()
     // Reset the CPU to its initial state
     memset(registersR, 0, sizeof(registersR));
     hi = lo = 0;
-    programCounter = 0xBFC00000;
-    nextOpcode = Memory::read<uint32_t>(programCounter);
+    programCounter = 0xBFC00000 - 4;
+    nextOpcode = 0;
     countToggle = false;
 }
 
