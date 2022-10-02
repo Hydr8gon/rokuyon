@@ -77,6 +77,12 @@ void PI::write(uint32_t address, uint32_t value)
             cartAddr = value;
             return;
 
+        case 0x4600008: // PI_RD_LEN
+            // Pretend a DMA transfer happened by requesting a PI interrupt
+            // TODO: actually implement this
+            MI::setInterrupt(4);
+            return;
+
         case 0x460000C: // PI_WR_LEN
             // Start a DMA transfer from cart to RDRAM
             performReadDma((value & 0xFFFFFF) + 1);
