@@ -18,6 +18,7 @@
 */
 
 #include "cpu_cp0.h"
+#include "core.h"
 #include "cpu.h"
 #include "cpu_cp1.h"
 #include "log.h"
@@ -236,6 +237,9 @@ void CPU_CP0::exception(uint8_t type)
     epc = CPU::programCounter - (type ? 4 : 0);
     CPU::programCounter = ((status & (1 << 22)) ? 0xBFC00200 : 0x80000000) + 0x180 - 4;
     CPU::nextOpcode = 0;
+
+    // Unhalt the CPU if it was idling
+    Core::cpuRunning = true;
 }
 
 bool CPU_CP0::cpUsable(uint8_t cp)

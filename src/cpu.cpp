@@ -20,6 +20,7 @@
 #include <cstring>
 
 #include "cpu.h"
+#include "core.h"
 #include "cpu_cp0.h"
 #include "cpu_cp1.h"
 #include "log.h"
@@ -32,7 +33,6 @@ namespace CPU
     uint64_t hi, lo;
     uint32_t programCounter;
     uint32_t nextOpcode;
-    bool countToggle;
 
     extern void (*immInstrs[])(uint32_t);
     extern void (*regInstrs[])(uint32_t);
@@ -203,15 +203,10 @@ void CPU::reset()
     hi = lo = 0;
     programCounter = 0xBFC00000 - 4;
     nextOpcode = 0;
-    countToggle = false;
 }
 
 void CPU::runOpcode()
 {
-    // Update the CP0 count register at half the speed of the CPU
-    if (countToggle = !countToggle)
-        CPU_CP0::updateCount();
-
     // Move an opcode through the pipeline
     // TODO: unaligned address exception
     uint32_t opcode = nextOpcode;
@@ -241,6 +236,11 @@ void CPU::jal(uint32_t opcode)
 
 void CPU::beq(uint32_t opcode)
 {
+    // If an idle loop is detected, halt the CPU until an exception occurs
+    // This is common since the CPU doesn't have an actual halt function
+    if (opcode == 0x1000FFFF && !nextOpcode)
+        Core::cpuRunning = false;
+
     // Add a 16-bit offset to the program counter if two registers are equal
     if (registersR[(opcode >> 21) & 0x1F] == registersR[(opcode >> 16) & 0x1F])
         programCounter += ((int16_t)opcode << 2) - 4;

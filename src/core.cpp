@@ -56,7 +56,9 @@ namespace Core
 {
     std::thread *thread;
     bool running;
+    bool cpuRunning;
     bool rspRunning;
+    bool countToggle;
 
     std::vector<Task> tasks;
     uint32_t globalCycles;
@@ -87,6 +89,8 @@ bool Core::bootRom(const std::string &path)
     stop();
 
     // Reset the scheduler
+    cpuRunning = true;
+    countToggle = false;
     tasks.clear();
     globalCycles = 0;
     cpuCycles = 0;
@@ -142,11 +146,16 @@ void Core::run()
         // Run the CPUs until the next scheduled task
         while (tasks[0].cycles > globalCycles)
         {
-            // Run a CPU opcode if ready and schedule the next one
             if (globalCycles >= cpuCycles)
             {
-                CPU::runOpcode();
+                // Run a CPU opcode if ready and schedule the next one
+                if (cpuRunning) CPU::runOpcode();
                 cpuCycles = globalCycles + 2;
+
+                // Update the CP0 count register at half the speed of the CPU
+                // TODO: move this to the scheduler
+                if ((countToggle = !countToggle))
+                    CPU_CP0::updateCount();
             }
 
             // Run an RSP opcode if ready and schedule the next one

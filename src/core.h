@@ -25,6 +25,7 @@
 namespace Core
 {
     extern bool running;
+    extern bool cpuRunning;
     extern bool rspRunning;
     extern int fps;
 
