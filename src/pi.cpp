@@ -33,6 +33,7 @@ namespace PI
     uint32_t cartAddr;
 
     void performReadDma(uint32_t length);
+    void performWriteDma(uint32_t length);
 }
 
 void PI::reset(FILE *romFile)
@@ -78,13 +79,12 @@ void PI::write(uint32_t address, uint32_t value)
             return;
 
         case 0x4600008: // PI_RD_LEN
-            // Pretend a DMA transfer happened by requesting a PI interrupt
-            // TODO: actually implement this
-            MI::setInterrupt(4);
+            // Start a DMA transfer from RDRAM to PI
+            performWriteDma((value & 0xFFFFFF) + 1);
             return;
 
         case 0x460000C: // PI_WR_LEN
-            // Start a DMA transfer from cart to RDRAM
+            // Start a DMA transfer from PI to RDRAM
             performReadDma((value & 0xFFFFFF) + 1);
             return;
 
@@ -105,13 +105,30 @@ void PI::performReadDma(uint32_t size)
 {
     LOG_INFO("PI DMA from cart 0x%X to RDRAM 0x%X with size 0x%X\n", cartAddr, dramAddr, size);
 
-    // Copy data from the cartridge to memory
-    // TODO: support SRAM
+    // Copy data from the PI bus to memory
+    // TODO: check bounds
     for (uint32_t i = 0; i < size; i++)
     {
-        uint32_t dst = 0x80000000 + dramAddr + i;
-        uint32_t src = cartAddr - 0x10000000 + i;
-        Memory::write<uint8_t>(dst, (src < std::min(0xFC00000U, romSize)) ? rom[src] : 0xFFFFFFFF);
+        uint8_t value = Memory::read<uint8_t>(0x80000000 + cartAddr + i);
+        Memory::write<uint8_t>(0x80000000 + dramAddr + i, value);
+    }
+
+    // Request a PI interrupt when the DMA finishes
+    // TODO: make DMAs not instant
+    MI::setInterrupt(4);
+}
+
+
+void PI::performWriteDma(uint32_t size)
+{
+    LOG_INFO("PI DMA from RDRAM 0x%X to cart 0x%X with size 0x%X\n", dramAddr, cartAddr, size);
+
+    // Copy data from memory to the PI bus
+    // TODO: check bounds
+    for (uint32_t i = 0; i < size; i++)
+    {
+        uint8_t value = Memory::read<uint8_t>(0x80000000 + dramAddr + i);
+        Memory::write<uint8_t>(0x80000000 + cartAddr + i, value);
     }
 
     // Request a PI interrupt when the DMA finishes
