@@ -30,7 +30,7 @@ namespace CPU_CP0
     uint32_t read(int index);
     void write(int index, uint32_t value);
 
-    void updateCount();
+    void resetCycles();
     void checkInterrupts();
     void exception(uint8_t type);
     bool cpUsable(uint8_t cp);

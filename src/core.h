@@ -27,6 +27,7 @@ namespace Core
     extern bool running;
     extern bool cpuRunning;
     extern bool rspRunning;
+    extern uint32_t globalCycles;
     extern int fps;
 
     bool bootRom(const std::string &path);

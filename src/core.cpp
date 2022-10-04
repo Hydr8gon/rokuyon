@@ -58,7 +58,6 @@ namespace Core
     bool running;
     bool cpuRunning;
     bool rspRunning;
-    bool countToggle;
 
     std::vector<Task> tasks;
     uint32_t globalCycles;
@@ -90,7 +89,6 @@ bool Core::bootRom(const std::string &path)
 
     // Reset the scheduler
     cpuRunning = true;
-    countToggle = false;
     tasks.clear();
     globalCycles = 0;
     cpuCycles = 0;
@@ -146,16 +144,11 @@ void Core::run()
         // Run the CPUs until the next scheduled task
         while (tasks[0].cycles > globalCycles)
         {
-            if (globalCycles >= cpuCycles)
+            // Run a CPU opcode if ready and schedule the next one
+            if (cpuRunning && globalCycles >= cpuCycles)
             {
-                // Run a CPU opcode if ready and schedule the next one
-                if (cpuRunning) CPU::runOpcode();
+                CPU::runOpcode();
                 cpuCycles = globalCycles + 2;
-
-                // Update the CP0 count register at half the speed of the CPU
-                // TODO: move this to the scheduler
-                if ((countToggle = !countToggle))
-                    CPU_CP0::updateCount();
             }
 
             // Run an RSP opcode if ready and schedule the next one
@@ -166,7 +159,7 @@ void Core::run()
             }
 
             // Jump to the next soonest opcode
-            globalCycles = rspRunning ? std::min(cpuCycles, rspCycles) : cpuCycles;
+            globalCycles = std::min<uint32_t>(cpuRunning ? cpuCycles : -1, rspRunning ? rspCycles : -1);
         }
 
         // Jump to the next scheduled task
@@ -203,6 +196,7 @@ void Core::countFrame()
 void Core::resetCycles()
 {
     // Reset the cycle counts to prevent overflow
+    CPU_CP0::resetCycles();
     for (size_t i = 0; i < tasks.size(); i++)
         tasks[i].cycles -= globalCycles;
     cpuCycles -= std::min(globalCycles, cpuCycles);

@@ -39,6 +39,12 @@ namespace CPU_CP0
     uint32_t epc;
     uint32_t errorEpc;
 
+    uint32_t startCycles;
+    uint32_t endCycles;
+
+    void scheduleCount();
+    void updateCount();
+
     void tlbr(uint32_t opcode);
     void tlbwi(uint32_t opcode);
     void tlbp(uint32_t opcode);
@@ -73,6 +79,7 @@ void CPU_CP0::reset()
     cause = 0;
     epc = 0;
     errorEpc = 0;
+    scheduleCount();
 }
 
 uint32_t CPU_CP0::read(int index)
@@ -97,8 +104,8 @@ uint32_t CPU_CP0::read(int index)
             return pageMask;
 
         case 9: // Count
-            // Get the count register
-            return count;
+            // Get the count register, as it would be at the current cycle
+            return count + ((Core::globalCycles - startCycles) >> 2);
 
         case 10: // EntryHi
             // Get the high entry register
@@ -156,8 +163,9 @@ void CPU_CP0::write(int index, uint32_t value)
             return;
 
         case 9: // Count
-            // Set the count register
+            // Set the count register and reschedule its next update
             count = value;
+            scheduleCount();
             return;
 
         case 10: // EntryHi
@@ -169,6 +177,10 @@ void CPU_CP0::write(int index, uint32_t value)
             // Set the compare register and acknowledge a timer interrupt
             compare = value;
             cause &= ~0x8000;
+            
+            // Update the count register and reschedule its next update
+            count += ((Core::globalCycles - startCycles) >> 2);
+            scheduleCount();
             return;
 
         case 12: // Status
@@ -204,14 +216,38 @@ void CPU_CP0::write(int index, uint32_t value)
     }
 }
 
+void CPU_CP0::resetCycles()
+{
+    // Adjust the cycle counts for a cycle reset
+    startCycles -= Core::globalCycles;
+    endCycles -= Core::globalCycles;
+}
+
+void CPU_CP0::scheduleCount()
+{
+    // Assuming count is updated, schedule its next update
+    // This is done as close to match as possible, with a limit to prevent cycle overflow
+    startCycles = Core::globalCycles;
+    endCycles = startCycles + std::min<uint32_t>((compare - count) << 2, 0x40000000);
+    endCycles += (startCycles == endCycles) << 2;
+    Core::schedule(updateCount, endCycles - startCycles);
+}
+
 void CPU_CP0::updateCount()
 {
-    // Increment count and request a timer interrupt when it matches compare
-    if (++count == compare)
+    // Ignore the update if it was rescheduled
+    if (Core::globalCycles != endCycles)
+        return;
+
+    // Update count and request a timer interrupt if it matches compare
+    if ((count += ((endCycles - startCycles) >> 2)) == compare)
     {
         cause |= 0x8000;
         checkInterrupts();
     }
+
+    // Schedule the next update
+    scheduleCount();
 }
 
 void CPU_CP0::checkInterrupts()
