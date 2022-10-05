@@ -101,6 +101,7 @@ namespace RDP
     uint32_t envAlpha;
     uint32_t fogColor;
     uint32_t blendColor;
+    uint32_t pixelAlpha;
     uint32_t memColor;
     uint32_t maxColor;
     uint32_t minColor;
@@ -115,8 +116,8 @@ namespace RDP
     uint32_t colorToAlpha(uint32_t color);
 
     uint32_t getTexel(Tile &tile, int s, int t);
-    uint32_t blendPixel(bool cycle);
-    void drawPixel(int x, int y);
+    bool blendPixel(bool cycle, uint32_t &color);
+    bool drawPixel(int x, int y);
 
     void runCommands();
     void triangle();
@@ -221,6 +222,7 @@ void RDP::reset()
     envAlpha = 0x00000000;
     fogColor = 0x00000000;
     blendColor = 0x00000000;
+    pixelAlpha = 0x00000000;
     memColor = 0x00000000;
     maxColor = 0xFFFFFFFF;
     minColor = 0x00000000;
@@ -417,7 +419,7 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
     }
 }
 
-uint32_t RDP::blendPixel(bool cycle)
+bool RDP::blendPixel(bool cycle, uint32_t &color)
 {
     // Select the first color for blending
     uint32_t color1;
@@ -433,9 +435,9 @@ uint32_t RDP::blendPixel(bool cycle)
     uint8_t scale1;
     switch (blendB[cycle])
     {
-        case 0: scale1 = combColor;  break;
+        case 0: scale1 = pixelAlpha; break;
         case 1: scale1 = fogColor;   break;
-        case 2: scale1 = shadeColor; break;
+        case 2: scale1 = shadeAlpha; break;
         case 3: scale1 = 0x00;       break;
     }
 
@@ -453,10 +455,10 @@ uint32_t RDP::blendPixel(bool cycle)
     uint8_t scale2;
     switch (blendD[cycle])
     {
-        case 0: scale2 = 0xFF - scale1; break;
-        case 1: scale2 = memColor;      break;
-        case 2: scale2 = 0xFF;          break;
-        case 3: scale2 = 0x00;          break;
+        case 0: scale2 = ~scale1;  break;
+        case 1: scale2 = memColor; break;
+        case 2: scale2 = 0xFF;     break;
+        case 3: scale2 = 0x00;     break;
     }
 
     // Blend the colors to form a new color
@@ -465,13 +467,14 @@ uint32_t RDP::blendPixel(bool cycle)
         uint8_t r = (((color1 >> 24) & 0xFF) * scale1 + ((color2 >> 24) & 0xFF) * scale2) / scale;
         uint8_t g = (((color1 >> 16) & 0xFF) * scale1 + ((color2 >> 16) & 0xFF) * scale2) / scale;
         uint8_t b = (((color1 >>  8) & 0xFF) * scale1 + ((color2 >>  8) & 0xFF) * scale2) / scale;
-        color1 = (r << 24) | (g << 16) | (b << 8);
+        color = (r << 24) | (g << 16) | (b << 8);
+        return true;
     }
 
-    return color1;
+    return false;
 }
 
-void RDP::drawPixel(int x, int y)
+bool RDP::drawPixel(int x, int y)
 {
     switch (cycleType)
     {
@@ -483,23 +486,29 @@ void RDP::drawPixel(int x, int y)
             uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) / 0xFF) + (*combineD[0] >>  8);
             uint8_t a = (((((*combineA[2] >>  0) - (*combineB[2] >>  0)) & 0xFF) * ((*combineC[2] >>  0) & 0xFF)) / 0xFF) + (*combineD[2] >>  0);
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
-            combAlpha = colorToAlpha(combColor);
+            pixelAlpha = combAlpha = colorToAlpha(combColor);
 
             if (colorFormat == RGBA16)
             {
                 // Blend the pixel with the previous RGBA16 pixel in the color buffer
                 memColor = RGBA16toRGBA32(Memory::read<uint16_t>(colorAddress + (y * colorWidth + x) * 2)) & ~0xFF;
-                uint32_t color = blendPixel(false);
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
+                if (blendPixel(false, memColor))
+                {
+                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(memColor | 0xFF));
+                    return true;
+                }
             }
             else
             {
                 // Blend the pixel with the previous RGBA32 pixel in the color buffer
                 memColor = Memory::read<uint32_t>(colorAddress + (y * colorWidth + x) * 4) & ~0xFF;
-                uint32_t color = blendPixel(false);
-                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
+                if (blendPixel(false, memColor))
+                {
+                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, memColor | 0xFF);
+                    return true;
+                }
             }
-            return;
+            return false;
         }
 
         case TWO_CYCLE:
@@ -510,15 +519,14 @@ void RDP::drawPixel(int x, int y)
             uint8_t b = (((((*combineA[0] >>  8) - (*combineB[0] >>  8)) & 0xFF) * ((*combineC[0] >>  8) & 0xFF)) / 0xFF) + (*combineD[0] >>  8);
             uint8_t a = (((((*combineA[2] >>  0) - (*combineB[2] >>  0)) & 0xFF) * ((*combineC[2] >>  0) & 0xFF)) / 0xFF) + (*combineD[2] >>  0);
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
-            combAlpha = colorToAlpha(combColor);
+            pixelAlpha = combAlpha = colorToAlpha(combColor);
 
             // Blend the pixel with the previous pixel in the color buffer
             if (colorFormat == RGBA16)
                 memColor = RGBA16toRGBA32(Memory::read<uint16_t>(colorAddress + (y * colorWidth + x) * 2)) & ~0xFF;
             else
                 memColor = Memory::read<uint32_t>(colorAddress + (y * colorWidth + x) * 4) & ~0xFF;
-            combColor = blendPixel(false);
-            combAlpha = colorToAlpha(combColor);
+            bool blend = blendPixel(false, combColor);
 
             // Combine cycle 1 RGB channels using the formula (A - B) * C + D
             r = (((((*combineA[1] >> 24) - (*combineB[1] >> 24)) & 0xFF) * ((*combineC[1] >> 24) & 0xFF)) / 0xFF) + (*combineD[1] >> 24);
@@ -529,12 +537,16 @@ void RDP::drawPixel(int x, int y)
             combAlpha = colorToAlpha(combColor);
 
             // Blend the pixel again and write it to the color buffer
-            uint32_t color = blendPixel(true);
-            if (colorFormat == RGBA16)
-                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color));
-            else
-                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color);
-            return;
+            uint32_t color = combColor;
+            if (blend || blendPixel(true, color))
+            {
+                if (colorFormat == RGBA16)
+                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color | 0xFF));
+                else
+                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, color | 0xFF);
+                return true;
+            }
+            return false;
         }
 
         case COPY_MODE:
@@ -545,8 +557,9 @@ void RDP::drawPixel(int x, int y)
                     Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(texelColor));
                 else
                     Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, texelColor);
+                return true;
             }
-            return;
+            return false;
 
         case FILL_MODE:
             // Copy the fill color directly to the color buffer
@@ -554,8 +567,10 @@ void RDP::drawPixel(int x, int y)
                 Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, fillColor >> ((~x & 1) * 16));
             else
                 Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, fillColor);
-            return;
+            return true;
     }
+
+    return false;
 }
 
 void RDP::runCommands()
@@ -649,9 +664,9 @@ void RDP::triDepth()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
                 Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
-                // Update the Z buffer and color buffer
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                drawPixel(x, y);
+                // Update the Z buffer if a pixel is drawn
+                if (drawPixel(x, y))
+                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
             // Interpolate the values across the line
@@ -713,7 +728,6 @@ void RDP::triTexture()
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
-                // Update the color buffer
                 drawPixel(x, y);
             }
 
@@ -788,9 +802,9 @@ void RDP::triDepthTex()
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
-                // Update the Z buffer and color buffer
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                drawPixel(x, y);
+                // Update the Z buffer if a pixel is drawn
+                if (drawPixel(x, y))
+                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
             // Interpolate the values across the line
@@ -859,7 +873,6 @@ void RDP::triShade()
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
-                // Update the color buffer
                 drawPixel(x, y);
             }
 
@@ -939,9 +952,9 @@ void RDP::triDepthSha()
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
-                // Update the Z buffer and color buffer
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                drawPixel(x, y);
+                // Update the Z buffer if a pixel is drawn
+                if (drawPixel(x, y))
+                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
             // Interpolate the values across the line
@@ -1033,7 +1046,6 @@ void RDP::triShadeTex()
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
-                // Update the color buffer
                 drawPixel(x, y);
             }
 
@@ -1138,9 +1150,9 @@ void RDP::triDepShaTex()
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
-                // Update the Z buffer and color buffer
-                Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-                drawPixel(x, y);
+                // Update the Z buffer if a pixel is drawn
+                if (drawPixel(x, y))
+                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
             // Interpolate the values across the line
