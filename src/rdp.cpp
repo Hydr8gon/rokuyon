@@ -304,9 +304,9 @@ void RDP::write(int index, uint32_t value)
 inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
 {
     // Convert an RGBA16 color to RGBA32
-    uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
-    uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
-    uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
+    uint8_t r = ((color >> 8) & 0xF8) | ((color >> 13) & 0x7);
+    uint8_t g = ((color >> 3) & 0xF8) | ((color >>  8) & 0x7);
+    uint8_t b = ((color << 2) & 0xF8) | ((color >>  3) & 0x7);
     uint8_t a = (color & 0x1) ? 0xFF : 0x00;
     return (r << 24) | (g << 16) | (b << 8) | a;
 }
@@ -314,9 +314,9 @@ inline uint32_t RDP::RGBA16toRGBA32(uint16_t color)
 inline uint16_t RDP::RGBA32toRGBA16(uint32_t color)
 {
     // Convert an RGBA32 color to RGBA16
-    uint8_t r = ((color >> 24) & 0xFF) * 31 / 255;
-    uint8_t g = ((color >> 16) & 0xFF) * 31 / 255;
-    uint8_t b = ((color >>  8) & 0xFF) * 31 / 255;
+    uint8_t r = ((color >> 27) & 0x1F);
+    uint8_t g = ((color >> 19) & 0x1F);
+    uint8_t b = ((color >> 11) & 0x1F);
     uint8_t a = (color & 0xFF) ? 0x1 : 0x0;
     return (r << 11) | (g << 6) | (b << 1) | a;
 }
@@ -383,8 +383,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
         case IA4:
         {
             // Convert an IA4 texel to RGBA32
-            uint8_t value = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
-            uint8_t i = ((value >> 1) & 0x7) * 255 / 7;
+            uint8_t value = tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4;
+            uint8_t i = ((value << 4) & 0xE0) | ((value << 1) & 0x1C) | ((value >> 2) & 0x3);
             uint8_t a = (value & 0x1) ? 0xFF : 0x0;
             return (i << 24) | (i << 16) | (i << 8) | a;
         }
@@ -393,16 +393,16 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
         {
             // Convert an IA8 texel to RGBA32
             uint8_t value = tmem[(tile.address + t * tile.width + s) & 0xFFF];
-            uint8_t i = ((value >> 4) & 0xF) * 255 / 15;
-            uint8_t a = ((value >> 0) & 0xF) * 255 / 15;
+            uint8_t i = (value & 0xF0) | (value >> 4);
+            uint8_t a = (value & 0x0F) | (value << 4);
             return (i << 24) | (i << 16) | (i << 8) | a;
         }
 
         case I4:
         {
             // Convert an I4 texel to RGBA32
-            uint8_t value = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
-            uint8_t i = value * 255 / 15;
+            uint8_t value = tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4;
+            uint8_t i = (value << 4) | (value & 0xF);
             return (i << 24) | (i << 16) | (i << 8) | i;
         }
 
