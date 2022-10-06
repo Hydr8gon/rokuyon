@@ -30,7 +30,7 @@
 
 namespace VI
 {
-    Framebuffer fbs[2];
+    _Framebuffer fbs[2];
     std::atomic<bool> ready;
 
     uint32_t control;
@@ -41,7 +41,7 @@ namespace VI
     void drawFrame();
 }
 
-Framebuffer *VI::getFramebuffer()
+_Framebuffer *VI::getFramebuffer()
 {
     // Wait until a new frame is ready
     if (!ready.load())

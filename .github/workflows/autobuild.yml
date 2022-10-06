@@ -69,9 +69,24 @@ jobs:
         name: rokuyon-windows
         path: rokuyon.exe
 
+  build-switch:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Compile
+      run: make switch -j$(nproc)
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: rokuyon-switch
+        path: rokuyon.nro
+
   update-release:
     runs-on: ubuntu-latest
-    needs: [build-linux, build-mac, build-windows]
+    needs: [build-linux, build-mac, build-windows, build-switch]
 
     steps:
     - name: Delete old release

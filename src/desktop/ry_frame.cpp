@@ -88,7 +88,7 @@ void ryFrame::bootRom(std::string path)
     if (!Core::bootRom(path))
     {
         wxMessageDialog(this, "Make sure the ROM file is accessible and try again.",
-            "Error Loading Cart ROM", wxICON_NONE).ShowModal();
+            "Error Loading ROM", wxICON_NONE).ShowModal();
         return;
     }
 

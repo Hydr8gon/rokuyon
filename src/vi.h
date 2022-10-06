@@ -22,7 +22,7 @@
 
 #include <cstdint>
 
-struct Framebuffer
+struct _Framebuffer
 {
     uint32_t *data;
     uint32_t width;
@@ -31,7 +31,7 @@ struct Framebuffer
 
 namespace VI
 {
-    Framebuffer *getFramebuffer();
+    _Framebuffer *getFramebuffer();
 
     void reset();
     uint32_t read(uint32_t address);

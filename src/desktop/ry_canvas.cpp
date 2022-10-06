@@ -123,7 +123,7 @@ void ryCanvas::draw(wxPaintEvent &event)
         // At the swap interval, get the framebuffer as a texture
         if (++frameCount >= swapInterval)
         {
-            if (Framebuffer *fb = VI::getFramebuffer())
+            if (_Framebuffer *fb = VI::getFramebuffer())
             {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width,
                     fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);

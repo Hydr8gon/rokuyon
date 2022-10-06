@@ -63,6 +63,9 @@ uninstall:
 endif
 endif
 
+switch:
+	$(MAKE) -f Makefile.switch
+
 $(NAME): $(OFILES)
 	g++ -o $@ $(ARGS) $^ $(LIBS)
 
@@ -76,5 +79,6 @@ $(BUILD):
 	done
 
 clean:
+	$(MAKE) -f Makefile.switch clean
 	rm -rf $(BUILD)
 	rm -f $(NAME)
