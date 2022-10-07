@@ -398,6 +398,15 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
             return (i << 24) | (i << 16) | (i << 8) | a;
         }
 
+        case IA16:
+        {
+            // Convert an IA16 texel to RGBA32
+            uint8_t *value = &tmem[(tile.address + t * tile.width + s * 2) & 0xFFE];
+            uint8_t i = value[0];
+            uint8_t a = value[1];
+            return (i << 24) | (i << 16) | (i << 8) | a;
+        }
+
         case I4:
         {
             // Convert an I4 texel to RGBA32
