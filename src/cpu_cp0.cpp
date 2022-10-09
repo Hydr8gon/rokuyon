@@ -79,6 +79,7 @@ void CPU_CP0::reset()
     cause = 0;
     epc = 0;
     errorEpc = 0;
+    endCycles = -1;
     scheduleCount();
 }
 
@@ -228,9 +229,16 @@ void CPU_CP0::scheduleCount()
     // Assuming count is updated, schedule its next update
     // This is done as close to match as possible, with a limit to prevent cycle overflow
     startCycles = Core::globalCycles;
-    endCycles = startCycles + std::min<uint32_t>((compare - count) << 2, 0x40000000);
-    endCycles += (startCycles == endCycles) << 2;
-    Core::schedule(updateCount, endCycles - startCycles);
+    uint32_t cycles = startCycles + std::min<uint32_t>((compare - count) << 2, 0x40000000);
+    cycles += (startCycles == cycles) << 2;
+
+    // Only reschedule if the update is sooner than what's already scheduled
+    // This helps prevent overloading the scheduler when registers are used excessively
+    if (endCycles > cycles)
+    {
+        Core::schedule(updateCount, cycles - startCycles);
+        endCycles = cycles;
+    }
 }
 
 void CPU_CP0::updateCount()
@@ -246,7 +254,8 @@ void CPU_CP0::updateCount()
         checkInterrupts();
     }
 
-    // Schedule the next update
+    // Schedule the next update unconditionally
+    endCycles = -1;
     scheduleCount();
 }
 
