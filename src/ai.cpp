@@ -69,6 +69,7 @@ void AI::fillBuffer(uint32_t *out)
         {
             // Copy all of the remaining queued samples to the output buffer
             memcpy(&out[count / sizeof(uint32_t)], &buffer[offset], size);
+            count += size;
             offset = 0;
 
             // Free the queued buffer
@@ -177,7 +178,8 @@ void AI::submitBuffer()
         for (size_t i = 0; i < count; i++)
         {
             uint32_t address = samples[0].address + (i * samples[0].count / count) * 4;
-            buffer[i] = Memory::read<uint32_t>(0xA0000000 + address);
+            uint32_t value = Memory::read<uint32_t>(0xA0000000 + address);
+            buffer[i] = (value << 16) | (value >> 16);
         }
 
         // Add the buffer to the output queue
