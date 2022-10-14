@@ -160,6 +160,11 @@
     <ClInclude Include="..\src\desktop\ry_canvas.h" />
     <ClInclude Include="..\src\desktop\ry_frame.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="rokuyonLib\rokuyonLib.vcxproj">
+      <Project>{f6da26bc-0ca4-4661-aa2b-0f9dc9619b9e}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\portaudio.redist.0.19.1\build\native\portaudio.redist.targets" Condition="Exists('packages\portaudio.redist.0.19.1\build\native\portaudio.redist.targets')" />
