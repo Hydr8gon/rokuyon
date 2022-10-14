@@ -26,6 +26,13 @@
 #include "log.h"
 #include "memory.h"
 
+// _mul128 / _umul128
+#ifdef _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(_mul128)
+#pragma intrinsic(_umul128)
+#endif
+
 namespace CPU
 {
     uint64_t registersR[33];
@@ -771,19 +778,27 @@ void CPU::divu(uint32_t opcode)
 void CPU::dmult(uint32_t opcode)
 {
     // Multiply two signed 64-bit registers and set the 128-bit result
+#ifdef _MSC_VER
+    lo = _mul128((int64_t)registersR[(opcode >> 16) & 0x1F], (int64_t)registersR[(opcode >> 21) & 0x1F], (int64_t *)&hi);
+#else
     __uint128_t value = (__int128_t)(int64_t)registersR[(opcode >> 16) & 0x1F] *
         (int64_t)registersR[(opcode >> 21) & 0x1F];
     hi = value >> 64;
     lo = value;
+#endif
 }
 
 void CPU::dmultu(uint32_t opcode)
 {
     // Multiply two unsigned 64-bit registers and set the 128-bit result
+#ifdef _MSC_VER
+    lo = _umul128(registersR[(opcode >> 16) & 0x1F], registersR[(opcode >> 21) & 0x1F], &hi);
+#else
     __uint128_t value = (__uint128_t)registersR[(opcode >> 16) & 0x1F] *
         registersR[(opcode >> 21) & 0x1F];
     hi = value >> 64;
     lo = value;
+#endif
 }
 
 void CPU::ddiv(uint32_t opcode)
