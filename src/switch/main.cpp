@@ -68,8 +68,7 @@ bool startCore(bool reset)
         // Try to boot a ROM at the current path, but display an error if failed
         if (reset && !Core::bootRom(path))
         {
-            std::vector<std::string> message;
-            message.push_back("Make sure the ROM file is accessible and try again.");
+            std::vector<std::string> message = { "Make sure the ROM file is accessible and try again." };
             SwitchUI::message("Error Loading ROM", message);
             return false;
         }
@@ -167,6 +166,54 @@ void fileBrowser()
     delete[] folder;
 }
 
+bool saveTypeMenu()
+{
+    size_t index = 0;
+    std::vector<ListItem> items =
+    {
+        ListItem("None"),
+        ListItem("EEPROM 0.5KB"),
+        ListItem("EEPROM 2KB"),
+        ListItem("SRAM 32KB")
+    };
+
+    // Select the current save type by default
+    switch (Core::saveSize)
+    {
+        case 0x0200: index = 1; break; // EEPROM 0.5KB
+        case 0x0800: index = 2; break; // EEPROM 8KB
+        case 0x8000: index = 3; break; // SRAM 32KB
+    }
+
+    // Create the save type menu
+    Selection menu = SwitchUI::menu("Change Save Type", &items, index);
+    index = menu.index;
+
+    // Handle menu input
+    if (menu.pressed & HidNpadButton_A)
+    {
+        // Ask for confirmation before doing anything because accidents could be bad!
+        std::vector<std::string> message = { "Are you sure? This may result in data loss!" };
+        if (!SwitchUI::message("Changing Save Type", message, true))
+            return false;
+
+        // On confirmation, change the save type
+        switch (index)
+        {
+            case 0: Core::resizeSave(0x0000); break; // None
+            case 1: Core::resizeSave(0x0200); break; // EEPROM 0.5KB
+            case 2: Core::resizeSave(0x0800); break; // EEPROM 8KB
+            case 3: Core::resizeSave(0x8000); break; // SRAM 32KB
+        }
+
+        // Restart the emulator
+        Core::bootRom(path);
+        return true;
+    }
+
+    return false;
+}
+
 void pauseMenu()
 {
     size_t index = 0;
@@ -174,6 +221,7 @@ void pauseMenu()
     {
         ListItem("Resume"),
         ListItem("Restart"),
+        ListItem("Change Save Type"),
         ListItem("File Browser")
     };
 
@@ -196,13 +244,18 @@ void pauseMenu()
                     startCore(false);
                     return;
 
+                case 2: // Change Save Type
+                    // Open the save type menu and restart if the save changed
+                    if (!saveTypeMenu())
+                        break;
+
                 case 1: // Restart
                     // Restart and return to the emulator
                     if (!startCore(true))
                         fileBrowser();
                     return;
 
-                case 2: // File Browser
+                case 3: // File Browser
                     // Open the file browser
                     fileBrowser();
                     return;

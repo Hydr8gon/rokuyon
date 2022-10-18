@@ -20,16 +20,16 @@
 #include <cstring>
 
 #include "pif.h"
+#include "core.h"
 #include "cpu.h"
 #include "log.h"
 #include "memory.h"
-#include "pi.h"
 
 namespace PIF
 {
     uint8_t memory[0x800]; // 2KB-64B PIF ROM + 64B PIF RAM
-    uint8_t save[0x200]; // 0.5KB EEPROM
-    std::string savePath;
+    uint16_t eepromMask;
+    uint8_t eepromId;
 
     uint8_t command;
     uint16_t buttons;
@@ -70,7 +70,7 @@ uint32_t PIF::crc32(uint8_t *data, size_t size)
     return ~r;
 }
 
-void PIF::reset(FILE *pifFile, std::string savePath2)
+void PIF::reset()
 {
     // Reset the PIF to its initial state
     clearMemory(0);
@@ -79,9 +79,17 @@ void PIF::reset(FILE *pifFile, std::string savePath2)
     stickX = 0;
     stickY = 0;
 
+    // Set a mask and ID for 0.5KB/2KB EEPROM, or disable EEPROM
+    switch (Core::saveSize)
+    {
+        case 0x200: eepromMask = 0x1FF; eepromId = 0x80; break;
+        case 0x800: eepromMask = 0x7FF; eepromId = 0xC0; break;
+        default:    eepromMask = 0x000; eepromId = 0x00; break;
+    }
+
     // Set the CIC seed based on which bootcode is detected
     // This value is used during boot to calculate a checksum
-    switch (uint32_t value = crc32(&PI::rom[0x40], 0x1000 - 0x40))
+    switch (uint32_t value = crc32(&Core::rom[0x40], 0x1000 - 0x40))
     {
         case 0x6170A4A1: // 6101
             LOG_INFO("Detected CIC chip 6101\n");
@@ -113,7 +121,7 @@ void PIF::reset(FILE *pifFile, std::string savePath2)
             break;
     }
 
-    if (pifFile)
+    if (FILE *pifFile = fopen("pif_rom.bin", "rb"))
     {
         // Load the PIF ROM into memory if it exists
         fread(memory, sizeof(uint8_t), 0x7C0, pifFile);
@@ -157,20 +165,8 @@ void PIF::reset(FILE *pifFile, std::string savePath2)
 
         // Copy the IPL3 from ROM to DMEM and jump to the start address
         for (uint32_t i = 0; i < 0x1000; i++)
-            Memory::write(0xA4000000 + i, PI::rom[i]);
+            Memory::write(0xA4000000 + i, Core::rom[i]);
         CPU::programCounter = 0xA4000040 - 4;
-    }
-
-    if (FILE *file = fopen((savePath = savePath2).c_str(), "rb"))
-    {
-        // Load the ROM's save file into memory if it exists
-        fread(&save, sizeof(uint8_t), sizeof(save), file);
-        fclose(file);
-    }
-    else
-    {
-        // If no save file exists, clear the save memory
-        memset(save, 0, sizeof(save));
     }
 
     // Set the memory size to 4MB
@@ -242,10 +238,9 @@ void PIF::joybusProtocol(int bit)
                     }
                     else if (channel < 6)
                     {
-                        // Report 0.5KB EEPROM
-                        // TODO: support 2KB EEPROM (detect it somehow?)
+                        // Report the current EEPROM type, if any
                         memory[i + 3] = 0x00; // ID high
-                        memory[i + 4] = 0x80; // ID low
+                        memory[i + 4] = eepromId; // ID low
                         memory[i + 5] = 0x00; // Status
                     }
                     else
@@ -268,34 +263,20 @@ void PIF::joybusProtocol(int bit)
                 case 0x04: // Read EEPROM block
                     if ((channel & ~1) == 4) // Channels 4 and 5
                     {
-                        // Get an EEPROM address from the page number
-                        uint16_t address = (memory[i + 3] * 8) & 0x1FF;
-                        LOG_INFO("Reading 8 bytes from EEPROM address 0x%X\n", address);
-
-                        // Read 8 bytes from the save to PIF memory
+                        // Read 8 bytes from an EEPROM page to PIF memory
+                        uint16_t address = (memory[i + 3] * 8) & eepromMask;
                         for (int j = 0; j < 8; j++)
-                            memory[i + 4 + j] = save[address + j];
+                            memory[i + 4 + j] = eepromMask ? Core::save[address + j] : 0;
                     }
                     break;
 
                 case 0x05: // Write EEPROM block
-                    if ((channel & ~1) == 4) // Channels 4 and 5
+                    if ((channel & ~1) == 4 && eepromMask) // Channels 4 and 5
                     {
-                        // Get an EEPROM address from the page number
-                        uint16_t address = (memory[i + 3] * 8) & 0x1FF;
-                        LOG_INFO("Writing 8 bytes to EEPROM address 0x%X\n", address);
-
-                        // Write 8 bytes from PIF memory to the save
+                        // Write 8 bytes from PIF memory to an EEPROM page
+                        uint16_t address = (memory[i + 3] * 8) & eepromMask;
                         for (int j = 0; j < 8; j++)
-                            save[address + j] = memory[i + 4 + j];
-
-                        // Flush data to the save file
-                        // TODO: handle this asynchronously
-                        if (FILE *file = fopen(savePath.c_str(), "wb"))
-                        {
-                            fwrite(save, sizeof(uint8_t), sizeof(save), file);
-                            fclose(file);
-                        }
+                            Core::writeSave(address + j, memory[i + 4 + j]);
                     }
                     break;
 

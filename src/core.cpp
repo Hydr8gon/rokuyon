@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
+#include <cstring>
 #include <thread>
 #include <vector>
 
@@ -27,6 +29,7 @@
 #include "cpu.h"
 #include "cpu_cp0.h"
 #include "cpu_cp1.h"
+#include "log.h"
 #include "memory.h"
 #include "mi.h"
 #include "pi.h"
@@ -54,7 +57,12 @@ struct Task
 
 namespace Core
 {
-    std::thread *thread;
+    std::thread *emuThread;
+    std::thread *saveThread;
+    std::condition_variable condVar;
+    std::mutex waitMutex;
+    std::mutex saveMutex;
+
     bool running;
     bool cpuRunning;
     bool rspRunning;
@@ -68,7 +76,16 @@ namespace Core
     int fpsCount;
     std::chrono::steady_clock::time_point lastFpsTime;
 
-    void run();
+    std::string savePath;
+    uint8_t *rom;
+    uint8_t *save;
+    uint32_t romSize;
+    uint32_t saveSize;
+    bool saveDirty;
+
+    void runLoop();
+    void saveLoop();
+    void updateSave();
     void resetCycles();
 }
 
@@ -78,14 +95,40 @@ bool Core::bootRom(const std::string &path)
     FILE *romFile = fopen(path.c_str(), "rb");
     if (!romFile) return false;
 
-    // Open a PIF ROM file if it exists
-    FILE *pifFile = fopen("pif_rom.bin", "rb");
-
-    // Derive the save path from the ROM path
-    std::string savePath = path.substr(0, path.rfind(".")) + ".sav";
-
     // Ensure the emulator is stopped
     stop();
+
+    // Load the ROM into memory
+    if (rom) delete[] rom;
+    fseek(romFile, 0, SEEK_END);
+    romSize = ftell(romFile);
+    fseek(romFile, 0, SEEK_SET);
+    rom = new uint8_t[romSize];
+    fread(rom, sizeof(uint8_t), romSize, romFile);
+    fclose(romFile);
+
+    // Derive the save path from the ROM path
+    savePath = path.substr(0, path.rfind(".")) + ".sav";
+    if (save) delete[] save;
+    saveDirty = false;
+
+    if (FILE *saveFile = fopen(savePath.c_str(), "rb"))
+    {
+        // Load the save file into memory if it exists
+        fseek(saveFile, 0, SEEK_END);
+        saveSize = ftell(saveFile);
+        fseek(saveFile, 0, SEEK_SET);
+        save = new uint8_t[saveSize];
+        fread(save, sizeof(uint8_t), saveSize, saveFile);
+        fclose(saveFile);
+    }
+    else
+    {
+        // If no save file exists, assume no save
+        // TODO: some sort of detection, or a database
+        saveSize = 0;
+        save = nullptr;
+    }
 
     // Reset the scheduler
     cpuRunning = true;
@@ -102,10 +145,10 @@ bool Core::bootRom(const std::string &path)
     CPU_CP0::reset();
     CPU_CP1::reset();
     MI::reset();
-    PI::reset(romFile);
+    PI::reset();
     SI::reset();
     VI::reset();
-    PIF::reset(pifFile, savePath);
+    PIF::reset();
     RDP::reset();
     RSP::reset();
     RSP_CP0::reset();
@@ -116,28 +159,64 @@ bool Core::bootRom(const std::string &path)
     return true;
 }
 
+void Core::resizeSave(uint32_t newSize)
+{
+    // Create a save with the new size
+    saveMutex.lock();
+    uint8_t *newSave = new uint8_t[newSize];
+
+    if (saveSize < newSize) // New save is larger
+    {
+        // Copy all of the old save and fill the rest with 0xFF
+        memcpy(newSave, save, saveSize * sizeof(uint8_t));
+        memset(&newSave[saveSize], 0xFF, (newSize - saveSize) * sizeof(uint8_t));
+    }
+    else // New save is smaller
+    {
+        // Copy as much of the old save as possible
+        memcpy(newSave, save, newSize * sizeof(uint8_t));
+    }
+
+    // Swap the old save for the new one
+    delete[] save;
+    save = newSave;
+    saveSize = newSize;
+    saveDirty = true;
+    saveMutex.unlock();
+    updateSave();
+}
+
 void Core::start()
 {
-    // Start the emulation thread if it wasn't running
+    // Start the threads if emulation wasn't running
     if (!running)
     {
         running = true;
-        thread = new std::thread(run);
+        emuThread = new std::thread(runLoop);
+        saveThread = new std::thread(saveLoop);
     }
 }
 
 void Core::stop()
 {
-    // Stop the emulation thread if it was running
     if (running)
     {
-        running = false;
-        thread->join();
-        delete thread;
+        {
+            // Signal for the threads to stop
+            std::lock_guard<std::mutex> guard(waitMutex);
+            running = false;
+            condVar.notify_one();
+        }
+
+        // Stop the threads if emulation was running
+        emuThread->join();
+        saveThread->join();
+        delete emuThread;
+        delete saveThread;
     }
 }
 
-void Core::run()
+void Core::runLoop()
 {
     while (running)
     {
@@ -174,6 +253,17 @@ void Core::run()
     }
 }
 
+void Core::saveLoop()
+{
+    while (running)
+    {
+        // Every few seconds, check if the save file should be updated
+        std::unique_lock<std::mutex> lock(waitMutex);
+        condVar.wait_for(lock, std::chrono::seconds(3), [&]{ return !running; });
+        updateSave();
+    }
+}
+
 void Core::countFrame()
 {
     // Calculate the time since the FPS was last updated
@@ -191,6 +281,32 @@ void Core::countFrame()
         // Count another frame
         fpsCount++;
     }
+}
+
+void Core::writeSave(uint32_t address, uint8_t value)
+{
+    // Safely write a byte of data to the current save
+    saveMutex.lock();
+    save[address] = value;
+    saveDirty = true;
+    saveMutex.unlock();
+}
+
+void Core::updateSave()
+{
+    // Update the save file if the data changed
+    saveMutex.lock();
+    if (saveDirty)
+    {
+        if (FILE *saveFile = fopen(savePath.c_str(), "wb"))
+        {
+            LOG_INFO("Writing save file to disk\n");
+            fwrite(save, sizeof(uint8_t), saveSize, saveFile);
+            fclose(saveFile);
+            saveDirty = false;
+        }
+    }
+    saveMutex.unlock();
 }
 
 void Core::resetCycles()

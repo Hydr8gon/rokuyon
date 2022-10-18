@@ -22,6 +22,7 @@
 
 #include "memory.h"
 #include "ai.h"
+#include "core.h"
 #include "log.h"
 #include "mi.h"
 #include "pi.h"
@@ -126,10 +127,15 @@ template <typename T> T Memory::read(uint32_t address)
             value |= (T)rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] << ((sizeof(T) - 1 - i) * 8);
         return value;
     }
-    else if (pAddr >= 0x10000000 && pAddr < 0x10000000 + std::min(PI::romSize, 0xFC00000U))
+    else if (pAddr >= 0x8000000 && pAddr < 0x8008000 && Core::saveSize == 0x8000)
+    {
+        // Get a pointer to data in cart SRAM, if it exists
+        data = &Core::save[pAddr & 0x7FFF];
+    }
+    else if (pAddr >= 0x10000000 && pAddr < 0x10000000 + std::min(Core::romSize, 0xFC00000U))
     {
         // Get a pointer to data in cart ROM
-        data = &PI::rom[pAddr - 0x10000000];
+        data = &Core::rom[pAddr - 0x10000000];
     }
     else if (pAddr >= 0x1FC00000 && pAddr < 0x1FC00800)
     {
@@ -234,6 +240,13 @@ template <typename T> void Memory::write(uint32_t address, T value)
         // Write a value to RSP DMEM/IMEM, with wraparound
         for (size_t i = 0; i < sizeof(T); i++)
             rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] = value >> ((sizeof(T) - 1 - i) * 8);
+        return;
+    }
+    else if (pAddr >= 0x8000000 && pAddr < 0x8008000 && Core::saveSize == 0x8000)
+    {
+        // Write a value to cart SRAM, if it exists
+        for (size_t i = 0; i < sizeof(T); i++)
+            Core::writeSave((pAddr + i) & 0x7FFF, value >> ((sizeof(T) - 1 - i) * 8));
         return;
     }
     else if (pAddr >= 0x1FC007C0 && pAddr < 0x1FC00800)

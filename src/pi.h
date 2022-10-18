@@ -25,10 +25,7 @@
 
 namespace PI
 {
-    extern uint8_t *rom;
-    extern uint32_t romSize;
-
-    void reset(FILE *romFile);
+    void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 }

@@ -26,9 +26,6 @@
 
 namespace PI
 {
-    uint8_t *rom;
-    uint32_t romSize;
-
     uint32_t dramAddr;
     uint32_t cartAddr;
 
@@ -36,17 +33,8 @@ namespace PI
     void performWriteDma(uint32_t length);
 }
 
-void PI::reset(FILE *romFile)
+void PI::reset()
 {
-    // Load the cart ROM into memory
-    if (rom) delete[] rom;
-    fseek(romFile, 0, SEEK_END);
-    romSize = ftell(romFile);
-    fseek(romFile, 0, SEEK_SET);
-    rom = new uint8_t[romSize];
-    fread(rom, sizeof(uint8_t), romSize, romFile);
-    fclose(romFile);
-
     // Reset the PI to its initial state
     dramAddr = 0;
     cartAddr = 0;

@@ -1,3 +1,7 @@
 /build
+/build-switch
 /rokuyon
+/rokuyon.elf
+/rokuyon.nacp
+/rokuyon.nro
 pif_rom.bin

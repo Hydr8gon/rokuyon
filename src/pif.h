@@ -28,7 +28,7 @@ namespace PIF
 {
     extern uint8_t memory[0x800];
 
-    void reset(FILE *pifFile, std::string savePath);
+    void reset();
     void runCommand();
 
     void pressKey(int key);
