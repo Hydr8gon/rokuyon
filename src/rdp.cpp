@@ -41,12 +41,16 @@ enum CycleType
 
 struct Tile
 {
+    uint16_t sBase;
     uint16_t sMask;
     bool sMirror;
     bool sClamp;
+
+    uint16_t tBase;
     uint16_t tMask;
     bool tMirror;
     bool tClamp;
+    
     uint16_t address;
     uint16_t width;
     uint8_t palette;
@@ -133,6 +137,7 @@ namespace RDP
     void setScissor();
     void setOtherModes();
     void loadTlut();
+    void setTileSize();
     void loadBlock();
     void loadTile();
     void setTile();
@@ -164,7 +169,7 @@ void (*RDP::commands[0x40])() =
     texRectangle, unknown,       unknown,       unknown,       // 0x24-0x27
     unknown,      syncFull,      unknown,       unknown,       // 0x28-0x2B
     unknown,      setScissor,    unknown,       setOtherModes, // 0x2C-0x2F
-    loadTlut,     unknown,       unknown,       loadBlock,     // 0x30-0x33
+    loadTlut,     unknown,       setTileSize,   loadBlock,     // 0x30-0x33
     loadTile,     setTile,       fillRectangle, setFillColor,  // 0x34-0x37
     setFogColor,  setBlendColor, setPrimColor,  setEnvColor,   // 0x38-0x3B
     setCombine,   setTexImage,   setZImage,     setColorImage  // 0x3C-0x3F
@@ -330,6 +335,10 @@ inline uint32_t RDP::colorToAlpha(uint32_t color)
 
 uint32_t RDP::getTexel(Tile &tile, int s, int t)
 {
+    // Offset the texture coordinates relative to the tile
+    s = (s - tile.sBase) >> 5;
+    t = (t - tile.tBase) >> 5;
+
     // Clamp, mirror, or mask the S-coordinate based on tile settings
     if (tile.sClamp)
         s = std::max<int>(std::min<int>(s, tile.sMask), 0);
@@ -731,9 +740,9 @@ void RDP::triTexture()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
             {
                 // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 16)
+                if (wa >> 15)
                 {
-                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
@@ -805,9 +814,9 @@ void RDP::triDepthTex()
                 Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
             {
                 // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 16)
+                if (wa >> 15)
                 {
-                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
@@ -1049,9 +1058,9 @@ void RDP::triShadeTex()
                 shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 16)
+                if (wa >> 15)
                 {
-                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
@@ -1153,9 +1162,9 @@ void RDP::triDepShaTex()
                 shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 16)
+                if (wa >> 15)
                 {
-                    texelColor = getTexel(tile, (sa / (wa >> 16)) >> 6, (ta / (wa >> 16)) >> 6);
+                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
@@ -1180,7 +1189,6 @@ void RDP::triDepShaTex()
 void RDP::texRectangle()
 {
     // Decode the operands
-    // TODO: actually use the texture coordinate bits
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
     uint16_t y1 = ((opcode[0] >>  0) & 0xFFF) >> 2;
     uint16_t x1 = ((opcode[0] >> 12) & 0xFFF) >> 2;
@@ -1188,6 +1196,8 @@ void RDP::texRectangle()
     uint16_t x2 = ((opcode[0] >> 44) & 0xFFF) >> 2;
     int16_t dtdy = opcode[1] >>  0;
     int16_t dsdx = opcode[1] >> 16;
+    int t1 = (int16_t)(opcode[1] >> 32) << 5;
+    int s1 = (int16_t)(opcode[1] >> 48) << 5;
 
     // Adjust some things based on the cycle type
     // TODO: handle this more accurately
@@ -1198,20 +1208,18 @@ void RDP::texRectangle()
         y2++;
     }
 
-    // Clip the coordinates to be within scissor bounds
-    x1 = std::max(x1, scissorX1);
-    x2 = std::min(x2, scissorX2);
-    y1 = std::max(y1, scissorY1);
-    y2 = std::min(y2, scissorY2);
-
     // Draw a rectangle using a texture
-    for (int y = y1, t = 0; y < y2; y++, t += dtdy)
+    for (int y = y1, t = t1; y < y2; y++, t += dtdy)
     {
-        for (int x = x1, s = 0; x < x2; x++, s += dsdx)
+        for (int x = x1, s = s1; x < x2; x++, s += dsdx)
         {
-            texelColor = getTexel(tile, s >> 10, t >> 10);
-            texelAlpha = colorToAlpha(texelColor);
-            drawPixel(x, y);
+            // Draw a pixel if it's within scissor bounds
+            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
+            {
+                texelColor = getTexel(tile, s >> 5, t >> 5);
+                texelAlpha = colorToAlpha(texelColor);
+                drawPixel(x, y);
+            }
         }
     }
 }
@@ -1264,6 +1272,15 @@ void RDP::loadTlut()
     }
 }
 
+void RDP::setTileSize()
+{
+    // Set the low texture coordinates for reference
+    // TODO: use the high coordinates for something?
+    Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
+    tile.sBase = ((opcode[0] >> 44) & 0xFFF) << 3;
+    tile.tBase = ((opcode[0] >> 32) & 0xFFF) << 3;
+}
+
 void RDP::loadBlock()
 {
     // Decode the operands
@@ -1314,6 +1331,10 @@ void RDP::loadTile()
     uint16_t s2 = ((opcode[0] >> 12) & 0xFFF) >> 2;
     uint16_t t1 = ((opcode[0] >> 32) & 0xFFF) >> 2;
     uint16_t s1 = ((opcode[0] >> 44) & 0xFFF) >> 2;
+
+    // Save the low texture coordinates for reference
+    tile.sBase = ((opcode[0] >> 44) & 0xFFF) << 3;
+    tile.tBase = ((opcode[0] >> 32) & 0xFFF) << 3;
 
     // Only support loading textures without conversion for now
     if (texFormat != tile.format)
