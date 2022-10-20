@@ -282,6 +282,10 @@ void RDP::write(int index, uint32_t value)
             return;
 
         case 3: // DP_STATUS
+            // Disable setting the freeze bit as a hack for Banjo-Kazooie
+            // TODO: actually implement this bit (it should block DMAs?)
+            value &= ~0x8;
+
             // Set or clear some status bits
             for (int i = 0; i < 6; i += 2)
             {
@@ -556,7 +560,7 @@ bool RDP::drawPixel(int x, int y)
 
             // Blend the pixel again and write it to the color buffer
             uint32_t color = combColor;
-            if (blend || blendPixel(true, color))
+            if (blendPixel(true, color) || blend)
             {
                 if (colorFormat == RGBA16)
                     Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(color | 0xFF));
