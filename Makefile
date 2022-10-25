@@ -79,6 +79,8 @@ $(BUILD):
 	done
 
 clean:
+ifneq ($(strip $(DEVKITPRO)),)
 	$(MAKE) -f Makefile.switch clean
+endif
 	rm -rf $(BUILD)
 	rm -f $(NAME)
