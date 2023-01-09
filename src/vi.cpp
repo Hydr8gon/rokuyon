@@ -30,7 +30,8 @@
 
 namespace VI
 {
-    _Framebuffer fbs[2];
+    _Framebuffer fb;
+    bool fb_realloc;
     std::atomic<bool> ready;
 
     uint32_t control;
@@ -47,19 +48,9 @@ _Framebuffer *VI::getFramebuffer()
     if (!ready.load())
         return nullptr;
 
-    // Get the width and height of the frame
-    fbs[1].width  = fbs[0].width;
-    fbs[1].height = fbs[0].height;
-
-    // Make a copy of the framebuffer so the original can be overwritten
-    if (fbs[1].data) delete[] fbs[1].data;
-    size_t size = fbs[1].width * fbs[1].height * sizeof(uint32_t);
-    fbs[1].data = new uint32_t[size];
-    memcpy(fbs[1].data, fbs[0].data, size);
-
     // Release the original framebuffer and return the copied one
     ready.store(false);
-    return &fbs[1];
+    return &fb;
 }
 
 void VI::reset()
@@ -69,6 +60,8 @@ void VI::reset()
     origin = 0;
     width = 0;
     yScale = 0;
+
+    fb_realloc = false;
 
     // Schedule the first frame to be drawn
     Core::schedule(drawFrame, (93750000 / 60) * 2);
@@ -90,6 +83,9 @@ uint32_t VI::read(uint32_t address)
 
 void VI::write(uint32_t address, uint32_t value)
 {
+    uint32_t new_width;
+    uint32_t new_yScale;
+
     // Write to an I/O register if one exists at the given address
     switch (address)
     {
@@ -106,7 +102,9 @@ void VI::write(uint32_t address, uint32_t value)
 
         case 0x4400008: // VI_WIDTH
             // Set the framebuffer width in pixels
-            width = (value & 0xFFF);
+            new_width = (value & 0xFFF);
+            fb_realloc = new_width != width;
+            width = new_width;
             return;
 
         case 0x4400010: // VI_V_CURRENT
@@ -117,7 +115,9 @@ void VI::write(uint32_t address, uint32_t value)
         case 0x4400034: // VI_Y_SCALE
             // Set the framebuffer Y-scale
             // TODO: actually use offset value
-            yScale = (value & 0xFFF0FFF);
+            new_yScale = (value & 0xFFF0FFF);
+            fb_realloc = new_yScale != yScale;
+            yScale = new_yScale;
             return;
 
         default:
@@ -132,45 +132,59 @@ void VI::drawFrame()
     while (Core::running && ready.load())
         std::this_thread::yield();
 
-    // Set the frame width and height based on registers
-    fbs[0].width = width;
-    fbs[0].height = ((yScale & 0xFFF) * 240) >> 10;
+    size_t num_pix;
+    size_t size;
 
-    // Allocate a framebuffer of the correct size
-    if (fbs[0].data) delete[] fbs[0].data;
-    size_t size = fbs[0].width * fbs[0].height;
-    fbs[0].data = new uint32_t[size * sizeof(uint32_t)];
+    if (fb_realloc)
+    {
+        // Set the frame width and height based on registers
+        fb.width = width;
+        fb.height = ((yScale & 0xFFF) * 240) >> 10;
+
+        // Allocate a framebuffer of the correct size
+        if (fb.data) delete[] fb.data;
+        num_pix = (size_t)(fb.width * fb.height);
+        size = num_pix * sizeof(uint32_t);
+        fb.data = new uint32_t[size];
+
+        fb_realloc = false;
+    }
+    else
+    {
+        num_pix = (size_t)(fb.width * fb.height);
+        size = num_pix * sizeof(uint32_t);
+    }
 
     // Read the framebuffer from N64 memory
     switch (control & 0x3) // Type
     {
         case 0x3: // 32-bit
             // Translate pixels from RGB_8888 to ARGB8888
-            for (size_t i = 0; i < size; i++)
+            for (size_t i = 0; i < num_pix; i++)
             {
                 uint32_t color = Memory::read<uint32_t>(origin + (uint32_t)(i << 2));
                 uint8_t r = (color >> 24) & 0xFF;
                 uint8_t g = (color >> 16) & 0xFF;
                 uint8_t b = (color >>  8) & 0xFF;
-                fbs[0].data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                fb.data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
             }
             break;
 
         case 0x2: // 16-bit
             // Translate pixels from RGB_5551 to ARGB8888
-            for (size_t i = 0; i < size; i++)
+            for (size_t i = 0; i < num_pix; i++)
             {
                 uint16_t color = Memory::read<uint16_t>(origin + (uint32_t)(i << 1));
                 uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
                 uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
                 uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
-                fbs[0].data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                fb.data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
             }
             break;
 
         default:
             // Don't show anything
-            memset(fbs[0].data, 0, size);
+            memset(fb.data, 0, size);
             break;
     }
 
