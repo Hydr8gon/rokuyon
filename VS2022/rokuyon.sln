@@ -5,7 +5,7 @@ VisualStudioVersion = 17.1.32319.34
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rokuyon", "rokuyon.vcxproj", "{6EE22FE2-6745-41DE-AFA5-D87E1487DA0D}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rokuyonLib", "rokuyonLib\rokuyonLib.vcxproj", "{F6DA26BC-0CA4-4661-AA2B-0F9DC9619B9E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rokuyonCore", "rokuyonCore\rokuyonCore.vcxproj", "{F6DA26BC-0CA4-4661-AA2B-0F9DC9619B9E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

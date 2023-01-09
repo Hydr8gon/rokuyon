@@ -57,7 +57,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{f6da26bc-0ca4-4661-aa2b-0f9dc9619b9e}</ProjectGuid>
-    <RootNamespace>rokuyonLib</RootNamespace>
+    <RootNamespace>rokuyonCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

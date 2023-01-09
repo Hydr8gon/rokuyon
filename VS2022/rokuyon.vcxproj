@@ -169,7 +169,7 @@
     <ClInclude Include="..\src\desktop\save_dialog.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="rokuyonLib\rokuyonLib.vcxproj">
+    <ProjectReference Include="rokuyonCore\rokuyonCore.vcxproj">
       <Project>{f6da26bc-0ca4-4661-aa2b-0f9dc9619b9e}</Project>
     </ProjectReference>
   </ItemGroup>
