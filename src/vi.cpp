@@ -31,6 +31,7 @@
 namespace VI
 {
     _Framebuffer fb;
+    _Framebuffer blank;
     bool fb_realloc;
     std::atomic<bool> ready;
 
@@ -50,7 +51,7 @@ _Framebuffer *VI::getFramebuffer()
 
     // Release the original framebuffer and return the copied one
     ready.store(false);
-    return &fb;
+    return (control & 0x3) == 0 ? &blank : &fb;
 }
 
 void VI::reset()
@@ -58,10 +59,17 @@ void VI::reset()
     // Reset the VI to its initial state
     control = 0;
     origin = 0;
-    width = 0;
-    yScale = 0;
+    width = 320;
+    yScale = 1 << 10;   // 240
 
-    fb_realloc = false;
+    fb_realloc = true;
+
+    blank.width = 320;
+    blank.height = 240;
+    size_t blank_buffer_size = (size_t)(blank.width * blank.height) * sizeof(uint32_t);
+    if (blank.data != nullptr) delete[] blank.data;
+    blank.data = new uint32_t[blank_buffer_size];
+    memset(blank.data, 0, blank_buffer_size);
 
     // Schedule the first frame to be drawn
     Core::schedule(drawFrame, (93750000 / 60) * 2);
@@ -184,7 +192,6 @@ void VI::drawFrame()
 
         default:
             // Don't show anything
-            memset(fb.data, 0, size);
             break;
     }
 
