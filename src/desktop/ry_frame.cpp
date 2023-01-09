@@ -29,7 +29,8 @@ enum FrameEvent
     QUIT,
     PAUSE,
     RESTART,
-    STOP
+    STOP,
+    SHOW_HIDE_DEBUG,
 };
 
 wxBEGIN_EVENT_TABLE(ryFrame, wxFrame)
@@ -39,6 +40,7 @@ EVT_MENU(QUIT, ryFrame::quit)
 EVT_MENU(PAUSE, ryFrame::pause)
 EVT_MENU(RESTART, ryFrame::restart)
 EVT_MENU(STOP, ryFrame::stop)
+EVT_MENU(SHOW_HIDE_DEBUG, ryFrame::showHideDebug)
 EVT_DROP_FILES(ryFrame::dropFiles)
 EVT_CLOSE(ryFrame::close)
 wxEND_EVENT_TABLE()
@@ -52,6 +54,13 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     fileMenu->AppendSeparator();
     fileMenu->Append(QUIT, "&Quit");
 
+    // Set up the debug menu
+#ifdef _DEBUG
+    debugMenu = new wxMenu();
+    auto debugMenuItem = debugMenu->Append(SHOW_HIDE_DEBUG, "Show &Debug");
+    debugMenuItem->SetCheckable(true);
+#endif
+
     // Set up the system menu
     systemMenu = new wxMenu();
     systemMenu->Append(PAUSE, "&Resume");
@@ -62,13 +71,16 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     // Set up the menu bar
     wxMenuBar *menuBar = new wxMenuBar();
     menuBar->Append(fileMenu, "&File");
+#ifdef _DEBUG
+    menuBar->Append(debugMenu, "&Debug");
+#endif
     menuBar->Append(systemMenu, "&System");
     SetMenuBar(menuBar);
 
     // Set up and show the window
     DragAcceptFiles(true);
-    SetClientSize(wxSize(320, 240));
-    SetMinClientSize(wxSize(320, 240));
+    SetClientSize(wxSize(640, 480));
+    SetMinClientSize(wxSize(640, 480));
     Centre();
     Show(true);
 
@@ -201,4 +213,22 @@ void ryFrame::close(wxCloseEvent &event)
     Core::stop();
     canvas->finish();
     event.Skip(true);
+}
+
+void ryFrame::showHideDebug(wxCommandEvent& event)
+{
+    if (!debugActive)
+    {
+        AllocConsole();
+        conout = freopen("CONOUT$", "w", stdout);
+        debugMenu->Check(SHOW_HIDE_DEBUG, true);
+        debugActive = true;
+    }
+    else
+    {
+        fclose(conout);
+        FreeConsole();
+        debugMenu->Check(SHOW_HIDE_DEBUG, false);
+        debugActive = false;
+    }
 }
