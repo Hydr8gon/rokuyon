@@ -1218,13 +1218,10 @@ void RDP::texRectangle()
     {
         for (int x = x1, s = s1; x < x2; x++, s += dsdx)
         {
-            // Draw a pixel if it's within scissor bounds
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-            {
-                texelColor = getTexel(tile, s >> 5, t >> 5);
-                texelAlpha = colorToAlpha(texelColor);
-                drawPixel(x, y);
-            }
+            // Scissoring applies only to triangle primitives
+            texelColor = getTexel(tile, s >> 5, t >> 5);
+            texelAlpha = colorToAlpha(texelColor);
+            drawPixel(x, y);
         }
     }
 }
@@ -1432,11 +1429,7 @@ void RDP::fillRectangle()
         y2++;
     }
 
-    // Clip the coordinates to be within scissor bounds
-    x1 = std::max(x1, scissorX1);
-    x2 = std::min(x2, scissorX2);
-    y1 = std::max(y1, scissorY1);
-    y2 = std::min(y2, scissorY2);
+    // Scissoring applies only to triangle primitives
 
     // Draw a rectangle
     for (int y = y1; y < y2; y++)
