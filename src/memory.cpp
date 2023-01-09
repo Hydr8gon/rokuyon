@@ -239,14 +239,14 @@ template <typename T> void Memory::write(uint32_t address, T value)
     {
         // Write a value to RSP DMEM/IMEM, with wraparound
         for (size_t i = 0; i < sizeof(T); i++)
-            rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] = value >> ((sizeof(T) - 1 - i) * 8);
+            rspMem[(pAddr & 0x1000) | ((pAddr + i) & 0xFFF)] = (uint8_t)(value >> ((sizeof(T) - 1 - i) * 8));
         return;
     }
     else if (pAddr >= 0x8000000 && pAddr < 0x8008000 && Core::saveSize == 0x8000)
     {
         // Write a value to cart SRAM, if it exists
         for (size_t i = 0; i < sizeof(T); i++)
-            Core::writeSave((pAddr + i) & 0x7FFF, value >> ((sizeof(T) - 1 - i) * 8));
+            Core::writeSave((pAddr + i) & 0x7FFF, (uint8_t)(value >> ((sizeof(T) - 1 - i) * 8)));
         return;
     }
     else if (pAddr >= 0x1FC007C0 && pAddr < 0x1FC00800)
@@ -258,7 +258,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
         if (pAddr >= 0x1FC00800 - sizeof(T))
         {
             for (size_t i = 0; i < sizeof(T); i++)
-                data[i] = value >> ((sizeof(T) - 1 - i) * 8);
+                data[i] = (uint8_t)(value >> ((sizeof(T) - 1 - i) * 8));
             PIF::runCommand();
             return;
         }
@@ -270,28 +270,28 @@ template <typename T> void Memory::write(uint32_t address, T value)
     else if (pAddr >= 0x4040000 && pAddr < 0x4040020)
     {
         // Write a value to an RSP CP0 register
-        return RSP_CP0::write((pAddr & 0x1F) >> 2, value);
+        return RSP_CP0::write((pAddr & 0x1F) >> 2, (uint32_t)value);
     }
     else if (pAddr == 0x4080000)
     {
         // Write a value to the RSP program counter
-        return RSP::writePC(value);
+        return RSP::writePC((uint32_t)value);
     }
     else if (pAddr >= 0x4100000 && pAddr < 0x4100020)
     {
         // Write a value to an RDP register
-        return RDP::write((pAddr & 0x1F) >> 2, value);
+        return RDP::write((pAddr & 0x1F) >> 2, (uint32_t)value);
     }
     else
     {
         // Write a value to a group of registers
         switch (pAddr >> 20)
         {
-            case 0x43: return MI::write(pAddr, value);
-            case 0x44: return VI::write(pAddr, value);
-            case 0x45: return AI::write(pAddr, value);
-            case 0x46: return PI::write(pAddr, value);
-            case 0x48: return SI::write(pAddr, value);
+            case 0x43: return MI::write(pAddr, (uint32_t)value);
+            case 0x44: return VI::write(pAddr, (uint32_t)value);
+            case 0x45: return AI::write(pAddr, (uint32_t)value);
+            case 0x46: return PI::write(pAddr, (uint32_t)value);
+            case 0x48: return SI::write(pAddr, (uint32_t)value);
         }
     }
 
@@ -299,7 +299,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
     {
         // Write a value to the pointer, big-endian style (MSB first)
         for (size_t i = 0; i < sizeof(T); i++)
-            data[i] = value >> ((sizeof(T) - 1 - i) * 8);
+            data[i] = (uint8_t)(value >> ((sizeof(T) - 1 - i) * 8));
         return;
     }
 

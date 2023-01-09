@@ -33,6 +33,7 @@ namespace MI
 
     void setInterrupt(int bit);
     void clearInterrupt(int bit);
+    bool getInterrupt(int bit);
 }
 
 #endif // MI_H

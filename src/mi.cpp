@@ -100,3 +100,11 @@ void MI::clearInterrupt(int bit)
     interrupt &= ~(1 << bit);
     CPU_CP0::checkInterrupts();
 }
+
+bool MI::getInterrupt(int bit)
+{
+    // Get interrupt status by polling
+    bool active = (interrupt & (1 << bit)) != 0;
+    CPU_CP0::checkInterrupts();
+    return active;
+}

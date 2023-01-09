@@ -495,7 +495,7 @@ void CPU::sb(uint32_t opcode)
 {
     // Store a byte to memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    Memory::write<uint8_t>(address, registersR[(opcode >> 16) & 0x1F]);
+    Memory::write<uint8_t>(address, (uint8_t)registersR[(opcode >> 16) & 0x1F]);
 }
 
 void CPU::sh(uint32_t opcode)
@@ -503,7 +503,7 @@ void CPU::sh(uint32_t opcode)
     // Store a half-word to memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
-    Memory::write<uint16_t>(address, registersR[(opcode >> 16) & 0x1F]);
+    Memory::write<uint16_t>(address, (uint16_t)registersR[(opcode >> 16) & 0x1F]);
 }
 
 void CPU::swl(uint32_t opcode)

@@ -79,6 +79,9 @@ uint32_t VI::read(uint32_t address)
     // Read from an I/O register if one exists at the given address
     switch (address)
     {
+        case 0x4400000: // VI_CONTROL
+            return control;
+
         default:
             LOG_WARN("Unknown VI register read: 0x%X\n", address);
             return 0;
@@ -145,7 +148,7 @@ void VI::drawFrame()
             // Translate pixels from RGB_8888 to ARGB8888
             for (size_t i = 0; i < size; i++)
             {
-                uint32_t color = Memory::read<uint32_t>(origin + (i << 2));
+                uint32_t color = Memory::read<uint32_t>(origin + (uint32_t)(i << 2));
                 uint8_t r = (color >> 24) & 0xFF;
                 uint8_t g = (color >> 16) & 0xFF;
                 uint8_t b = (color >>  8) & 0xFF;
@@ -157,7 +160,7 @@ void VI::drawFrame()
             // Translate pixels from RGB_5551 to ARGB8888
             for (size_t i = 0; i < size; i++)
             {
-                uint16_t color = Memory::read<uint16_t>(origin + (i << 1));
+                uint16_t color = Memory::read<uint16_t>(origin + (uint32_t)(i << 1));
                 uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
                 uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
                 uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;

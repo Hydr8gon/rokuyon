@@ -26,6 +26,9 @@
 namespace SI
 {
     uint32_t dramAddr;
+    bool dmaBusy;           // TODO: make DMAs not instant
+    bool ioReadBusy;        // Not currently in use
+    bool dmaError;          // Not currently used, but could be added to simulate DMA errors
 
     void performReadDma(uint32_t address);
     void performWriteDma(uint32_t address);
@@ -35,6 +38,9 @@ void SI::reset()
 {
     // Reset the SI to its initial state
     dramAddr = 0;
+    dmaBusy = false;
+    ioReadBusy = false;
+    dmaError = false;
 }
 
 uint32_t SI::read(uint32_t address)
@@ -42,6 +48,15 @@ uint32_t SI::read(uint32_t address)
     // Read from an I/O register if one exists at the given address
     switch (address)
     {
+        case 0x4800000: // SI_DRAM_ADDR
+            return dramAddr & 0xFFFFFF;
+
+        case 0x4800018: // SI_STATUS
+            return ((dmaBusy != 0) << 0) |
+                ((ioReadBusy != 0) << 1) |
+                ((dmaError != 0) << 3) |
+                ((MI::getInterrupt(1) != 0) << 12);
+
         default:
             LOG_WARN("Unknown SI register read: 0x%X\n", address);
             return 0;
