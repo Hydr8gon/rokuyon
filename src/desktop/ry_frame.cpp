@@ -19,11 +19,13 @@
 
 #include "ry_frame.h"
 #include "ry_canvas.h"
+#include "save_dialog.h"
 #include "../core.h"
 
 enum FrameEvent
 {
     LOAD_ROM = 1,
+    CHANGE_SAVE,
     QUIT,
     PAUSE,
     RESTART,
@@ -32,6 +34,7 @@ enum FrameEvent
 
 wxBEGIN_EVENT_TABLE(ryFrame, wxFrame)
 EVT_MENU(LOAD_ROM, ryFrame::loadRom)
+EVT_MENU(CHANGE_SAVE, ryFrame::changeSave)
 EVT_MENU(QUIT, ryFrame::quit)
 EVT_MENU(PAUSE, ryFrame::pause)
 EVT_MENU(RESTART, ryFrame::restart)
@@ -43,8 +46,9 @@ wxEND_EVENT_TABLE()
 ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
 {
     // Set up the file menu
-    wxMenu *fileMenu = new wxMenu();
+    fileMenu = new wxMenu();
     fileMenu->Append(LOAD_ROM, "&Load ROM");
+    fileMenu->Append(CHANGE_SAVE, "&Change Save Type");
     fileMenu->AppendSeparator();
     fileMenu->Append(QUIT, "&Quit");
 
@@ -101,21 +105,23 @@ void ryFrame::updateMenu()
 {
     if (Core::running)
     {
-        // Enable the system menu when the core is running
+        // Enable some menu items when the core is running
         systemMenu->SetLabel(PAUSE, "&Pause");
         systemMenu->Enable(PAUSE, true);
         systemMenu->Enable(RESTART, true);
         systemMenu->Enable(STOP, true);
+        fileMenu->Enable(CHANGE_SAVE, true);
     }
     else
     {
-        // Disable the system menu when the core isn't running
+        // Disable some menu items when the core isn't running
         systemMenu->SetLabel(PAUSE, "&Resume");
         if (!paused)
         {
             systemMenu->Enable(PAUSE, false);
             systemMenu->Enable(RESTART, false);
             systemMenu->Enable(STOP, false);
+            fileMenu->Enable(CHANGE_SAVE, false);
         }
     }
 }
@@ -139,6 +145,13 @@ void ryFrame::loadRom(wxCommandEvent &event)
     // Boot a ROM if a file was selected
     if (romSelect.ShowModal() != wxID_CANCEL)
         bootRom((const char*)romSelect.GetPath().mb_str(wxConvUTF8));
+}
+
+void ryFrame::changeSave(wxCommandEvent &event)
+{
+    // Show the save type dialog
+    SaveDialog saveDialog(lastPath);
+    saveDialog.ShowModal();
 }
 
 void ryFrame::quit(wxCommandEvent &event)

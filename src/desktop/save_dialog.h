@@ -17,32 +17,30 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CORE_H
-#define CORE_H
+#ifndef SAVE_DIALOG_H
+#define SAVE_DIALOG_H
 
-#include <string>
+#include <wx/wx.h>
 
-namespace Core
+class SaveDialog: public wxDialog
 {
-    extern bool running;
-    extern bool cpuRunning;
-    extern bool rspRunning;
-    extern uint32_t globalCycles;
-    extern int fps;
+    public:
+        SaveDialog(std::string &lastPath);
 
-    extern uint8_t *rom;
-    extern uint8_t *save;
-    extern uint32_t romSize;
-    extern uint32_t saveSize;
+    private:
+        std::string &lastPath;
+        uint32_t selection = 0;
 
-    bool bootRom(const std::string &path);
-    void resizeSave(uint32_t newSize);
-    void start();
-    void stop();
+        uint32_t selectToSize(uint32_t select);
+        uint32_t sizeToSelect(uint32_t size);
 
-    void countFrame();
-    void writeSave(uint32_t address, uint8_t value);
-    void schedule(void (*function)(), uint32_t cycles);
-}
+        void select0(wxCommandEvent &event);
+        void select1(wxCommandEvent &event);
+        void select2(wxCommandEvent &event);
+        void select3(wxCommandEvent &event);
+        void confirm(wxCommandEvent &event);
 
-#endif // CORE_H
+        wxDECLARE_EVENT_TABLE();
+};
+
+#endif // SAVE_DIALOG_H

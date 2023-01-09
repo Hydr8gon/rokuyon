@@ -34,6 +34,7 @@ class ryFrame: public wxFrame
 
     private:
         ryCanvas *canvas;
+        wxMenu *fileMenu;
         wxMenu *systemMenu;
 
         std::string lastPath;
@@ -43,6 +44,7 @@ class ryFrame: public wxFrame
         void updateMenu();
 
         void loadRom(wxCommandEvent &event);
+        void changeSave(wxCommandEvent &event);
         void quit(wxCommandEvent &event);
         void pause(wxCommandEvent &event);
         void restart(wxCommandEvent &event);
