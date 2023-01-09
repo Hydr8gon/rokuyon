@@ -30,6 +30,9 @@
     <ClCompile Include="..\src\desktop\ry_frame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\desktop\save_dialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\desktop\ry_app.h">
@@ -39,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\desktop\ry_frame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\desktop\save_dialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

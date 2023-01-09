@@ -41,12 +41,9 @@ bool ryApp::OnInit()
     timer->Start(6);
 
     // Set up the audio stream
-    // TBD: I was unable to mate the PortAudio nuget package with the build.
-#ifndef _MSC_VER
     Pa_Initialize();
     Pa_OpenDefaultStream(&stream, 0, 2, paInt16, 48000, 1024, audioCallback, nullptr);
     Pa_StartStream(stream);
-#endif
 
     return true;
 }
@@ -54,10 +51,7 @@ bool ryApp::OnInit()
 int ryApp::OnExit()
 {
     // Stop some things before exiting
-    // TBD: I was unable to mate the PortAudio nuget package with the build.
-#ifndef _MSC_VER
     Pa_StopStream(stream);
-#endif
     timer->Stop();
     return wxApp::OnExit();
 }
