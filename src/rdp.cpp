@@ -151,13 +151,14 @@ namespace RDP
     void setTexImage();
     void setZImage();
     void setColorImage();
+    void noOp();
     void unknown();
 }
 
 // RDP command lookup table, based on opcode bits 56-61
 void (*RDP::commands[0x40])() =
 {
-    unknown,      unknown,       unknown,       unknown,       // 0x00-0x03
+    noOp,         unknown,       unknown,       unknown,       // 0x00-0x03
     unknown,      unknown,       unknown,       unknown,       // 0x04-0x07
     triangle,     triDepth,      triTexture,    triDepthTex,   // 0x08-0x0B
     triShade,     triDepthSha,   triShadeTex,   triDepShaTex,  // 0x0C-0x0F
@@ -1671,6 +1672,11 @@ void RDP::setColorImage()
         LOG_CRIT("Unknown RDP color buffer format: %d\n", colorFormat);
         colorFormat = RGBA16;
     }
+}
+
+void RDP::noOp()
+{
+    // Do nothing
 }
 
 void RDP::unknown()
