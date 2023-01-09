@@ -35,13 +35,10 @@ class ryFrame: public wxFrame
     private:
         ryCanvas *canvas;
         wxMenu *fileMenu;
-        wxMenu *debugMenu;
         wxMenu *systemMenu;
 
         std::string lastPath;
         bool paused;
-        bool debugActive = false;
-        FILE* conout = nullptr;
 
         void bootRom(std::string path);
         void updateMenu();
@@ -54,7 +51,6 @@ class ryFrame: public wxFrame
         void stop(wxCommandEvent &event);
         void dropFiles(wxDropFilesEvent &event);
         void close(wxCloseEvent &event);
-        void showHideDebug(wxCommandEvent& event);
 
         wxDECLARE_EVENT_TABLE();
 };
