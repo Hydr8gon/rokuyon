@@ -574,7 +574,7 @@ void RSP::lqv(uint32_t opcode)
     int index = (opcode >> 16) & 0x1F;
     int byte = (opcode >> 7) & 0xF;
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
-    for (int i = 0; i < 15 - (address & 0xF); i += 2)
+    for (uint32_t i = 0; i < 15 - (address & 0xF); i += 2)
         RSP_CP2::write(false, index, byte + i, Memory::read<uint16_t>(0xA4000000 | ((address + i) & 0xFFF)));
 
     // If loading an odd number of bytes, handle the last byte specially
@@ -675,7 +675,7 @@ void RSP::sqv(uint32_t opcode)
     int index = (opcode >> 16) & 0x1F;
     int byte = (opcode >> 7) & 0xF;
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + ((int8_t)(opcode << 1) << 3);
-    for (int i = 0; i < 15 - (address & 0xF); i += 2)
+    for (uint32_t i = 0; i < 15 - (address & 0xF); i += 2)
         Memory::write<uint16_t>(0xA4000000 | ((address + i) & 0xFFF), RSP_CP2::read(false, index, byte + i));
 
     // If storing an odd number of bytes, handle the last byte specially

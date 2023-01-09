@@ -375,7 +375,7 @@ uint16_t RSP_CP2::clampSigned(int64_t value)
     // Clamp a value to the signed 16-bit range
     if (value < -32768) return -32768;
     if (value >  32767) return  32767;
-    return value;
+    return (uint16_t)value;
 }
 
 uint16_t RSP_CP2::clampUnsigned(int64_t value)
@@ -383,7 +383,7 @@ uint16_t RSP_CP2::clampUnsigned(int64_t value)
     // Clamp a value to the unsigned 16-bit range (bugged)
     if (value <     0) return     0;
     if (value > 32767) return 65535;
-    return value;
+    return (uint16_t)value;
 }
 
 void RSP_CP2::vmulf(uint32_t opcode)
@@ -458,7 +458,7 @@ void RSP_CP2::vmudn(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] * vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vmudh(uint32_t opcode)
@@ -518,7 +518,7 @@ void RSP_CP2::vmadl(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] += ((vs[i] * vt[e[i]]) >> 16) & 0xFFFF;
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vmadm(uint32_t opcode)
@@ -533,7 +533,7 @@ void RSP_CP2::vmadm(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] += vs[i] * vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i] >> 16;
+        vd[i] = (uint16_t)(accumulator[i] >> 16);
 }
 
 void RSP_CP2::vmadn(uint32_t opcode)
@@ -548,7 +548,7 @@ void RSP_CP2::vmadn(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] += vs[i] * vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vmadh(uint32_t opcode)
@@ -666,7 +666,7 @@ void RSP_CP2::vsar(uint32_t opcode)
 
     // Load a vector register with 16-bit portions of the accumulator
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i] >> shift;
+        vd[i] = (uint16_t)(accumulator[i] >> shift);
 }
 
 void RSP_CP2::vlt(uint32_t opcode)
@@ -686,7 +686,7 @@ void RSP_CP2::vlt(uint32_t opcode)
         vcc |= res << i;
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
     vco = 0;
 }
 
@@ -707,7 +707,7 @@ void RSP_CP2::veq(uint32_t opcode)
         vcc |= res << i;
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
     vco = 0;
 }
 
@@ -728,7 +728,7 @@ void RSP_CP2::vne(uint32_t opcode)
         vcc |= res << i;
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
     vco = 0;
 }
 
@@ -749,7 +749,7 @@ void RSP_CP2::vge(uint32_t opcode)
         vcc |= res << i;
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
     vco = 0;
 }
 
@@ -773,7 +773,7 @@ void RSP_CP2::vcl(uint32_t opcode)
         accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
     vco = vce = 0;
 }
 
@@ -789,8 +789,8 @@ void RSP_CP2::vch(uint32_t opcode)
     vco = vcc = vce = 0;
     for (int i = 0; i < 8; i++)
     {
-        bool diff = (vs[i] ^ vt[e[i]]) & 0x8000;
-        bool comp = (diff && vs[i] == -vt[e[i]] - 1);
+        uint16_t diff = ((vs[i] ^ vt[e[i]]) & 0x8000) != 0 ? 1 : 0;
+        uint16_t comp = (diff && vs[i] == -vt[e[i]] - 1) != 0 ? 1 : 0;
         int16_t abs = (diff ? -vt[e[i]] : vt[e[i]]);
         vco |= (((!comp && vs[i] != abs) << 8) | diff) << i;
         vcc |= (((vs[i] >= vt[e[i]]) << 8) | (vs[i] <= -vt[e[i]])) << i;
@@ -798,7 +798,7 @@ void RSP_CP2::vch(uint32_t opcode)
         accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vcr(uint32_t opcode)
@@ -819,7 +819,7 @@ void RSP_CP2::vcr(uint32_t opcode)
         accumulator[i] = ((vcc >> (!diff * 8 + i)) & 1) ? abs : vs[i];
     }
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vmrg(uint32_t opcode)
@@ -834,7 +834,7 @@ void RSP_CP2::vmrg(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = (vcc & (1 << i)) ? vs[i] : vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vand(uint32_t opcode)
@@ -849,7 +849,7 @@ void RSP_CP2::vand(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] & vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vnand(uint32_t opcode)
@@ -864,7 +864,7 @@ void RSP_CP2::vnand(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = (vs[i] & vt[e[i]]) ^ 0xFFFF;
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vor(uint32_t opcode)
@@ -879,7 +879,7 @@ void RSP_CP2::vor(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] | vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vnor(uint32_t opcode)
@@ -894,7 +894,7 @@ void RSP_CP2::vnor(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = (vs[i] | vt[e[i]]) ^ 0xFFFF;
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vxor(uint32_t opcode)
@@ -909,7 +909,7 @@ void RSP_CP2::vxor(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] ^ vt[e[i]];
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vnxor(uint32_t opcode)
@@ -924,7 +924,7 @@ void RSP_CP2::vnxor(uint32_t opcode)
     for (int i = 0; i < 8; i++)
         accumulator[i] = (vs[i] ^ vt[e[i]]) ^ 0xFFFF;
     for (int i = 0; i < 8; i++)
-        vd[i] = accumulator[i];
+        vd[i] = (uint16_t)accumulator[i];
 }
 
 void RSP_CP2::vrcp(uint32_t opcode)
