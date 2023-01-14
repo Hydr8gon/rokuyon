@@ -15,3 +15,7 @@ Although still in early stages, rokuyon should be plug-and-play with any NTSC RO
 * [N64brew Wiki](https://n64brew.dev/wiki/Main_Page) - Extensive and organized documentation of the whole system
 * [libdragon](https://github.com/DragonMinded/libdragon) - An open-source N64 SDK with good examples of using the hardware
 * Hardware tests - I'll probably be testing things myself as I go along
+
+### Other Links
+* [Hydra's Lair](https://hydr8gon.github.io) - Blog where I may or may not write about things
+* [Discord Server](https://discord.gg/JbNz7y4) - Place to chat about my projects and stuff
