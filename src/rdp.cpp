@@ -723,6 +723,7 @@ void RDP::triTexture()
     int32_t dwde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
 
     // Draw a triangle from top to bottom
+    // This differs slightly from others as a hack for sodium64's renderer
     for (int y = y1; y < y3; y++)
     {
         // Get the X-bounds of the triangle on the current line
@@ -733,12 +734,12 @@ void RDP::triTexture()
         int inc = (xa < xb) ? 1 : -1;
 
         // Get the interpolated values at the start of the line
-        int32_t sa = (s1 += dsde);
-        int32_t ta = (t1 += dtde);
-        int32_t wa = (w1 += dwde);
+        int32_t sa = s1; s1 += dsde;
+        int32_t ta = t1; t1 += dtde;
+        int32_t wa = w1; w1 += dwde;
 
         // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        for (int x = xa; x != xb; x += inc)
         {
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
