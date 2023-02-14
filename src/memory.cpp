@@ -23,6 +23,7 @@
 #include "memory.h"
 #include "ai.h"
 #include "core.h"
+#include "cpu_cp0.h"
 #include "log.h"
 #include "mi.h"
 #include "pi.h"
@@ -94,7 +95,7 @@ template <typename T> T Memory::read(uint32_t address)
     else // TLB
     {
         // Search the TLB entries for a page that contains the virtual address
-        // TODO: actually use the ASID and CDVG bits, and implement TLB exceptions
+        // TODO: actually use the ASID and CDVG bits, and support TLB invalid exceptions
         for (int i = 0; i < 32; i++)
         {
             uint32_t vAddr = entries[i].entryHi & 0xFFFFE000;
@@ -107,11 +108,17 @@ template <typename T> T Memory::read(uint32_t address)
                     pAddr = ((entries[i].entryLo0 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
                 else
                     pAddr = ((entries[i].entryLo1 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
-                break;
+                goto lookup;
             }
         }
+
+        // Trigger a TLB load miss exception if a TLB entry wasn't found
+        CPU_CP0::exception(2);
+        CPU_CP0::setTlbAddress(address);
+        return 0;
     }
 
+lookup:
     // Look up the physical address
     if (pAddr < 0x400000)
     {
@@ -210,7 +217,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
     else // TLB
     {
         // Search the TLB entries for a page that contains the virtual address
-        // TODO: actually use the ASID and CDVG bits, and implement TLB exceptions
+        // TODO: actually use the ASID and CDVG bits, and support TLB invalid exceptions
         for (int i = 0; i < 32; i++)
         {
             uint32_t vAddr = entries[i].entryHi & 0xFFFFE000;
@@ -220,14 +227,36 @@ template <typename T> void Memory::write(uint32_t address, T value)
             {
                 // Choose between the even or odd physical pages, and add the masked offset
                 if (address - vAddr <= (mask >> 1))
-                    pAddr = ((entries[i].entryLo0 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
+                {
+                    if (entries[i].entryLo0 & 0x4) // Dirty
+                    {
+                        pAddr = ((entries[i].entryLo0 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
+                        goto lookup;
+                    }
+                }
                 else
-                    pAddr = ((entries[i].entryLo1 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
-                break;
+                {
+                    if (entries[i].entryLo1 & 0x4) // Dirty
+                    {
+                        pAddr = ((entries[i].entryLo1 & 0x3FFFFC0) << 6) + (address & (mask >> 1));
+                        goto lookup;
+                    }
+                }
+
+                // Trigger a TLB modification exception if the TLB entry isn't writable
+                CPU_CP0::exception(1);
+                CPU_CP0::setTlbAddress(address);
+                return;
             }
         }
+
+        // Trigger a TLB store miss exception if a TLB entry wasn't found
+        CPU_CP0::exception(3);
+        CPU_CP0::setTlbAddress(address);
+        return;
     }
 
+lookup:
     // Look up the physical address
     if (pAddr < 0x400000)
     {

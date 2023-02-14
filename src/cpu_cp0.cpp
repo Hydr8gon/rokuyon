@@ -30,7 +30,9 @@ namespace CPU_CP0
     uint32_t _index;
     uint32_t entryLo0;
     uint32_t entryLo1;
+    uint32_t context;
     uint32_t pageMask;
+    uint32_t badVAddr;
     uint32_t count;
     uint32_t entryHi;
     uint32_t compare;
@@ -71,7 +73,9 @@ void CPU_CP0::reset()
     _index = 0;
     entryLo0 = 0;
     entryLo1 = 0;
+    context = 0;
     pageMask = 0;
+    badVAddr = 0;
     count = 0;
     entryHi = 0;
     compare = 0;
@@ -100,9 +104,17 @@ uint32_t CPU_CP0::read(int index)
             // Get the low entry 1 register
             return entryLo1;
 
+        case 4: // Context
+            // Get the context register
+            return context;
+
         case 5: // PageMask
             // Get the page mask register
             return pageMask;
+
+        case 8: // BadVAddr
+            // Get the bad virtual address register
+            return badVAddr;
 
         case 9: // Count
             // Get the count register, as it would be at the current cycle
@@ -156,6 +168,11 @@ void CPU_CP0::write(int index, uint32_t value)
         case 3: // EntryLo1
             // Set the low entry 1 register
             entryLo1 = value & 0x3FFFFFF;
+            return;
+
+        case 4: // Context
+            // Set the context register
+            context = value & 0xFFFFFFF0;
             return;
 
         case 5: // PageMask
@@ -277,6 +294,7 @@ void CPU_CP0::exception(uint8_t type)
         CPU::runOpcode();
 
     // Update registers for an exception and jump to the handler
+    // TODO: handle nested exceptions, vector offsets, etc
     status |= 0x2; // EXL
     cause = (cause & ~0x7C) | ((type << 2) & 0x7C);
     epc = CPU::programCounter - (type ? 4 : 0);
@@ -285,6 +303,14 @@ void CPU_CP0::exception(uint8_t type)
 
     // Unhalt the CPU if it was idling
     Core::cpuRunning = true;
+}
+
+void CPU_CP0::setTlbAddress(uint32_t address)
+{
+    // Set the address that caused a TLB exception
+    badVAddr = address;
+    entryHi = address & 0xFFFFE000;
+    context = (context & ~0x7FFFF0) | ((address >> 9) & 0x7FFFF0);
 }
 
 bool CPU_CP0::cpUsable(uint8_t cp)
