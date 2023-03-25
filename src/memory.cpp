@@ -51,10 +51,13 @@ namespace Memory
 
 void Memory::reset()
 {
-    // Clear the remaining memory locations
+    // Clear RDRAM and RSP DMEM/IMEM
     memset(rdram,  0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
-    memset(entries, 0, sizeof(entries));
+
+    // Map TLB entries to inaccessible locations
+    for (int i = 0; i < 32; i++)
+        entries[i].entryHi = 0x80000000;
 }
 
 void Memory::getEntry(uint32_t index, uint32_t &entryLo0, uint32_t &entryLo1, uint32_t &entryHi, uint32_t &pageMask)

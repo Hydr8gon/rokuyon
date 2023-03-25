@@ -381,7 +381,7 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
         {
             // Convert a CI4 texel to RGBA32, using a TLUT in the high banks
             uint8_t index = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
-            uint8_t *value = &tmem[(tile.address + 0x800 + (tile.palette + index) * 8) & 0xFF8];
+            uint8_t *value = &tmem[(0x800 + (tile.palette + index) * 8) & 0xFF8];
             return RGBA16toRGBA32((value[0] << 8) | value[1]);
         }
 
@@ -389,7 +389,7 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
         {
             // Convert a CI8 texel to RGBA32, using a TLUT in the high banks
             uint8_t index = tmem[(tile.address + t * tile.width + s) & 0xFFF];
-            uint8_t *value = &tmem[(tile.address + 0x800 + index * 8) & 0xFF8];
+            uint8_t *value = &tmem[(0x800 + index * 8) & 0xFF8];
             return RGBA16toRGBA32((value[0] << 8) | value[1]);
         }
 
