@@ -17,9 +17,10 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <atomic>
 #include <cstring>
-#include <mutex>
 #include <queue>
+#include <thread>
 #include <vector>
 
 #include "ai.h"
@@ -29,8 +30,9 @@
 #include "mi.h"
 
 #define MAX_BUFFERS 4
+#define SAMPLE_COUNT 1024
 #define OUTPUT_RATE 48000
-#define OUTPUT_SIZE 1024 * sizeof(uint32_t)
+#define OUTPUT_SIZE SAMPLE_COUNT * sizeof(uint32_t)
 
 struct Samples
 {
@@ -40,51 +42,41 @@ struct Samples
 
 namespace AI
 {
+    uint32_t bufferOut[SAMPLE_COUNT];
+    std::atomic<bool> ready;
+
     Samples samples[2];
     std::queue<std::vector<uint32_t>> buffers;
     uint32_t offset;
-    std::mutex mutex;
 
     uint32_t dramAddr;
     uint32_t control;
     uint32_t frequency;
     uint32_t status;
 
+    void createBuffer();
     void submitBuffer();
     void processBuffer();
 }
 
 void AI::fillBuffer(uint32_t *out)
 {
-    memset(out, 0, OUTPUT_SIZE);
-    size_t count = 0;
-
-    while (!buffers.empty() && count < OUTPUT_SIZE)
+    // Try to wait until a buffer is ready, but don't stall the audio callback too long
+    std::chrono::steady_clock::time_point waitTime = std::chrono::steady_clock::now();
+    while (!ready.load())
     {
-        // Get the current queued buffer and the size of its remaining samples
-        std::vector<uint32_t> &buffer = buffers.front();
-        size_t size = (buffer.size() - offset) * sizeof(uint32_t);
-
-        if (size <= OUTPUT_SIZE - count)
+        if (std::chrono::steady_clock::now() - waitTime > std::chrono::microseconds(1000000 / 60))
         {
-            // Copy all of the remaining queued samples to the output buffer
-            memcpy(&out[count / sizeof(uint32_t)], &buffer[offset], size);
-            count += size;
-            offset = 0;
-
-            // Free the queued buffer
-            mutex.lock();
-            buffers.pop();
-            mutex.unlock();
-        }
-        else
-        {
-            // Copy as many queued samples that can fit to the output buffer
-            memcpy(&out[count / sizeof(uint32_t)], &buffer[offset], OUTPUT_SIZE - count);
-            offset += (OUTPUT_SIZE - count) / sizeof(uint32_t);
+            // If a buffer isn't ready in time, fill the output with the last played sample
+            for (int i = 0; i < SAMPLE_COUNT; i++)
+                out[i] = bufferOut[SAMPLE_COUNT - 1];
             return;
         }
     }
+
+    // Output the buffer and mark it as used
+    memcpy(out, bufferOut, OUTPUT_SIZE);
+    ready.store(false);
 }
 
 void AI::reset()
@@ -94,6 +86,9 @@ void AI::reset()
     control = 0;
     frequency = 0;
     status = 0;
+
+    // Schedule the first audio buffer to output
+    Core::schedule(createBuffer, (uint64_t)SAMPLE_COUNT * (93750000 * 2) / OUTPUT_RATE);
 }
 
 uint32_t AI::read(uint32_t address)
@@ -163,6 +158,43 @@ void AI::write(uint32_t address, uint32_t value)
     }
 }
 
+void AI::createBuffer()
+{
+    // Wait until the previous buffer has been used
+    while (Core::running && ready.load())
+        std::this_thread::yield();
+
+    memset(bufferOut, 0, OUTPUT_SIZE);
+    size_t count = 0;
+
+    while (!buffers.empty() && count < OUTPUT_SIZE)
+    {
+        // Get the current queued buffer and the size of its remaining samples
+        std::vector<uint32_t> &buffer = buffers.front();
+        size_t size = (buffer.size() - offset) * sizeof(uint32_t);
+
+        if (size <= OUTPUT_SIZE - count)
+        {
+            // Copy all of the remaining queued samples to the output buffer
+            memcpy(&bufferOut[count / sizeof(uint32_t)], &buffer[offset], size);
+            count += size;
+            offset = 0;
+            buffers.pop();
+        }
+        else
+        {
+            // Copy as many queued samples that can fit to the output buffer
+            memcpy(&bufferOut[count / sizeof(uint32_t)], &buffer[offset], OUTPUT_SIZE - count);
+            offset += (OUTPUT_SIZE - count) / sizeof(uint32_t);
+            break;
+        }
+    }
+
+    // Mark the buffer as ready and schedule the next one
+    ready.store(true);
+    Core::schedule(createBuffer, (uint64_t)SAMPLE_COUNT * (93750000 * 2) / OUTPUT_RATE);
+}
+
 void AI::submitBuffer()
 {
     LOG_INFO("Submitting %d AI samples from RDRAM 0x%X at frequency %dHz\n",
@@ -183,9 +215,7 @@ void AI::submitBuffer()
         }
 
         // Add the buffer to the output queue
-        mutex.lock();
         buffers.push(buffer);
-        mutex.unlock();
     }
 
     // Schedule the logical completion of the AI DMA based on sample count and frequency

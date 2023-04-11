@@ -128,6 +128,7 @@ void ryCanvas::draw(wxPaintEvent &event)
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fb->width,
                     fb->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fb->data);
                 frameCount = 0;
+                delete fb;
             }
         }
 

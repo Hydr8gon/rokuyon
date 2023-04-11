@@ -20,7 +20,8 @@
 #include <atomic>
 #include <cstddef>
 #include <cstring>
-#include <thread>
+#include <queue>
+#include <mutex>
 
 #include "vi.h"
 #include "core.h"
@@ -30,8 +31,9 @@
 
 namespace VI
 {
-    _Framebuffer fbs[2];
+    std::queue<_Framebuffer*> framebuffers;
     std::atomic<bool> ready;
+    std::mutex mutex;
 
     uint32_t control;
     uint32_t origin;
@@ -47,19 +49,13 @@ _Framebuffer *VI::getFramebuffer()
     if (!ready.load())
         return nullptr;
 
-    // Get the width and height of the frame
-    fbs[1].width  = fbs[0].width;
-    fbs[1].height = fbs[0].height;
-
-    // Make a copy of the framebuffer so the original can be overwritten
-    if (fbs[1].data) delete[] fbs[1].data;
-    size_t size = fbs[1].width * fbs[1].height * sizeof(uint32_t);
-    fbs[1].data = new uint32_t[size];
-    memcpy(fbs[1].data, fbs[0].data, size);
-
-    // Release the original framebuffer and return the copied one
-    ready.store(false);
-    return &fbs[1];
+    // Get the next frame in the queue
+    mutex.lock();
+    _Framebuffer *fb = framebuffers.front();
+    framebuffers.pop();
+    ready.store(!framebuffers.empty());
+    mutex.unlock();
+    return fb;
 }
 
 void VI::reset()
@@ -125,55 +121,58 @@ void VI::write(uint32_t address, uint32_t value)
 
 void VI::drawFrame()
 {
-    // Wait until the last frame has been copied
-    while (Core::running && ready.load())
-        std::this_thread::yield();
-
-    // Set the frame width and height based on registers
-    fbs[0].width = width;
-    fbs[0].height = ((yScale & 0xFFF) * 240) >> 10;
-
-    // Allocate a framebuffer of the correct size
-    if (fbs[0].data) delete[] fbs[0].data;
-    size_t size = fbs[0].width * fbs[0].height;
-    fbs[0].data = new uint32_t[size * sizeof(uint32_t)];
-
-    // Read the framebuffer from N64 memory
-    switch (control & 0x3) // Type
+    // Allow up to 2 framebuffers to be queued, to preserve frame pacing if emulation runs ahead
+    if (framebuffers.size() < 2)
     {
-        case 0x3: // 32-bit
-            // Translate pixels from RGB_8888 to ARGB8888
-            for (size_t i = 0; i < size; i++)
-            {
-                uint32_t color = Memory::read<uint32_t>(origin + (i << 2));
-                uint8_t r = (color >> 24) & 0xFF;
-                uint8_t g = (color >> 16) & 0xFF;
-                uint8_t b = (color >>  8) & 0xFF;
-                fbs[0].data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-            }
-            break;
+        // Create a new framebuffer
+        _Framebuffer *fb = new _Framebuffer();
+        fb->width = width;
+        fb->height = ((yScale & 0xFFF) * 240) >> 10;
+        size_t size = fb->width * fb->height;
+        fb->data = new uint32_t[size];
 
-        case 0x2: // 16-bit
-            // Translate pixels from RGB_5551 to ARGB8888
-            for (size_t i = 0; i < size; i++)
-            {
-                uint16_t color = Memory::read<uint16_t>(origin + (i << 1));
-                uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
-                uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
-                uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
-                fbs[0].data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-            }
-            break;
+        // Read the framebuffer from N64 memory
+        switch (control & 0x3) // Type
+        {
+            case 0x3: // 32-bit
+                // Translate pixels from RGB_8888 to ARGB8888
+                for (size_t i = 0; i < size; i++)
+                {
+                    uint32_t color = Memory::read<uint32_t>(origin + (i << 2));
+                    uint8_t r = (color >> 24) & 0xFF;
+                    uint8_t g = (color >> 16) & 0xFF;
+                    uint8_t b = (color >>  8) & 0xFF;
+                    fb->data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                }
+                break;
 
-        default:
-            // Don't show anything
-            memset(fbs[0].data, 0, size);
-            break;
+            case 0x2: // 16-bit
+                // Translate pixels from RGB_5551 to ARGB8888
+                for (size_t i = 0; i < size; i++)
+                {
+                    uint16_t color = Memory::read<uint16_t>(origin + (i << 1));
+                    uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
+                    uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
+                    uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
+                    fb->data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                }
+                break;
+
+            default:
+                // Don't show anything
+                memset(fb->data, 0, size);
+                break;
+        }
+
+        // Add the frame to the queue
+        mutex.lock();
+        framebuffers.push(fb);
+        ready.store(true);
+        mutex.unlock();
     }
 
     // Finish the frame and request a VI interrupt
     // TODO: request interrupt at the proper time
-    ready.store(true);
     MI::setInterrupt(3);
 
     // Schedule the next frame to be drawn

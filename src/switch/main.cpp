@@ -341,6 +341,7 @@ int main()
             SwitchUI::drawImage(fb->data, fb->width, fb->height, 160, 0, 960, 720, true, 0);
             if (showFps) SwitchUI::drawString(std::to_string(Core::fps) + " FPS", 5, 0, 48, Color(255, 255, 255));
             SwitchUI::update();
+            delete fb;
         }
 
         // Toggle showing FPS or open the pause menu if hotkeys are pressed
