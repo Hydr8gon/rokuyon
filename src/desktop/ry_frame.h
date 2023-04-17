@@ -38,7 +38,7 @@ class ryFrame: public wxFrame
         wxMenu *systemMenu;
 
         std::string lastPath;
-        bool paused;
+        bool paused = false;
 
         void bootRom(std::string path);
         void updateMenu();

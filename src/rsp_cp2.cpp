@@ -607,17 +607,16 @@ void RSP_CP2::vsub(uint32_t opcode)
 void RSP_CP2::vabs(uint32_t opcode)
 {
     // Decode the operands
-    uint16_t *vt = registers[(opcode >> 16) & 0x1F];
-    uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
+    int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
+    int16_t *vd = (int16_t*)registers[(opcode >>  6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Negate one vector register based on the sign of another register
-    // TODO: figure out off-by-one in some cases
     for (int i = 0; i < 8; i++)
-        accumulator[i] = (vt[e[i]] & 0x8000) ? -vs[i] : vs[i];
+        accumulator[i] = vs[i] ? ((vs[i] < 0) ? -vt[e[i]] : vt[e[i]]) : 0;
     for (int i = 0; i < 8; i++)
-        accumulator[i] = vd[i];
+        vd[i] = accumulator[i];
 }
 
 void RSP_CP2::vaddc(uint32_t opcode)
