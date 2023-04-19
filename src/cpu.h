@@ -27,6 +27,7 @@ namespace CPU
     extern uint64_t *registersW[32];
     extern uint32_t programCounter;
     extern uint32_t nextOpcode;
+    extern uint32_t delaySlot;
 
     void reset();
     void runOpcode();

@@ -41,11 +41,13 @@ namespace CPU_CP0
     uint32_t epc;
     uint32_t errorEpc;
 
+    bool irqPending;
     uint32_t startCycles;
     uint32_t endCycles;
 
     void scheduleCount();
     void updateCount();
+    void interrupt();
 
     void tlbr(uint32_t opcode);
     void tlbwi(uint32_t opcode);
@@ -83,6 +85,7 @@ void CPU_CP0::reset()
     cause = 0;
     epc = 0;
     errorEpc = 0;
+    irqPending = false;
     endCycles = -1;
     scheduleCount();
 }
@@ -281,25 +284,41 @@ void CPU_CP0::checkInterrupts()
     // Set the external interrupt bit if any MI interrupt is set
     cause = (cause & ~0x400) | ((bool)(MI::interrupt & MI::mask) << 10);
 
-    // Trigger an interrupt if able and an enabled bit is set
-    if (((status & 0x3) == 0x1) && (status & cause & 0xFF00))
-        exception(0);
+    // Schedule an interrupt if able and an enabled bit is set
+    if (((status & 0x3) == 0x1) && (status & cause & 0xFF00) && !irqPending)
+    {
+        Core::schedule(interrupt, 2); // 1 CPU cycle
+        irqPending = true;
+    }
+}
+
+void CPU_CP0::interrupt()
+{
+    // Trigger an interrupt that has been scheduled
+    CPU_CP0::exception(0);
+    irqPending = false;
 }
 
 void CPU_CP0::exception(uint8_t type)
 {
-    // If an exception occurs at a delay slot, execute that first
-    // TODO: handle delay slot exceptions properly
-    if (CPU::nextOpcode != Memory::read<uint32_t>(CPU::programCounter))
-        CPU::runOpcode();
-
     // Update registers for an exception and jump to the handler
-    // TODO: handle nested exceptions, vector offsets, etc
+    // TODO: handle nested exceptions
     status |= 0x2; // EXL
-    cause = (cause & ~0x7C) | ((type << 2) & 0x7C);
+    cause = (cause & ~0x8000007C) | ((type << 2) & 0x7C);
     epc = CPU::programCounter - (type ? 4 : 0);
-    CPU::programCounter = ((status & (1 << 22)) ? 0xBFC00200 : 0x80000000) + 0x180 - 4;
+    CPU::programCounter = ((status & (1 << 22)) ? 0xBFC00200 : 0x80000000) - 4;
     CPU::nextOpcode = 0;
+
+    // Adjust the exception vector based on the type
+    if ((type & ~1) != 2) // Not TLB miss
+        CPU::programCounter += 0x180;
+
+    // Return to the preceding branch if the exception occured in a delay slot
+    if (CPU::delaySlot != -1)
+    {
+        epc = CPU::delaySlot - 4;
+        cause |= (1 << 31); // BD
+    }
 
     // Unhalt the CPU if it was idling
     Core::cpuRunning = true;
