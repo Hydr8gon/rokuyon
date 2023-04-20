@@ -38,6 +38,9 @@ namespace VI
     uint32_t control;
     uint32_t origin;
     uint32_t width;
+    uint32_t hVideo;
+    uint32_t vVideo;
+    uint32_t xScale;
     uint32_t yScale;
 
     void drawFrame();
@@ -64,6 +67,9 @@ void VI::reset()
     control = 0;
     origin = 0;
     width = 0;
+    hVideo = 0;
+    vVideo = 0;
+    xScale = 0;
     yScale = 0;
 
     // Schedule the first frame to be drawn
@@ -107,10 +113,34 @@ void VI::write(uint32_t address, uint32_t value)
             MI::clearInterrupt(3);
             return;
 
+        case 0x4400024: // VI_H_VIDEO
+        {
+            // Set the range of visible horizontal pixels
+            uint32_t start = (value >> 16) & 0x3FF;
+            uint32_t end   = (value >>  0) & 0x3FF;
+            hVideo = (end - start);
+            return;
+        }
+
+        case 0x4400028: // VI_V_VIDEO
+        {
+            // Set the range of visible vertical pixels
+            uint32_t start = (value >> 16) & 0x3FF;
+            uint32_t end   = (value >>  0) & 0x3FF;
+            vVideo = (end - start) / 2;
+            return;
+        }
+
+        case 0x4400030: // VI_X_SCALE
+            // Set the framebuffer X-scale
+            // TODO: actually use offset value
+            xScale = (value & 0xFFF);
+            return;
+
         case 0x4400034: // VI_Y_SCALE
             // Set the framebuffer Y-scale
             // TODO: actually use offset value
-            yScale = (value & 0xFFF0FFF);
+            yScale = (value & 0xFFF);
             return;
 
         default:
@@ -126,41 +156,57 @@ void VI::drawFrame()
     {
         // Create a new framebuffer
         _Framebuffer *fb = new _Framebuffer();
-        fb->width = width;
-        fb->height = ((yScale & 0xFFF) * 240) >> 10;
-        size_t size = fb->width * fb->height;
-        fb->data = new uint32_t[size];
+        fb->width  = ((xScale ? xScale : 0x200) * hVideo) >> 10;
+        fb->height = ((yScale ? yScale : 0x200) * vVideo) >> 10;
+        fb->data = new uint32_t[fb->width * fb->height];
+
+        // Clear the screen if there's nothing to display
+        if (fb->width == 0 || fb->height == 0)
+        {
+            fb->width = 8;
+            fb->height = 8;
+            delete[] fb->data;
+            fb->data = new uint32_t[fb->width * fb->height];
+            goto clear;
+        }
 
         // Read the framebuffer from N64 memory
         switch (control & 0x3) // Type
         {
             case 0x3: // 32-bit
                 // Translate pixels from RGB_8888 to ARGB8888
-                for (size_t i = 0; i < size; i++)
+                for (uint32_t y = 0; y < fb->height; y++)
                 {
-                    uint32_t color = Memory::read<uint32_t>(origin + (i << 2));
-                    uint8_t r = (color >> 24) & 0xFF;
-                    uint8_t g = (color >> 16) & 0xFF;
-                    uint8_t b = (color >>  8) & 0xFF;
-                    fb->data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                    for (uint32_t x = 0; x < fb->width; x++)
+                    {
+                        uint32_t color = Memory::read<uint32_t>(origin + ((y * width + x) << 2));
+                        uint8_t r = (color >> 24) & 0xFF;
+                        uint8_t g = (color >> 16) & 0xFF;
+                        uint8_t b = (color >>  8) & 0xFF;
+                        fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                    }
                 }
                 break;
 
             case 0x2: // 16-bit
                 // Translate pixels from RGB_5551 to ARGB8888
-                for (size_t i = 0; i < size; i++)
+                for (uint32_t y = 0; y < fb->height; y++)
                 {
-                    uint16_t color = Memory::read<uint16_t>(origin + (i << 1));
-                    uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
-                    uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
-                    uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
-                    fb->data[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                    for (uint32_t x = 0; x < fb->width; x++)
+                    {
+                        uint16_t color = Memory::read<uint16_t>(origin + ((y * width + x) << 1));
+                        uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
+                        uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
+                        uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
+                        fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                    }
                 }
                 break;
 
             default:
+            clear:
                 // Don't show anything
-                memset(fb->data, 0, size);
+                memset(fb->data, 0, fb->width * fb->height * sizeof(uint32_t));
                 break;
         }
 

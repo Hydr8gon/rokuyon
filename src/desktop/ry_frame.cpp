@@ -67,8 +67,8 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
 
     // Set up and show the window
     DragAcceptFiles(true);
-    SetClientSize(wxSize(320, 240));
-    SetMinClientSize(wxSize(320, 240));
+    SetClientSize(wxSize(480, 360));
+    SetMinClientSize(wxSize(480, 360));
     Centre();
     Show(true);
 
