@@ -21,6 +21,7 @@
 #include "ry_canvas.h"
 #include "save_dialog.h"
 #include "../core.h"
+#include "../settings.h"
 
 enum FrameEvent
 {
@@ -29,7 +30,8 @@ enum FrameEvent
     QUIT,
     PAUSE,
     RESTART,
-    STOP
+    STOP,
+    FPS_LIMITER
 };
 
 wxBEGIN_EVENT_TABLE(ryFrame, wxFrame)
@@ -39,6 +41,7 @@ EVT_MENU(QUIT, ryFrame::quit)
 EVT_MENU(PAUSE, ryFrame::pause)
 EVT_MENU(RESTART, ryFrame::restart)
 EVT_MENU(STOP, ryFrame::stop)
+EVT_MENU(FPS_LIMITER, ryFrame::toggleFpsLimit)
 EVT_DROP_FILES(ryFrame::dropFiles)
 EVT_CLOSE(ryFrame::close)
 wxEND_EVENT_TABLE()
@@ -59,10 +62,16 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     systemMenu->Append(STOP, "&Stop");
     updateMenu();
 
+    // Set up the settings menu
+    wxMenu *settingsMenu = new wxMenu();
+    settingsMenu->AppendCheckItem(FPS_LIMITER, "&FPS Limiter");
+    settingsMenu->Check(FPS_LIMITER, Settings::fpsLimiter);
+
     // Set up the menu bar
     wxMenuBar *menuBar = new wxMenuBar();
     menuBar->Append(fileMenu, "&File");
     menuBar->Append(systemMenu, "&System");
+    menuBar->Append(settingsMenu, "&Settings");
     SetMenuBar(menuBar);
 
     // Set up and show the window
@@ -182,6 +191,13 @@ void ryFrame::stop(wxCommandEvent &event)
     Core::stop();
     paused = false;
     updateMenu();
+}
+
+void ryFrame::toggleFpsLimit(wxCommandEvent &event)
+{
+    // Toggle the FPS limiter setting
+    Settings::fpsLimiter = !Settings::fpsLimiter;
+    Settings::save();
 }
 
 void ryFrame::dropFiles(wxDropFilesEvent &event)

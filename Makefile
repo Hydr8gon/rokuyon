@@ -10,13 +10,14 @@ PKGNAME := com.hydra.rokuyon
 DESTDIR ?= /usr
 
 ifeq ($(OS),Windows_NT)
-  ARGS += -static
+  ARGS += -static -DWINDOWS
   LIBS += $(shell wx-config-static --libs core,gl) -lole32 -lsetupapi -lwinmm
   INCLUDES += $(shell wx-config-static --cxxflags core,gl)
 else
   LIBS += $(shell wx-config --libs core,gl)
   INCLUDES += $(shell wx-config --cxxflags core,gl)
   ifeq ($(shell uname -s),Darwin)
+    ARGS += -DMACOS
     LIBS += -headerpad_max_install_names
   else
     ARGS += -no-pie

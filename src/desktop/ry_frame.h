@@ -51,6 +51,7 @@ class ryFrame: public wxFrame
         void stop(wxCommandEvent &event);
         void dropFiles(wxDropFilesEvent &event);
         void close(wxCloseEvent &event);
+        void toggleFpsLimit(wxCommandEvent &event);
 
         wxDECLARE_EVENT_TABLE();
 };

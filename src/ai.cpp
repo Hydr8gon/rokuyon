@@ -28,6 +28,7 @@
 #include "log.h"
 #include "memory.h"
 #include "mi.h"
+#include "settings.h"
 
 #define MAX_BUFFERS 4
 #define SAMPLE_COUNT 1024
@@ -161,7 +162,7 @@ void AI::write(uint32_t address, uint32_t value)
 void AI::createBuffer()
 {
     // Wait until the previous buffer has been used
-    while (Core::running && ready.load())
+    while (Settings::fpsLimiter && Core::running && ready.load())
         std::this_thread::yield();
 
     memset(bufferOut, 0, OUTPUT_SIZE);

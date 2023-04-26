@@ -17,9 +17,13 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
+
 #include "ry_app.h"
-#include "../core.h"
 #include "../ai.h"
+#include "../core.h"
+#include "../settings.h"
 
 enum AppEvent
 {
@@ -32,6 +36,29 @@ wxEND_EVENT_TABLE()
 
 bool ryApp::OnInit()
 {
+    // Try to load settings from the current directory first
+    if (!Settings::load())
+    {
+        // Get the system-specific application settings directory
+        std::string settingsDir;
+        wxStandardPaths &paths = wxStandardPaths::Get();
+#if defined(WINDOWS) || defined(MACOS) || !wxCHECK_VERSION(3, 1, 0)
+        settingsDir = paths.GetUserDataDir().mb_str(wxConvUTF8);
+#else
+        paths.SetFileLayout(wxStandardPaths::FileLayout_XDG);
+        settingsDir = paths.GetUserConfigDir().mb_str(wxConvUTF8);
+        settingsDir += "/rokuyon";
+#endif
+
+        // Try to load settings from the system directory, creating it if it doesn't exist
+        if (!Settings::load(settingsDir + "/rokuyon.ini"))
+        {
+            wxFileName dir = wxFileName::DirName(settingsDir);
+            if (!dir.DirExists()) dir.Mkdir();
+            Settings::save();
+        }
+    }
+
     // Create the app's frame, passing along a filename from the command line
     SetAppName("rokuyon");
     frame = new ryFrame((argc > 1) ? argv[1].ToStdString() : "");
