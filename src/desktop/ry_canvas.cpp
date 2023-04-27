@@ -18,24 +18,14 @@
 */
 
 #include "ry_canvas.h"
-#include "ry_frame.h"
+#include "ry_app.h"
 #include "../core.h"
-#include "../pif.h"
 #include "../vi.h"
 
 #ifdef _WIN32
 #include <GL/gl.h>
 #include <GL/glext.h>
 #endif
-
-const int ryCanvas::keyMap[21] =
-{
-    'L', 'K', 'J', 'G', // A, B, Z, Start
-    WXK_UP, WXK_DOWN, WXK_LEFT, WXK_RIGHT, // D-pad
-    0,  0, 'Q', 'P', // L, R
-    '8', 'I', 'U', 'O', // C-buttons
-    'W', 'S', 'A', 'D', WXK_SHIFT // Joystick
-};
 
 wxBEGIN_EVENT_TABLE(ryCanvas, wxGLCanvas)
 EVT_PAINT(ryCanvas::draw)
@@ -57,35 +47,6 @@ void ryCanvas::finish()
 {
     // Tell the canvas to stop rendering
     finished = true;
-}
-
-void ryCanvas::updateStick()
-{
-    int stickX = 0;
-    int stickY = 0;
-
-    // Apply the base stick movement
-    if (stickPressed[0]) stickY += 80;
-    if (stickPressed[1]) stickY -= 80;
-    if (stickPressed[2]) stickX -= 80;
-    if (stickPressed[3]) stickX += 80;
-
-    // Scale diagonals to create a round boundary
-    if (stickX && stickY)
-    {
-        stickX = stickX * 56 / 80;
-        stickY = stickY * 56 / 80;
-    }
-
-    // Half the distance when the modifier is pressed
-    if (stickPressed[4])
-    {
-        stickX /= 2;
-        stickY /= 2;
-    }
-
-    // Set the stick coordinates
-    PIF::setStick(stickX, stickY);
 }
 
 void ryCanvas::draw(wxPaintEvent &event)
@@ -192,45 +153,19 @@ void ryCanvas::resize(wxSizeEvent &event)
 void ryCanvas::pressKey(wxKeyEvent &event)
 {
     // Trigger a key press if a mapped key was pressed
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < MAX_KEYS; i++)
     {
-        if (event.GetKeyCode() == keyMap[i])
-        {
-            PIF::pressKey(i);
-            return;
-        }
-    }
-
-    // Update the joystick status if a relevant key was pressed
-    for (int i = 16; i < 21; i++)
-    {
-        if (event.GetKeyCode() == keyMap[i])
-        {
-            stickPressed[i - 16] = true;
-            return updateStick();
-        }
+        if (event.GetKeyCode() == ryApp::keyBinds[i])
+            return frame->pressKey(i);
     }
 }
 
 void ryCanvas::releaseKey(wxKeyEvent &event)
 {
     // Trigger a key release if a mapped key was released
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < MAX_KEYS; i++)
     {
-        if (event.GetKeyCode() == keyMap[i])
-        {
-            PIF::releaseKey(i);
-            return;
-        }
-    }
-
-    // Update the joystick status if a relevant key was released
-    for (int i = 16; i < 21; i++)
-    {
-        if (event.GetKeyCode() == keyMap[i])
-        {
-            stickPressed[i - 16] = false;
-            return updateStick();
-        }
+        if (event.GetKeyCode() == ryApp::keyBinds[i])
+            return frame->releaseKey(i);
     }
 }

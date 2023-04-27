@@ -24,8 +24,13 @@
 
 #include "ry_frame.h"
 
+#define MAX_KEYS 19
+
 class ryApp: public wxApp
 {
+    public:
+        static int keyBinds[MAX_KEYS];
+
     private:
         ryFrame *frame;
         wxTimer *timer;
