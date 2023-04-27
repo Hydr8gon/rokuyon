@@ -317,75 +317,77 @@ void ryFrame::updateJoystick(wxTimerEvent &event)
         if (ryApp::keyBinds[i] >= 3000 && joystick->GetNumberAxes() > ryApp::keyBinds[i] - 3000) // Axis -
         {
             int j = ryApp::keyBinds[i] - 3000;
-            if (joystick->GetPosition(j) < axisBases[j])
+            switch (i)
             {
-                switch (i)
-                {
-                    case 14: // Stick Up
-                        // Scale the axis position and apply it to the stick in the up direction
-                        stickY += joystick->GetPosition(j) * 80 / joystick->GetYMin();
-                        continue;
+                case 14: // Stick Up
+                    // Scale the axis position and apply it to the stick in the up direction
+                    if (joystick->GetPosition(j) < axisBases[j])
+                        stickY += (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetYMin();
+                    continue;
 
-                    case 15: // Stick Down
-                        // Scale the axis position and apply it to the stick in the down direction
-                        stickY -= joystick->GetPosition(j) * 80 / joystick->GetYMax();
-                        continue;
+                case 15: // Stick Down
+                    // Scale the axis position and apply it to the stick in the down direction
+                    if (joystick->GetPosition(j) < axisBases[j])
+                        stickY -= (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetYMax();
+                    continue;
 
-                    case 16: // Stick Left
-                        // Scale the axis position and apply it to the stick in the left direction
-                        stickX -= joystick->GetPosition(j) * 80 / joystick->GetXMin();
-                        continue;
+                case 16: // Stick Left
+                    // Scale the axis position and apply it to the stick in the left direction
+                    if (joystick->GetPosition(j) < axisBases[j])
+                        stickX -= (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetXMin();
+                    continue;
 
-                    case 17: // Stick Right
-                        // Scale the axis position and apply it to the stick in the right direction
-                        stickX += joystick->GetPosition(j) * 80 / joystick->GetXMax();
-                        continue;
+                case 17: // Stick Right
+                    // Scale the axis position and apply it to the stick in the right direction
+                    if (joystick->GetPosition(j) < axisBases[j])
+                        stickX += (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetXMax();
+                    continue;
 
-                    default:
-                        // Trigger a key press or release based on the axis position
-                        if (joystick->GetPosition(j) < axisBases[j] - joystick->GetXMax() / 2)
-                            pressKey(i);
-                        else
-                            releaseKey(i);
-                        continue;
-                }
+                default:
+                    // Trigger a key press or release based on the axis position
+                    if (joystick->GetPosition(j) < axisBases[j] - joystick->GetXMax() / 2)
+                        pressKey(i);
+                    else
+                        releaseKey(i);
+                    continue;
             }
         }
         else if (ryApp::keyBinds[i] >= 2000 && joystick->GetNumberAxes() > ryApp::keyBinds[i] - 2000) // Axis +
         {
             int j = ryApp::keyBinds[i] - 2000;
-            if (joystick->GetPosition(j) > axisBases[j])
+            switch (i)
             {
-                switch (i)
-                {
-                    case 14: // Stick Up
-                        // Scale the axis position and apply it to the stick in the up direction
-                        stickY += joystick->GetPosition(j) * 80 / joystick->GetYMin();
-                        continue;
+                case 14: // Stick Up
+                    // Scale the axis position and apply it to the stick in the up direction
+                    if (joystick->GetPosition(j) > axisBases[j])
+                        stickY += (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetYMin();
+                    continue;
 
-                    case 15: // Stick Down
-                        // Scale the axis position and apply it to the stick in the down direction
-                        stickY -= joystick->GetPosition(j) * 80 / joystick->GetYMax();
-                        continue;
+                case 15: // Stick Down
+                    // Scale the axis position and apply it to the stick in the down direction
+                    if (joystick->GetPosition(j) > axisBases[j])
+                        stickY -= (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetYMax();
+                    continue;
 
-                    case 16: // Stick Left
-                        // Scale the axis position and apply it to the stick in the left direction
-                        stickX -= joystick->GetPosition(j) * 80 / joystick->GetXMin();
-                        continue;
+                case 16: // Stick Left
+                    // Scale the axis position and apply it to the stick in the left direction
+                    if (joystick->GetPosition(j) > axisBases[j])
+                        stickX -= (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetXMin();
+                    continue;
 
-                    case 17: // Stick Right
-                        // Scale the axis position and apply it to the stick in the right direction
-                        stickX += joystick->GetPosition(j) * 80 / joystick->GetXMax();
-                        continue;
+                case 17: // Stick Right
+                    // Scale the axis position and apply it to the stick in the right direction
+                    if (joystick->GetPosition(j) > axisBases[j])
+                        stickX += (joystick->GetPosition(j) - axisBases[j]) * 80 / joystick->GetXMax();
+                    continue;
 
-                    default:
-                        // Trigger a key press or release based on the axis position
-                        if (joystick->GetPosition(j) > axisBases[j] + joystick->GetXMax() / 2)
-                            pressKey(i);
-                        else
-                            releaseKey(i);
-                        continue;
-                }
+                default:
+                    // Trigger a key press or release based on the axis position
+                    if (joystick->GetPosition(j) > axisBases[j] + joystick->GetXMax() / 2)
+                        pressKey(i);
+                    else
+                        releaseKey(i);
+                    continue;
             }
         }
         else if (ryApp::keyBinds[i] >= 1000 && joystick->GetNumberButtons() > ryApp::keyBinds[i] - 1000) // Button
