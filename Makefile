@@ -11,11 +11,11 @@ DESTDIR ?= /usr
 
 ifeq ($(OS),Windows_NT)
   ARGS += -static -DWINDOWS
-  LIBS += $(shell wx-config-static --libs core,gl) -lole32 -lsetupapi -lwinmm
-  INCLUDES += $(shell wx-config-static --cxxflags core,gl)
+  LIBS += $(shell wx-config-static --libs std,gl) -lole32 -lsetupapi -lwinmm
+  INCLUDES += $(shell wx-config-static --cxxflags std,gl)
 else
-  LIBS += $(shell wx-config --libs core,gl)
-  INCLUDES += $(shell wx-config --cxxflags core,gl)
+  LIBS += $(shell wx-config --libs std,gl)
+  INCLUDES += $(shell wx-config --cxxflags std,gl)
   ifeq ($(shell uname -s),Darwin)
     ARGS += -DMACOS
     LIBS += -headerpad_max_install_names
