@@ -1268,7 +1268,7 @@ void RDP::loadTlut()
     uint16_t indexH = ((opcode[0] >> 12) & 0xFFF) >> 1;
 
     // Copy 16-bit texture lookup values into TMEM
-    for (int i = indexL; i < indexH; i += 2)
+    for (int i = indexL; i <= indexH; i += 2)
     {
         uint16_t src = Memory::read<uint16_t>(texAddress + i);
         uint8_t *dst = &tmem[(tile.address + i * 4) & 0xFF8];
