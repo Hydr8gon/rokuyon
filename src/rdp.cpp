@@ -364,14 +364,16 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
     {
         case RGBA16:
         {
-            // Convert an RGBA16 texel to RGBA32
+            // Convert an RGBA16 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s * 2) / tile.width) & 0x1) << 1) : 0;
             uint8_t *value = &tmem[(tile.address + t * tile.width + s * 2) & 0xFFE];
             return RGBA16toRGBA32((value[0] << 8) | value[1]);
         }
 
         case RGBA32:
         {
-            // Read an RGBA32 texel, split across high and low banks
+            // Read an RGBA32 texel split across high and low banks, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s * 2) / tile.width) & 0x1) << 1) : 0;
             uint8_t *valueL = &tmem[(tile.address + 0x000 + t * tile.width + s * 2) & 0xFFE];
             uint8_t *valueH = &tmem[(tile.address + 0x800 + t * tile.width + s * 2) & 0xFFE];
             return (valueH[0] << 24) | (valueH[1] << 16) | (valueL[0] << 8) | valueL[1];
@@ -379,7 +381,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case CI4:
         {
-            // Convert a CI4 texel to RGBA32, using a TLUT in the high banks
+            // Convert a CI4 texel to RGBA32 using a TLUT in the high banks, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s / 2) / tile.width) & 0x1) << 3) : 0;
             uint8_t index = (tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4) & 0xF;
             uint8_t *value = &tmem[(0x800 + (tile.palette + index) * 8) & 0xFF8];
             return RGBA16toRGBA32((value[0] << 8) | value[1]);
@@ -387,7 +390,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case CI8:
         {
-            // Convert a CI8 texel to RGBA32, using a TLUT in the high banks
+            // Convert a CI8 texel to RGBA32 using a TLUT in the high banks, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + s / tile.width) & 0x1) << 2) : 0;
             uint8_t index = tmem[(tile.address + t * tile.width + s) & 0xFFF];
             uint8_t *value = &tmem[(0x800 + index * 8) & 0xFF8];
             return RGBA16toRGBA32((value[0] << 8) | value[1]);
@@ -395,7 +399,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case IA4:
         {
-            // Convert an IA4 texel to RGBA32
+            // Convert an IA4 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s / 2) / tile.width) & 0x1) << 3) : 0;
             uint8_t value = tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4;
             uint8_t i = ((value << 4) & 0xE0) | ((value << 1) & 0x1C) | ((value >> 2) & 0x3);
             uint8_t a = (value & 0x1) ? 0xFF : 0x0;
@@ -404,7 +409,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case IA8:
         {
-            // Convert an IA8 texel to RGBA32
+            // Convert an IA8 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + s / tile.width) & 0x1) << 2) : 0;
             uint8_t value = tmem[(tile.address + t * tile.width + s) & 0xFFF];
             uint8_t i = (value & 0xF0) | (value >> 4);
             uint8_t a = (value & 0x0F) | (value << 4);
@@ -413,7 +419,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case IA16:
         {
-            // Convert an IA16 texel to RGBA32
+            // Convert an IA16 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s * 2) / tile.width) & 0x1) << 1) : 0;
             uint8_t *value = &tmem[(tile.address + t * tile.width + s * 2) & 0xFFE];
             uint8_t i = value[0];
             uint8_t a = value[1];
@@ -422,7 +429,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case I4:
         {
-            // Convert an I4 texel to RGBA32
+            // Convert an I4 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + (s / 2) / tile.width) & 0x1) << 3) : 0;
             uint8_t value = tmem[(tile.address + t * tile.width + s / 2) & 0xFFF] >> (~s & 1) * 4;
             uint8_t i = (value << 4) | (value & 0xF);
             return (i << 24) | (i << 16) | (i << 8) | i;
@@ -430,7 +438,8 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t)
 
         case I8:
         {
-            // Convert an I8 texel to RGBA32
+            // Convert an I8 texel to RGBA32, swapping 32-bit words on odd lines
+            s ^= tile.width ? (((t + s / tile.width) & 0x1) << 2) : 0;
             uint8_t i = tmem[(tile.address + t * tile.width + s) & 0xFFF];
             return (i << 24) | (i << 16) | (i << 8) | i;
         }
@@ -1289,22 +1298,27 @@ void RDP::setTileSize()
 void RDP::loadBlock()
 {
     // Decode the operands
-    // TODO: actually use the other bits
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
     uint16_t count = ((opcode[0] >> 12) & 0xFFF);
+    uint16_t dxt = (opcode[0] & 0xFFF);
 
     // Adjust the byte count based on the texel size
     count = (count << 2) >> (~texFormat & 0x3);
 
-    if ((texFormat & 0x3) == 0x3)
+    uint16_t d = 0;
+    bool odd = false;
+
+    // Copy texture data from the texture buffer to TMEM
+    if ((texFormat & 0x3) == 0x3) // 32-bit
     {
-        // Copy texture data from the texture buffer to TMEM, 8 bytes at a time, split across high and low banks
         for (int i = 0; i <= count; i += 8)
         {
-            uint64_t src = Memory::read<uint64_t>(texAddress + i);
+            // Read 8 bytes of texture data, swapping the 32-bit halves on odd lines
+            uint64_t src = Memory::read<uint64_t>(texAddress + (i ^ (odd << 3)));
+
+            // Write 8 bytes of texture data to TMEM, split across high and low banks
             uint8_t *dstL = &tmem[(tile.address + 0x000 + i / 2) & 0xFFC];
             uint8_t *dstH = &tmem[(tile.address + 0x800 + i / 2) & 0xFFC];
-
             for (int j = 0; j < 4; j += 2)
             {
                 dstH[j + 0] = src >> (56 - j * 16);
@@ -1312,18 +1326,30 @@ void RDP::loadBlock()
                 dstL[j + 0] = src >> (40 - j * 16);
                 dstL[j + 1] = src >> (32 - j * 16);
             }
+
+            // Move to the next line when the counter overflows
+            uint16_t d2 = d;
+            if (((d += dxt) ^ d2) & 0x800)
+                odd = !odd;
         }
     }
     else
     {
-        // Copy texture data from the texture buffer to TMEM, 8 bytes at a time
         for (int i = 0; i <= count; i += 8)
         {
+            // Read 8 bytes of texture data, swapping the 32-bit halves on odd lines
             uint64_t src = Memory::read<uint64_t>(texAddress + i);
-            uint8_t *dst = &tmem[(tile.address + i) & 0xFF8];
+            if (odd) src = (src >> 32) | (src << 32);
 
+            // Copy 8 bytes of texture data to TMEM
+            uint8_t *dst = &tmem[(tile.address + i) & 0xFF8];
             for (int j = 0; j < 8; j++)
                 dst[j] = src >> (7 - j) * 8;
+
+            // Move to the next line when the counter overflows
+            uint16_t d2 = d;
+            if (((d += dxt) ^ d2) & 0x800)
+                odd = !odd;
         }
     }
 }
@@ -1353,27 +1379,34 @@ void RDP::loadTile()
         case 0x0: // 4-bit
             // Cut out a 4-bit texture from the texture buffer and copy it to TMEM
             for (int t = t1; t <= t2; t++)
+            {
+                int mask = ((t - t1) & 0x1) << 2; // Swap 32-bit words on odd lines
                 for (int s = s1; s <= s2; s += 2)
-                    tmem[(tile.address + (t - t1) * tile.width + (s - s1) / 2) & 0xFFF] =
+                    tmem[((tile.address + (t - t1) * tile.width + (s - s1) / 2) ^ mask) & 0xFFF] =
                         Memory::read<uint8_t>(texAddress + (t * texWidth + s) / 2);
+            }
             return;
 
         case 0x1: // 8-bit
             // Cut out an 8-bit texture from the texture buffer and copy it to TMEM
             for (int t = t1; t <= t2; t++)
+            {
+                int mask = ((t - t1) & 0x1) << 2; // Swap 32-bit words on odd lines
                 for (int s = s1; s <= s2; s++)
-                    tmem[(tile.address + (t - t1) * tile.width + (s - s1)) & 0xFFF] =
+                    tmem[((tile.address + (t - t1) * tile.width + (s - s1)) ^ mask) & 0xFFF] =
                         Memory::read<uint8_t>(texAddress + t * texWidth + s);
+            }
             return;
 
         case 0x2: // 16-bit
             // Cut out a 16-bit texture from the texture buffer and copy it to TMEM
             for (int t = t1; t <= t2; t++)
             {
+                int mask = ((t - t1) & 0x1) << 2; // Swap 32-bit words on odd lines
                 for (int s = s1; s <= s2; s++)
                 {
                     uint16_t src = Memory::read<uint16_t>(texAddress + (t * texWidth + s) * 2);
-                    uint8_t *dst = &tmem[(tile.address + (t - t1) * tile.width + (s - s1) * 2) & 0xFFE];
+                    uint8_t *dst = &tmem[((tile.address + (t - t1) * tile.width + (s - s1) * 2) ^ mask) & 0xFFE];
                     dst[0] = src >> 8;
                     dst[1] = src >> 0;
                 }
@@ -1384,11 +1417,12 @@ void RDP::loadTile()
             // Cut out a 32-bit texture from the texture buffer and copy it to TMEM, split across high and low banks
             for (int t = t1; t <= t2; t++)
             {
+                int mask = ((t - t1) & 0x1) << 2; // Swap 32-bit words on odd lines
                 for (int s = s1; s <= s2; s++)
                 {
                     uint32_t src = Memory::read<uint32_t>(texAddress + (t * texWidth + s) * 4);
-                    uint8_t *dstL = &tmem[(tile.address + 0x000 + (t - t1) * tile.width + (s - s1) * 2) & 0xFFE];
-                    uint8_t *dstH = &tmem[(tile.address + 0x800 + (t - t1) * tile.width + (s - s1) * 2) & 0xFFE];
+                    uint8_t *dstL = &tmem[((tile.address + 0x000 + (t - t1) * tile.width + (s - s1) * 2) ^ mask) & 0xFFE];
+                    uint8_t *dstH = &tmem[((tile.address + 0x800 + (t - t1) * tile.width + (s - s1) * 2) ^ mask) & 0xFFE];
                     dstH[0] = src >> 24;
                     dstH[1] = src >> 16;
                     dstL[0] = src >>  8;
