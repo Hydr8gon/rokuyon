@@ -1521,18 +1521,14 @@ void RDP::setCombine()
         {
             case 0: combineA[i] = &combColor;  break;
             case 1: combineA[i] = &texelColor; break;
+            case 2: combineA[i] = &texelColor; break;
             case 3: combineA[i] = &primColor;  break;
             case 4: combineA[i] = &shadeColor; break;
             case 5: combineA[i] = &envColor;   break;
             case 6: combineA[i] = &maxColor;   break;
+            default: combineA[i] = &minColor;  break;
 
-            default:
-                if (srcA >= 8)
-                {
-                    combineA[i] = &minColor;
-                    break;
-                }
-
+            case 7:
                 LOG_WARN("Unimplemented CC cycle %d RGB source A: %d\n", i, srcA);
                 combineA[i] = &maxColor;
                 break;
@@ -1544,17 +1540,13 @@ void RDP::setCombine()
         {
             case 0: combineB[i] = &combColor;  break;
             case 1: combineB[i] = &texelColor; break;
+            case 2: combineB[i] = &texelColor; break;
             case 3: combineB[i] = &primColor;  break;
             case 4: combineB[i] = &shadeColor; break;
             case 5: combineB[i] = &envColor;   break;
+            default: combineB[i] = &minColor;  break;
 
-            default:
-                if (srcB >= 8)
-                {
-                    combineB[i] = &minColor;
-                    break;
-                }
-
+            case 6: case 7:
                 LOG_WARN("Unimplemented CC cycle %d RGB source B: %d\n", i, srcB);
                 combineB[i] = &minColor;
                 break;
@@ -1566,22 +1558,19 @@ void RDP::setCombine()
         {
             case  0: combineC[i] = &combColor;  break;
             case  1: combineC[i] = &texelColor; break;
+            case  2: combineC[i] = &texelColor; break;
             case  3: combineC[i] = &primColor;  break;
             case  4: combineC[i] = &shadeColor; break;
             case  5: combineC[i] = &envColor;   break;
             case  7: combineC[i] = &combAlpha;  break;
             case  8: combineC[i] = &texelAlpha; break;
+            case  9: combineC[i] = &texelAlpha; break;
             case 10: combineC[i] = &primAlpha;  break;
             case 11: combineC[i] = &shadeAlpha; break;
             case 12: combineC[i] = &envAlpha;   break;
+            default: combineC[i] = &minColor;   break;
 
-            default:
-                if (srcC >= 16)
-                {
-                    combineC[i] = &minColor;
-                    break;
-                }
-
+            case 6: case 13: case 14: case 15:
                 LOG_WARN("Unimplemented CC cycle %d RGB source C: %d\n", i, srcC);
                 combineC[i] = &maxColor;
                 break;
@@ -1589,20 +1578,16 @@ void RDP::setCombine()
 
         // Set the D input for color combiner RGB components
         static const uint8_t shiftsD[2] = { 15, 6 };
-        switch (uint8_t srcD = (opcode[0] >> shiftsD[i]) & 0x7)
+        switch ((opcode[0] >> shiftsD[i]) & 0x7)
         {
             case 0: combineD[i] = &combColor;  break;
             case 1: combineD[i] = &texelColor; break;
+            case 2: combineD[i] = &texelColor; break;
             case 3: combineD[i] = &primColor;  break;
             case 4: combineD[i] = &shadeColor; break;
             case 5: combineD[i] = &envColor;   break;
             case 6: combineD[i] = &maxColor;   break;
-            case 7: combineD[i] = &minColor;   break;
-
-            default:
-                LOG_WARN("Unimplemented CC cycle %d RGB source D: %d\n", i, srcD);
-                combineD[i] = &minColor;
-                break;
+            default: combineD[i] = &minColor;  break;
         }
     }
 
@@ -1610,38 +1595,30 @@ void RDP::setCombine()
     {
         // Set the A input for color combiner alpha components
         static const uint8_t shiftsA[2] = { 44, 21 };
-        switch (uint8_t srcA = (opcode[0] >> shiftsA[i - 2]) & 0x7)
+        switch ((opcode[0] >> shiftsA[i - 2]) & 0x7)
         {
             case 0: combineA[i] = &combAlpha;  break;
             case 1: combineA[i] = &texelAlpha; break;
+            case 2: combineA[i] = &texelAlpha; break;
             case 3: combineA[i] = &primAlpha;  break;
             case 4: combineA[i] = &shadeAlpha; break;
             case 5: combineA[i] = &envAlpha;   break;
             case 6: combineA[i] = &maxColor;   break;
-            case 7: combineA[i] = &minColor;   break;
-
-            default:
-                LOG_WARN("Unimplemented CC cycle %d alpha source A: %d\n", i, srcA);
-                combineA[i] = &maxColor;
-                break;
+            default: combineA[i] = &minColor;  break;
         }
 
         // Set the B input for color combiner alpha components
         static const uint8_t shiftsB[2] = { 12, 3 };
-        switch (uint8_t srcB = (opcode[0] >> shiftsB[i - 2]) & 0x7)
+        switch ((opcode[0] >> shiftsB[i - 2]) & 0x7)
         {
             case 0: combineB[i] = &combAlpha;  break;
             case 1: combineB[i] = &texelAlpha; break;
+            case 2: combineB[i] = &texelAlpha; break;
             case 3: combineB[i] = &primAlpha;  break;
             case 4: combineB[i] = &shadeAlpha; break;
             case 5: combineB[i] = &envAlpha;   break;
             case 6: combineB[i] = &maxColor;   break;
-            case 7: combineB[i] = &minColor;   break;
-
-            default:
-                LOG_WARN("Unimplemented CC cycle %d alpha source B: %d\n", i, srcB);
-                combineB[i] = &minColor;
-                break;
+            default: combineB[i] = &minColor;  break;
         }
 
         // Set the C input for color combiner alpha components
@@ -1649,12 +1626,13 @@ void RDP::setCombine()
         switch (uint8_t srcC = (opcode[0] >> shiftsC[i - 2]) & 0x7)
         {
             case 1: combineC[i] = &texelAlpha; break;
+            case 2: combineC[i] = &texelAlpha; break;
             case 3: combineC[i] = &primAlpha;  break;
             case 4: combineC[i] = &shadeAlpha; break;
             case 5: combineC[i] = &envAlpha;   break;
-            case 7: combineC[i] = &minColor;   break;
+            default: combineC[i] = &minColor;  break;
 
-            default:
+            case 0: case 6:
                 LOG_WARN("Unimplemented CC cycle %d alpha source C: %d\n", i, srcC);
                 combineC[i] = &maxColor;
                 break;
@@ -1662,20 +1640,16 @@ void RDP::setCombine()
 
         // Set the D input for color combiner alpha components
         static const uint8_t shiftsD[2] = { 9, 0 };
-        switch (uint8_t srcD = (opcode[0] >> shiftsD[i - 2]) & 0x7)
+        switch ((opcode[0] >> shiftsD[i - 2]) & 0x7)
         {
             case 0: combineD[i] = &combAlpha;  break;
             case 1: combineD[i] = &texelAlpha; break;
+            case 2: combineD[i] = &texelAlpha; break;
             case 3: combineD[i] = &primAlpha;  break;
             case 4: combineD[i] = &shadeAlpha; break;
             case 5: combineD[i] = &envAlpha;   break;
             case 6: combineD[i] = &maxColor;   break;
-            case 7: combineD[i] = &minColor;   break;
-
-            default:
-                LOG_WARN("Unimplemented CC cycle %d alpha source D: %d\n", i, srcD);
-                combineD[i] = &minColor;
-                break;
+            default: combineD[i] = &minColor;  break;
         }
     }
 }

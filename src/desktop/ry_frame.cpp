@@ -71,6 +71,7 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     // Set up the settings menu
     wxMenu *settingsMenu = new wxMenu();
     settingsMenu->Append(INPUT_BINDINGS, "&Input Bindings");
+    settingsMenu->AppendSeparator();
     settingsMenu->AppendCheckItem(FPS_LIMITER, "&FPS Limiter");
     settingsMenu->Check(FPS_LIMITER, Settings::fpsLimiter);
 
