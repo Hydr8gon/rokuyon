@@ -77,6 +77,8 @@ namespace RDP
     uint8_t blendB[2];
     uint8_t blendC[2];
     uint8_t blendD[2];
+    bool zUpdate;
+    bool zCompare;
 
     uint32_t texAddress;
     uint16_t texWidth;
@@ -202,6 +204,8 @@ void RDP::reset()
     blendB[0] = blendB[1] = 0;
     blendC[0] = blendC[1] = 0;
     blendD[0] = blendD[1] = 0;
+    zUpdate = false;
+    zCompare = false;
     texAddress = 0xA0000000;
     texWidth = 0;
     texFormat = RGBA4;
@@ -693,10 +697,10 @@ void RDP::triDepth()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y))
+                if (drawPixel(x, y) && zUpdate)
                     Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
@@ -825,7 +829,7 @@ void RDP::triDepthTex()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 15)
@@ -835,7 +839,7 @@ void RDP::triDepthTex()
                 }
 
                 // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y))
+                if (drawPixel(x, y) && zUpdate)
                     Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
@@ -974,7 +978,7 @@ void RDP::triDepthSha()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the shade color for the current pixel
                 uint8_t r = ((ra >> 16) & 0xFF);
@@ -985,7 +989,7 @@ void RDP::triDepthSha()
                 shadeAlpha = colorToAlpha(shadeColor);
 
                 // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y))
+                if (drawPixel(x, y) && zUpdate)
                     Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
@@ -1165,7 +1169,7 @@ void RDP::triDepShaTex()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z)
+                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the shade color for the current pixel
                 uint8_t r = ((ra >> 16) & 0xFF);
@@ -1183,7 +1187,7 @@ void RDP::triDepShaTex()
                 }
 
                 // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y))
+                if (drawPixel(x, y) && zUpdate)
                     Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
             }
 
@@ -1256,7 +1260,7 @@ void RDP::setScissor()
 
 void RDP::setOtherModes()
 {
-    // Set the cycle type and blend inputs
+    // Set various rendering parameters
     // TODO: actually use the other bits
     cycleType = (CycleType)((opcode[0] >> 52) & 0x3);
     blendA[0] = (opcode[0] >> 30) & 0x3;
@@ -1267,6 +1271,8 @@ void RDP::setOtherModes()
     blendC[1] = (opcode[0] >> 20) & 0x3;
     blendD[0] = (opcode[0] >> 18) & 0x3;
     blendD[1] = (opcode[0] >> 16) & 0x3;
+    zUpdate = (opcode[0] >> 5) & 0x1;
+    zCompare = (opcode[0] >> 4) & 0x1;
 }
 
 void RDP::loadTlut()
