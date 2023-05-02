@@ -902,10 +902,10 @@ void RDP::triShade()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
             {
                 // Update the shade color for the current pixel
-                uint8_t r = ((ra >> 16) & 0xFF);
-                uint8_t g = ((ga >> 16) & 0xFF);
-                uint8_t b = ((ba >> 16) & 0xFF);
-                uint8_t a = ((aa >> 16) & 0xFF);
+                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
+                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
+                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
+                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
@@ -981,10 +981,10 @@ void RDP::triDepthSha()
                 (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the shade color for the current pixel
-                uint8_t r = ((ra >> 16) & 0xFF);
-                uint8_t g = ((ga >> 16) & 0xFF);
-                uint8_t b = ((ba >> 16) & 0xFF);
-                uint8_t a = ((aa >> 16) & 0xFF);
+                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
+                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
+                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
+                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
@@ -1068,10 +1068,10 @@ void RDP::triShadeTex()
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
             {
                 // Update the shade color for the current pixel
-                uint8_t r = ((ra >> 16) & 0xFF);
-                uint8_t g = ((ga >> 16) & 0xFF);
-                uint8_t b = ((ba >> 16) & 0xFF);
-                uint8_t a = ((aa >> 16) & 0xFF);
+                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
+                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
+                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
+                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
@@ -1172,10 +1172,10 @@ void RDP::triDepShaTex()
                 (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
             {
                 // Update the shade color for the current pixel
-                uint8_t r = ((ra >> 16) & 0xFF);
-                uint8_t g = ((ga >> 16) & 0xFF);
-                uint8_t b = ((ba >> 16) & 0xFF);
-                uint8_t a = ((aa >> 16) & 0xFF);
+                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
+                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
+                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
+                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
                 shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
                 shadeAlpha = colorToAlpha(shadeColor);
 
