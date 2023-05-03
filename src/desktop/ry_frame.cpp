@@ -35,6 +35,7 @@ enum FrameEvent
     STOP,
     INPUT_BINDINGS,
     FPS_LIMITER,
+    TEX_FILTER,
     UPDATE_JOY
 };
 
@@ -47,6 +48,7 @@ EVT_MENU(RESTART, ryFrame::restart)
 EVT_MENU(STOP, ryFrame::stop)
 EVT_MENU(INPUT_BINDINGS, ryFrame::inputSettings)
 EVT_MENU(FPS_LIMITER, ryFrame::toggleFpsLimit)
+EVT_MENU(TEX_FILTER, ryFrame::toggleTexFilter)
 EVT_TIMER(UPDATE_JOY, ryFrame::updateJoystick)
 EVT_DROP_FILES(ryFrame::dropFiles)
 EVT_CLOSE(ryFrame::close)
@@ -73,7 +75,11 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     settingsMenu->Append(INPUT_BINDINGS, "&Input Bindings");
     settingsMenu->AppendSeparator();
     settingsMenu->AppendCheckItem(FPS_LIMITER, "&FPS Limiter");
+    settingsMenu->AppendCheckItem(TEX_FILTER, "&Texture Filter");
+
+    // Set the initial checkbox states
     settingsMenu->Check(FPS_LIMITER, Settings::fpsLimiter);
+    settingsMenu->Check(TEX_FILTER, Settings::texFilter);
 
     // Set up the menu bar
     wxMenuBar *menuBar = new wxMenuBar();
@@ -304,6 +310,13 @@ void ryFrame::toggleFpsLimit(wxCommandEvent &event)
 {
     // Toggle the FPS limiter setting
     Settings::fpsLimiter = !Settings::fpsLimiter;
+    Settings::save();
+}
+
+void ryFrame::toggleTexFilter(wxCommandEvent &event)
+{
+    // Toggle the texture filter setting
+    Settings::texFilter = !Settings::texFilter;
     Settings::save();
 }
 

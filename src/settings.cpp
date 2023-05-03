@@ -35,10 +35,12 @@ namespace Settings
 {
     std::string filename;
     int fpsLimiter = 1;
+    int texFilter = 1;
 
     std::vector<Setting> settings =
     {
-        Setting("fpsLimiter", &fpsLimiter, false)
+        Setting("fpsLimiter", &fpsLimiter, false),
+        Setting("texFilter", &texFilter, false)
     };
 }
 

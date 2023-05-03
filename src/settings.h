@@ -29,6 +29,7 @@ namespace Settings
     bool save();
 
     extern int fpsLimiter;
+    extern int texFilter;
 }
 
 #endif // SETTINGS_H

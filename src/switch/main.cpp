@@ -104,7 +104,8 @@ void settingsMenu()
         // Make a list of settings and current values
         std::vector<ListItem> settings =
         {
-            ListItem("FPS Limiter", toggle[Settings::fpsLimiter])
+            ListItem("FPS Limiter", toggle[Settings::fpsLimiter]),
+            ListItem("Texture Filter", toggle[Settings::texFilter])
         };
 
         // Create the settings menu
@@ -118,6 +119,7 @@ void settingsMenu()
             switch (index)
             {
                 case 0: Settings::fpsLimiter = !Settings::fpsLimiter; break;
+                case 1: Settings::texFilter = !Settings::texFilter; break;
             }
         }
         else

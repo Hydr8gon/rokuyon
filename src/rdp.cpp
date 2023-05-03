@@ -24,6 +24,7 @@
 #include "log.h"
 #include "memory.h"
 #include "mi.h"
+#include "settings.h"
 
 enum Format
 {
@@ -73,6 +74,7 @@ namespace RDP
     uint64_t opcode[22];
 
     CycleType cycleType;
+    bool texFilter;
     uint8_t blendA[2];
     uint8_t blendB[2];
     uint8_t blendC[2];
@@ -121,7 +123,8 @@ namespace RDP
     uint16_t RGBA32toRGBA16(uint32_t color);
     uint32_t colorToAlpha(uint32_t color);
 
-    uint32_t getTexel(Tile &tile, int s, int t);
+    uint32_t getTexel(Tile &tile, int s, int t, bool rect = false);
+    uint32_t getRawTexel(Tile &tile, int s, int t);
     bool blendPixel(bool cycle, uint32_t &color);
     bool drawPixel(int x, int y);
 
@@ -200,6 +203,7 @@ void RDP::reset()
     addrMask = 0x3FFFFF;
     paramCount = 0;
     cycleType = ONE_CYCLE;
+    texFilter = false;
     blendA[0] = blendA[1] = 0;
     blendB[0] = blendB[1] = 0;
     blendC[0] = blendC[1] = 0;
@@ -341,12 +345,50 @@ inline uint32_t RDP::colorToAlpha(uint32_t color)
     return (a << 24) | (a << 16) | (a << 8) | a;
 }
 
-uint32_t RDP::getTexel(Tile &tile, int s, int t)
+uint32_t RDP::getTexel(Tile &tile, int s, int t, bool rect)
 {
     // Offset the texture coordinates relative to the tile
-    s = (s - tile.sBase) >> 5;
-    t = (t - tile.tBase) >> 5;
+    s -= tile.sBase;
+    t -= tile.tBase;
 
+    // Fall back to nearest sampling when appropriate
+    if (!Settings::texFilter || !texFilter || cycleType >= COPY_MODE)
+        return getRawTexel(tile, s >> 5, t >> 5);
+
+    // Subtract 0.5 from triangle texture coordinates
+    // TODO: verify rectangle behavior
+    if (!rect)
+    {
+        s -= 0x10;
+        t -= 0x10;
+    }
+
+    // Load 3 texels for blending based on if the point is above or below the diagonal
+    bool c = ((s & 0x1F) + (t & 0x1F) > 0x1F); // Below
+    uint32_t col1 = getRawTexel(tile, (s >> 5) + c, (t >> 5) + c);
+    uint32_t col2 = getRawTexel(tile, (s >> 5) + 0, (t >> 5) + 1);
+    uint32_t col3 = getRawTexel(tile, (s >> 5) + 1, (t >> 5) + 0);
+
+    // Calculate weights for each texel
+    int v1x = (0 - c) << 5, v1y = (1 - c) << 5;
+    int v2x = (1 - c) << 5, v2y = (0 - c) << 5;
+    int v3x = (s & 0x1F) - (c << 5);
+    int v3y = (t & 0x1F) - (c << 5);
+    int den = (v1x * v2y - v2x * v1y) >> 5;
+    int l2 = abs((v3x * v2y - v2x * v3y) / den);
+    int l3 = abs((v1x * v3y - v3x * v1y) / den);
+    int l1 = 0x20 - l2 - l3;
+
+    // Blend each channel of the output filtered texel
+    uint8_t r = (((col1 >> 24) & 0xFF) * l1 + ((col2 >> 24) & 0xFF) * l2 + ((col3 >> 24) & 0xFF) * l3) >> 5;
+    uint8_t g = (((col1 >> 16) & 0xFF) * l1 + ((col2 >> 16) & 0xFF) * l2 + ((col3 >> 16) & 0xFF) * l3) >> 5;
+    uint8_t b = (((col1 >>  8) & 0xFF) * l1 + ((col2 >>  8) & 0xFF) * l2 + ((col3 >>  8) & 0xFF) * l3) >> 5;
+    uint8_t a = (((col1 >>  0) & 0xFF) * l1 + ((col2 >>  0) & 0xFF) * l2 + ((col3 >>  0) & 0xFF) * l3) >> 5;
+    return (r << 24) | (g << 16) | (b << 8) | a;
+}
+
+uint32_t RDP::getRawTexel(Tile &tile, int s, int t)
+{
     // Clamp, mirror, or mask the S-coordinate based on tile settings
     if (tile.sClamp)
         s = std::max<int>(std::min<int>(s, tile.sMask), 0);
@@ -1234,7 +1276,7 @@ void RDP::texRectangle()
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
             {
-                texelColor = getTexel(tile, s >> 5, t >> 5);
+                texelColor = getTexel(tile, s >> 5, t >> 5, true);
                 texelAlpha = colorToAlpha(texelColor);
                 drawPixel(x, y);
             }
@@ -1263,6 +1305,7 @@ void RDP::setOtherModes()
     // Set various rendering parameters
     // TODO: actually use the other bits
     cycleType = (CycleType)((opcode[0] >> 52) & 0x3);
+    texFilter = (opcode[0] >> 45) & 0x1;
     blendA[0] = (opcode[0] >> 30) & 0x3;
     blendA[1] = (opcode[0] >> 28) & 0x3;
     blendB[0] = (opcode[0] >> 26) & 0x3;
