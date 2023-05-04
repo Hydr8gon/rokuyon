@@ -79,8 +79,10 @@ namespace RDP
     uint8_t blendB[2];
     uint8_t blendC[2];
     uint8_t blendD[2];
+    bool alphaMultiply;
     bool zUpdate;
     bool zCompare;
+    bool alphaCompare;
 
     uint32_t texAddress;
     uint16_t texWidth;
@@ -208,8 +210,10 @@ void RDP::reset()
     blendB[0] = blendB[1] = 0;
     blendC[0] = blendC[1] = 0;
     blendD[0] = blendD[1] = 0;
+    alphaMultiply = false;
     zUpdate = false;
     zCompare = false;
+    alphaCompare = false;
     texAddress = 0xA0000000;
     texWidth = 0;
     texFormat = RGBA4;
@@ -565,6 +569,11 @@ bool RDP::drawPixel(int x, int y)
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
             pixelAlpha = combAlpha = colorToAlpha(combColor);
 
+            // Coverage isn't implemented yet, but pixels with coverage 0 seem to be unconditionally skipped
+            // For now, at least skip pixels where coverage is multiplied by alpha 0
+            if (alphaMultiply && !pixelAlpha)
+                return false;
+
             if (colorFormat == RGBA16)
             {
                 // Blend the pixel with the previous RGBA16 pixel in the color buffer
@@ -598,6 +607,11 @@ bool RDP::drawPixel(int x, int y)
             combColor = (r << 24) | (g << 16) | (b << 8) | a;
             pixelAlpha = combAlpha = colorToAlpha(combColor);
 
+            // Coverage isn't implemented yet, but pixels with coverage 0 seem to be unconditionally skipped
+            // For now, at least skip pixels where coverage is multiplied by alpha 0
+            if (alphaMultiply && !pixelAlpha)
+                return false;
+
             // Blend the pixel with the previous pixel in the color buffer
             if (colorFormat == RGBA16)
                 memColor = RGBA16toRGBA32(Memory::read<uint16_t>(colorAddress + (y * colorWidth + x) * 2)) & ~0xFF;
@@ -627,16 +641,16 @@ bool RDP::drawPixel(int x, int y)
         }
 
         case COPY_MODE:
+            // Skip transparent pixels if alpha compare is enabled
+            if (alphaCompare && !(texelColor & 0xFF))
+                return false;
+
             // Copy a texel directly to the color buffer
-            if (texelColor & 0xFF)
-            {
-                if (colorFormat == RGBA16)
-                    Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(texelColor));
-                else
-                    Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, texelColor);
-                return true;
-            }
-            return false;
+            if (colorFormat == RGBA16)
+                Memory::write<uint16_t>(colorAddress + (y * colorWidth + x) * 2, RGBA32toRGBA16(texelColor));
+            else
+                Memory::write<uint32_t>(colorAddress + (y * colorWidth + x) * 4, texelColor);
+            return true;
 
         case FILL_MODE:
             // Copy the fill color directly to the color buffer
@@ -1314,8 +1328,10 @@ void RDP::setOtherModes()
     blendC[1] = (opcode[0] >> 20) & 0x3;
     blendD[0] = (opcode[0] >> 18) & 0x3;
     blendD[1] = (opcode[0] >> 16) & 0x3;
+    alphaMultiply = (opcode[0] >> 12) & 0x1;
     zUpdate = (opcode[0] >> 5) & 0x1;
     zCompare = (opcode[0] >> 4) & 0x1;
+    alphaCompare = (opcode[0] >> 0) & 0x1;
 }
 
 void RDP::loadTlut()
