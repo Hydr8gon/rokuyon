@@ -20,6 +20,7 @@
 #ifndef SAVE_DIALOG_H
 #define SAVE_DIALOG_H
 
+#include <cstdint>
 #include <wx/wx.h>
 
 class SaveDialog: public wxDialog

@@ -20,7 +20,7 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include <string>
+#include <cstdint>
 
 namespace CPU
 {

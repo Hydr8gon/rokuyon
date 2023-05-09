@@ -20,7 +20,7 @@
 #ifndef RSP_H
 #define RSP_H
 
-#include <string>
+#include <cstdint>
 
 namespace RSP
 {

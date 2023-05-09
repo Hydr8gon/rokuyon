@@ -22,7 +22,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <string>
 
 namespace PIF
 {

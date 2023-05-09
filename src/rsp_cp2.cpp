@@ -17,11 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <cmath>
 #include <cstring>
 
 #include "rsp_cp2.h"
 #include "log.h"
-#include "rsp.h"
 
 namespace RSP_CP2
 {

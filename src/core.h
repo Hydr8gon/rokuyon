@@ -20,6 +20,7 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <cstdint>
 #include <string>
 
 namespace Core
