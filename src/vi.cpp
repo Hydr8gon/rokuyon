@@ -28,6 +28,7 @@
 #include "log.h"
 #include "memory.h"
 #include "mi.h"
+#include "rdp.h"
 
 namespace VI
 {
@@ -151,6 +152,9 @@ void VI::write(uint32_t address, uint32_t value)
 
 void VI::drawFrame()
 {
+    // Ensure the RDP thread has finished drawing
+    RDP::finishThread();
+
     // Allow up to 2 framebuffers to be queued, to preserve frame pacing if emulation runs ahead
     if (framebuffers.size() < 2)
     {

@@ -105,6 +105,7 @@ void settingsMenu()
         std::vector<ListItem> settings =
         {
             ListItem("FPS Limiter", toggle[Settings::fpsLimiter]),
+            ListItem("Threaded RDP", toggle[Settings::threadedRdp]),
             ListItem("Texture Filter", toggle[Settings::texFilter])
         };
 
@@ -119,7 +120,8 @@ void settingsMenu()
             switch (index)
             {
                 case 0: Settings::fpsLimiter = !Settings::fpsLimiter; break;
-                case 1: Settings::texFilter = !Settings::texFilter; break;
+                case 1: Settings::threadedRdp = !Settings::threadedRdp; break;
+                case 2: Settings::texFilter = !Settings::texFilter; break;
             }
         }
         else

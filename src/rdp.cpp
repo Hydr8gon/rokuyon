@@ -19,6 +19,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 #include "rdp.h"
 #include "log.h"
@@ -63,6 +66,10 @@ namespace RDP
     extern void (*commands[])();
     extern uint8_t paramCounts[];
 
+    std::thread *thread;
+    std::mutex mutex;
+    bool running;
+
     uint8_t tmem[0x1000]; // 4KB TMEM
     uint32_t startAddr;
     uint32_t endAddr;
@@ -71,7 +78,7 @@ namespace RDP
     uint32_t addrBase;
     uint32_t addrMask;
     uint8_t paramCount;
-    uint64_t opcode[22];
+    std::vector<uint64_t> opcode;
 
     CycleType cycleType;
     bool texFilter;
@@ -130,7 +137,9 @@ namespace RDP
     bool blendPixel(bool cycle, uint32_t &color);
     bool drawPixel(int x, int y);
 
+    void runThreaded();
     void runCommands();
+
     void triangle();
     void triDepth();
     void triTexture();
@@ -204,6 +213,7 @@ void RDP::reset()
     addrBase = 0xA0000000;
     addrMask = 0x3FFFFF;
     paramCount = 0;
+    opcode.clear();
     cycleType = ONE_CYCLE;
     texFilter = false;
     blendA[0] = blendA[1] = 0;
@@ -664,24 +674,84 @@ bool RDP::drawPixel(int x, int y)
     return false;
 }
 
+void RDP::finishThread()
+{
+    // Stop the thread if it was running
+    if (running)
+    {
+        running = false;
+        thread->join();
+        delete thread;
+    }
+}
+
+void RDP::runThreaded()
+{
+    while (true)
+    {
+        // Parse the next command if one is queued
+        mutex.lock();
+        uint8_t op = opcode.empty() ? 0 : ((opcode[0] >> 56) & 0x3F);
+        uint8_t count = paramCounts[op];
+
+        if (opcode.size() >= count)
+        {
+            // Execute a command once all of its parameters have been queued
+            mutex.unlock();
+            (*commands[op])();
+            mutex.lock();
+            opcode.erase(opcode.begin(), opcode.begin() + count);
+            mutex.unlock();
+        }
+        else
+        {
+            // If requested, stop running when the queue is empty
+            mutex.unlock();
+            if (!running) return;
+            std::this_thread::yield();
+        }
+    }
+}
+
 void RDP::runCommands()
 {
+    // Start the thread if enabled and not running
+    if (Settings::threadedRdp && !running)
+    {
+        running = true;
+        thread = new std::thread(runThreaded);
+    }
+
+    mutex.lock();
+
     // Process RDP commands until the end address is reached
     while (startAddr < endAddr)
     {
         // Add a parameter to the buffer
-        opcode[paramCount++] = Memory::read<uint64_t>(addrBase + (startAddr & addrMask));
+        opcode.push_back(Memory::read<uint64_t>(addrBase + (startAddr & addrMask)));
+        paramCount++;
 
         // Execute a command once all of its parameters have been received
-        if (paramCount >= paramCounts[(opcode[0] >> 56) & 0x3F])
+        // When threaded, only run sync commands here; the rest will run on the thread
+        uint8_t op = (opcode[opcode.size() - paramCount] >> 56) & 0x3F;
+        if (paramCount >= paramCounts[op])
         {
-            (*commands[(opcode[0] >> 56) & 0x3F])();
             paramCount = 0;
+            if (!running || op == 0x29) // Sync Full
+            {
+                mutex.unlock();
+                finishThread();
+                mutex.lock();
+                (*commands[op])();
+                opcode.clear();
+            }
         }
 
         // Move to the next parameter
         startAddr += 8;
     }
+
+    mutex.unlock();
 }
 
 void RDP::triangle()

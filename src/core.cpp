@@ -213,6 +213,7 @@ void Core::stop()
         saveThread->join();
         delete emuThread;
         delete saveThread;
+        RDP::finishThread();
     }
 }
 

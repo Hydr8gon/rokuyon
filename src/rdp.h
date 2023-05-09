@@ -27,6 +27,7 @@ namespace RDP
     void reset();
     uint32_t read(int index);
     void write(int index, uint32_t value);
+    void finishThread();
 }
 
 #endif // RDP_H
