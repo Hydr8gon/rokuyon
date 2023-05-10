@@ -87,6 +87,7 @@ namespace RDP
     uint8_t blendC[2];
     uint8_t blendD[2];
     bool alphaMultiply;
+    uint8_t zMode;
     bool zUpdate;
     bool zCompare;
     bool alphaCompare;
@@ -136,6 +137,7 @@ namespace RDP
     uint32_t getRawTexel(Tile &tile, int s, int t);
     bool blendPixel(bool cycle, uint32_t &color);
     bool drawPixel(int x, int y);
+    bool testDepth(int x, int y, int z);
 
     void runThreaded();
     void runCommands();
@@ -221,6 +223,7 @@ void RDP::reset()
     blendC[0] = blendC[1] = 0;
     blendD[0] = blendD[1] = 0;
     alphaMultiply = false;
+    zMode = 0;
     zUpdate = false;
     zCompare = false;
     alphaCompare = false;
@@ -674,6 +677,23 @@ bool RDP::drawPixel(int x, int y)
     return false;
 }
 
+bool RDP::testDepth(int x, int y, int z)
+{
+    // Read the existing depth value from memory
+    int m = Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2);
+
+    // Perform a depth test based on the current mode
+    switch (zMode)
+    {
+        case 3: // Decal
+            // TODO: verify this; it's just a guess
+            return m > z - 0x20 && m < z + 0x20;
+
+        default: // TODO: other modes
+            return m > z;
+    }
+}
+
 void RDP::finishThread()
 {
     // Stop the thread if it was running
@@ -823,7 +843,7 @@ void RDP::triDepth()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
+                (!zCompare || testDepth(x, y, z)))
             {
                 // Update the Z buffer if a pixel is drawn
                 if (drawPixel(x, y) && zUpdate)
@@ -955,7 +975,7 @@ void RDP::triDepthTex()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
+                (!zCompare || testDepth(x, y, z)))
             {
                 // Update the texel color for the current pixel, with perspective correction
                 if (wa >> 15)
@@ -1104,7 +1124,7 @@ void RDP::triDepthSha()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
+                (!zCompare || testDepth(x, y, z)))
             {
                 // Update the shade color for the current pixel
                 uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
@@ -1295,7 +1315,7 @@ void RDP::triDepShaTex()
 
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || Memory::read<uint16_t>(zAddress + (y * colorWidth + x) * 2) > z))
+                (!zCompare || testDepth(x, y, z)))
             {
                 // Update the shade color for the current pixel
                 uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
@@ -1399,6 +1419,7 @@ void RDP::setOtherModes()
     blendD[0] = (opcode[0] >> 18) & 0x3;
     blendD[1] = (opcode[0] >> 16) & 0x3;
     alphaMultiply = (opcode[0] >> 12) & 0x1;
+    zMode = (opcode[0] >> 10) & 0x3;
     zUpdate = (opcode[0] >> 5) & 0x1;
     zCompare = (opcode[0] >> 4) & 0x1;
     alphaCompare = (opcode[0] >> 0) & 0x1;
