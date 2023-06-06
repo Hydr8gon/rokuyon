@@ -25,7 +25,8 @@ enum SaveEvent
     SELECT_0 = 1,
     SELECT_1,
     SELECT_2,
-    SELECT_3
+    SELECT_3,
+    SELECT_4
 };
 
 wxBEGIN_EVENT_TABLE(SaveDialog, wxDialog)
@@ -33,6 +34,7 @@ EVT_RADIOBUTTON(SELECT_0, SaveDialog::select0)
 EVT_RADIOBUTTON(SELECT_1, SaveDialog::select1)
 EVT_RADIOBUTTON(SELECT_2, SaveDialog::select2)
 EVT_RADIOBUTTON(SELECT_3, SaveDialog::select3)
+EVT_RADIOBUTTON(SELECT_4, SaveDialog::select4)
 EVT_BUTTON(wxID_OK, SaveDialog::confirm)
 wxEND_EVENT_TABLE()
 
@@ -41,10 +43,11 @@ uint32_t SaveDialog::selectToSize(uint32_t select)
     // Convert a save selection to a size
     switch (select)
     {
-        case 1:  return 0x8000; // SRAM 32KB
-        case 2:  return 0x0200; // EEPROM 0.5KB
-        case 3:  return 0x0800; // EEPROM 8KB
-        default: return 0x0000; // None
+        case 1:  return 0x00200; // EEPROM 0.5KB
+        case 2:  return 0x00800; // EEPROM 8KB
+        case 3:  return 0x08000; // SRAM 32KB
+        case 4:  return 0x20000; // FLASH 128KB
+        default: return 0x00000; // None
     }
 }
 
@@ -53,10 +56,11 @@ uint32_t SaveDialog::sizeToSelect(uint32_t size)
     // Convert a save size to a selection
     switch (size)
     {
-        case 0x8000: return 1; // SRAM 32KB
-        case 0x0200: return 2; // EEPROM 0.5KB
-        case 0x0800: return 3; // EEPROM 8KB
-        default:     return 0; // None
+        case 0x00200: return 1; // EEPROM 0.5KB
+        case 0x00800: return 2; // EEPROM 8KB
+        case 0x08000: return 3; // SRAM 32KB
+        case 0x20000: return 4; // FLASH 128KB
+        default:      return 0; // None
     }
 }
 
@@ -71,13 +75,15 @@ SaveDialog::SaveDialog(std::string &lastPath): lastPath(lastPath),
     // Create left and right columns for the radio buttons
     wxBoxSizer *leftRadio = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *rightRadio = new wxBoxSizer(wxVERTICAL);
-    wxRadioButton *buttons[4];
+    wxRadioButton *buttons[5];
 
     // Set up radio buttons for the save types
     leftRadio->Add(buttons[0] = new wxRadioButton(this, SELECT_0, "None"), 1);
-    leftRadio->Add(buttons[1] = new wxRadioButton(this, SELECT_1, "SRAM 32KB"), 1);
-    rightRadio->Add(buttons[2] = new wxRadioButton(this, SELECT_2, "EEPROM 0.5KB"), 1);
-    rightRadio->Add(buttons[3] = new wxRadioButton(this, SELECT_3, "EEPROM 2KB"), 1);
+    leftRadio->Add(buttons[1] = new wxRadioButton(this, SELECT_1, "EEPROM 0.5KB"), 1);
+    leftRadio->Add(buttons[2] = new wxRadioButton(this, SELECT_2, "EEPROM 2KB"), 1);
+    rightRadio->Add(buttons[3] = new wxRadioButton(this, SELECT_3, "SRAM 32KB"), 1);
+    rightRadio->Add(buttons[4] = new wxRadioButton(this, SELECT_4, "FLASH 128KB"), 1);
+    rightRadio->Add(new wxStaticText(this, wxID_ANY, ""), 1);
 
     // Select the current save type by default
     selection = sizeToSelect(Core::saveSize);
@@ -132,6 +138,12 @@ void SaveDialog::select3(wxCommandEvent &event)
 {
     // Select save type 3
     selection = 3;
+}
+
+void SaveDialog::select4(wxCommandEvent &event)
+{
+    // Select save type 4
+    selection = 4;
 }
 
 void SaveDialog::confirm(wxCommandEvent &event)

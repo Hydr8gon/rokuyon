@@ -219,15 +219,17 @@ bool saveTypeMenu()
         ListItem("None"),
         ListItem("EEPROM 0.5KB"),
         ListItem("EEPROM 2KB"),
-        ListItem("SRAM 32KB")
+        ListItem("SRAM 32KB"),
+        ListItem("FLASH 128KB")
     };
 
     // Select the current save type by default
     switch (Core::saveSize)
     {
-        case 0x0200: index = 1; break; // EEPROM 0.5KB
-        case 0x0800: index = 2; break; // EEPROM 8KB
-        case 0x8000: index = 3; break; // SRAM 32KB
+        case 0x00200: index = 1; break; // EEPROM 0.5KB
+        case 0x00800: index = 2; break; // EEPROM 8KB
+        case 0x08000: index = 3; break; // SRAM 32KB
+        case 0x20000: index = 4; break; // FLASH 128KB
     }
 
     // Create the save type menu
@@ -245,10 +247,11 @@ bool saveTypeMenu()
         // On confirmation, change the save type
         switch (index)
         {
-            case 0: Core::resizeSave(0x0000); break; // None
-            case 1: Core::resizeSave(0x0200); break; // EEPROM 0.5KB
-            case 2: Core::resizeSave(0x0800); break; // EEPROM 8KB
-            case 3: Core::resizeSave(0x8000); break; // SRAM 32KB
+            case 0: Core::resizeSave(0x00000); break; // None
+            case 1: Core::resizeSave(0x00200); break; // EEPROM 0.5KB
+            case 2: Core::resizeSave(0x00800); break; // EEPROM 8KB
+            case 3: Core::resizeSave(0x08000); break; // SRAM 32KB
+            case 4: Core::resizeSave(0x20000); break; // FLASH 128KB
         }
 
         // Restart the emulator

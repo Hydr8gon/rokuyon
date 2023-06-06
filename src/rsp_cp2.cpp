@@ -22,6 +22,7 @@
 
 #include "rsp_cp2.h"
 #include "log.h"
+#include "rsp.h"
 
 namespace RSP_CP2
 {

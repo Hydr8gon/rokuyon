@@ -39,6 +39,7 @@ class SaveDialog: public wxDialog
         void select1(wxCommandEvent &event);
         void select2(wxCommandEvent &event);
         void select3(wxCommandEvent &event);
+        void select4(wxCommandEvent &event);
         void confirm(wxCommandEvent &event);
 
         wxDECLARE_EVENT_TABLE();

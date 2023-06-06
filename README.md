@@ -18,6 +18,7 @@ Although still in early stages, rokuyon should be plug-and-play with any NTSC RO
 * [RCP Documentation](https://dragonminded.com/n64dev/Reality%20Coprocessor.pdf) - Nice reference for a subset of RDP functionality
 * [RDP Triangle Command Guide](https://docs.google.com/document/d/17ddEo61V0suXbSkKP5mY97QxgUnB-QfAjuBIsPiLWko) - Covers everything related to RDP triangles
 * [N64 bilinear filter (3-point)](https://www.shadertoy.com/view/Ws2fWV) - Reference implementation of the N64's texture filter
+* [dgb-n64](https://github.com/Dillonb/n64) - Provides details of the FLASH interface, since it isn't documented
 * Hardware tests - I'll probably be testing things myself as I go along
 
 ### Other Links

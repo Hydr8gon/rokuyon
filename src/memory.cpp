@@ -34,6 +34,15 @@
 #include "si.h"
 #include "vi.h"
 
+enum FlashState
+{
+    FLASH_NONE = 0,
+    FLASH_STATUS,
+    FLASH_READ,
+    FLASH_WRITE,
+    FLASH_ERASE
+};
+
 struct TLBEntry
 {
     uint32_t entryLo0;
@@ -47,13 +56,24 @@ namespace Memory
     uint8_t rdram[0x400000]; // 4MB RDRAM
     uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
     TLBEntry entries[32];
+
+    uint8_t writeBuf[0x80];
+    uint32_t writeOfs;
+    uint32_t eraseOfs;
+    FlashState state;
+
+    void writeFlash(uint32_t value);
 }
 
 void Memory::reset()
 {
-    // Clear RDRAM and RSP DMEM/IMEM
-    memset(rdram,  0, sizeof(rdram));
+    // Reset memory to its initial state
+    memset(rdram, 0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
+    memset(writeBuf, 0, sizeof(writeBuf));
+    writeOfs = 0;
+    eraseOfs = 0;
+    state = FLASH_NONE;
 
     // Map TLB entries to inaccessible locations
     for (int i = 0; i < 32; i++)
@@ -141,6 +161,11 @@ lookup:
     {
         // Get a pointer to data in cart SRAM, if it exists
         data = &Core::save[pAddr & 0x7FFF];
+    }
+    else if (pAddr >= 0x8000000 && pAddr < 0x8020000 && state == FLASH_READ)
+    {
+        // Get a pointer to data in cart FLASH, if it's readable
+        data = &Core::save[address & 0x1FFFF];
     }
     else if (pAddr >= 0x10000000 && pAddr < 0x10000000 + std::min(Core::romSize, 0xFC00000U))
     {
@@ -281,6 +306,11 @@ lookup:
             Core::writeSave((pAddr + i) & 0x7FFF, value >> ((sizeof(T) - 1 - i) * 8));
         return;
     }
+    else if (pAddr >= 0x8000000 && pAddr < 0x8000080 && state == FLASH_WRITE)
+    {
+        // Get a pointer to data in the FLASH write buffer, if it's writable
+        data = &writeBuf[address & 0x7F];
+    }
     else if (pAddr >= 0x1FC007C0 && pAddr < 0x1FC00800)
     {
         // Get a pointer to data in PIF ROM/RAM
@@ -314,6 +344,11 @@ lookup:
         // Write a value to an RDP register
         return RDP::write((pAddr & 0x1F) >> 2, value);
     }
+    else if (pAddr == 0x8010000 && Core::saveSize == 0x20000)
+    {
+        // Write a value to the FLASH register
+        return writeFlash(value);
+    }
     else
     {
         // Write a value to a group of registers
@@ -336,4 +371,65 @@ lookup:
     }
 
     LOG_WARN("Unknown memory write: 0x%X\n", address);
+}
+
+void Memory::writeFlash(uint32_t value)
+{
+    // Handle a FLASH register write based on the command byte
+    switch (uint8_t command = value >> 24)
+    {
+        case 0xD2: // Execute
+            switch (state)
+            {
+                case FLASH_WRITE:
+                    // Copy the write buffer to a save block
+                    for (int i = 0; i < 0x80; i++)
+                        Core::writeSave(writeOfs + i, writeBuf[i]);
+                    return;
+
+                case FLASH_ERASE:
+                    // Reset the contents of a save block
+                    for (int i = 0; i < 0x80; i++)
+                        Core::writeSave(eraseOfs + i, 0xFF);
+                    return;
+
+                default:
+                    LOG_WARN("Executing FLASH in invalid state: %d\n", state);
+                    return;
+            }
+
+        case 0xE1: // Status
+            // Change the FLASH state to status
+            state = FLASH_STATUS;
+            return;
+
+        case 0xF0: // Read
+            // Change the FLASH state to read
+            state = FLASH_READ;
+            return;
+
+        case 0xB4: // Write
+            // Change the FLASH state to write
+            state = FLASH_WRITE;
+            return;
+
+        case 0x78: // Erase
+            // Change the FLASH state to erase
+            state = FLASH_ERASE;
+            return;
+
+        case 0x4B: // Erase Offset
+            // Set the address of the save block to erase
+            eraseOfs = (value & 0xFFFF) << 7;
+            return;
+
+        case 0xA5: // Write Offset
+            // Set the address of the save block to write
+            writeOfs = (value & 0xFFFF) << 7;
+            return;
+
+        default:
+            LOG_CRIT("Unknown FLASH command: 0x%02X\n", command);
+            return;
+    }
 }
