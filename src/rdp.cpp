@@ -786,6 +786,7 @@ void RDP::triangle()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
@@ -795,12 +796,15 @@ void RDP::triangle()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
-        // Draw pixels if they're within scissor bounds
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
+        {
+            // Draw pixels if they're within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
                 drawPixel(x, y);
+        }
     }
 }
 
@@ -816,6 +820,7 @@ void RDP::triDepth()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle depth and gradients
     int32_t z1 = (opcode[4] >> 32);
@@ -830,13 +835,13 @@ void RDP::triDepth()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t za = (z1 += dzde);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Get the current pixel's depth value
             uint16_t z = za >> 16;
@@ -868,6 +873,7 @@ void RDP::triTexture()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
@@ -890,15 +896,15 @@ void RDP::triTexture()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t sa = s1; s1 += dsde;
         int32_t ta = t1; t1 += dtde;
         int32_t wa = w1; w1 += dwde;
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x < xb) : (x > xb); x += inc)
         {
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
@@ -933,6 +939,7 @@ void RDP::triDepthTex()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle texture coordinates and gradients
     Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
@@ -959,7 +966,7 @@ void RDP::triDepthTex()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t sa = (s1 += dsde);
@@ -967,8 +974,8 @@ void RDP::triDepthTex()
         int32_t wa = (w1 += dwde);
         int32_t za = (z1 += dzde);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Get the current pixel's depth value
             uint16_t z = za >> 16;
@@ -1010,6 +1017,7 @@ void RDP::triShade()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle color components and gradients
     int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
@@ -1033,7 +1041,7 @@ void RDP::triShade()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t ra = (r1 += drde);
@@ -1041,8 +1049,8 @@ void RDP::triShade()
         int32_t ba = (b1 += dbde);
         int32_t aa = (a1 += dade);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
@@ -1079,6 +1087,7 @@ void RDP::triDepthSha()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle color components and gradients
     int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
@@ -1107,7 +1116,7 @@ void RDP::triDepthSha()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t ra = (r1 += drde);
@@ -1116,8 +1125,8 @@ void RDP::triDepthSha()
         int32_t aa = (a1 += dade);
         int32_t za = (z1 += dzde);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Get the current pixel's Z value
             uint16_t z = za >> 16;
@@ -1161,6 +1170,7 @@ void RDP::triShadeTex()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle color components and gradients
     int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
@@ -1196,7 +1206,7 @@ void RDP::triShadeTex()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t ra = (r1 += drde);
@@ -1207,8 +1217,8 @@ void RDP::triShadeTex()
         int32_t ta = (t1 += dtde);
         int32_t wa = (w1 += dwde);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Draw a pixel if it's within scissor bounds
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
@@ -1255,6 +1265,7 @@ void RDP::triDepShaTex()
     int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
     int32_t x2 = (opcode[2] >> 32); // High edge X-coord
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
+    bool orient = (opcode[0] >> 55) & 0x1;
 
     // Get the base triangle color components and gradients
     int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
@@ -1295,7 +1306,7 @@ void RDP::triDepShaTex()
         // From Y2 to Y3, the high and low edges are used
         int xa = (x2 += slope2) >> 16;
         int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (xa < xb) ? 1 : -1;
+        int inc = (orient ? 1 : -1);
 
         // Get the interpolated values at the start of the line
         int32_t ra = (r1 += drde);
@@ -1307,8 +1318,8 @@ void RDP::triDepShaTex()
         int32_t wa = (w1 += dwde);
         int32_t za = (z1 += dzde);
 
-        // Draw a line of the triangle
-        for (int x = xa; x != xb + inc; x += inc)
+        // Draw a line of the triangle based on orientation
+        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
         {
             // Get the current pixel's Z value
             uint16_t z = za >> 16;
