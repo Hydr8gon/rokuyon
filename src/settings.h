@@ -29,6 +29,7 @@ namespace Settings
     bool save();
 
     extern int fpsLimiter;
+    extern int expansionPak;
     extern int threadedRdp;
     extern int texFilter;
 }

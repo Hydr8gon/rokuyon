@@ -31,6 +31,7 @@
 #include "rdp.h"
 #include "rsp.h"
 #include "rsp_cp0.h"
+#include "settings.h"
 #include "si.h"
 #include "vi.h"
 
@@ -53,9 +54,10 @@ struct TLBEntry
 
 namespace Memory
 {
-    uint8_t rdram[0x400000]; // 4MB RDRAM
+    uint8_t rdram[0x800000]; // 8MB RDRAM
     uint8_t rspMem[0x2000];  // 4KB RSP DMEM + 4KB RSP IMEM
     TLBEntry entries[32];
+    uint32_t ramSize;
 
     uint8_t writeBuf[0x80];
     uint32_t writeOfs;
@@ -71,6 +73,7 @@ void Memory::reset()
     memset(rdram, 0, sizeof(rdram));
     memset(rspMem, 0, sizeof(rspMem));
     memset(writeBuf, 0, sizeof(writeBuf));
+    ramSize = Settings::expansionPak ? 0x800000 : 0x400000;
     writeOfs = 0;
     eraseOfs = 0;
     state = FLASH_NONE;
@@ -143,7 +146,7 @@ template <typename T> T Memory::read(uint32_t address)
 
 lookup:
     // Look up the physical address
-    if (pAddr < 0x400000)
+    if (pAddr < ramSize)
     {
         // Get a pointer to data in RDRAM
         // TODO: figure out RDRAM registers and how they affect mapping
@@ -286,7 +289,7 @@ template <typename T> void Memory::write(uint32_t address, T value)
 
 lookup:
     // Look up the physical address
-    if (pAddr < 0x400000)
+    if (pAddr < ramSize)
     {
         // Get a pointer to data in RDRAM
         // TODO: figure out RDRAM registers and how they affect mapping

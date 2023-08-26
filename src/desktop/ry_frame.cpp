@@ -35,6 +35,7 @@ enum FrameEvent
     STOP,
     INPUT_BINDINGS,
     FPS_LIMITER,
+    EXPANSION_PAK,
     THREADED_RDP,
     TEX_FILTER,
     UPDATE_JOY
@@ -49,6 +50,7 @@ EVT_MENU(RESTART, ryFrame::restart)
 EVT_MENU(STOP, ryFrame::stop)
 EVT_MENU(INPUT_BINDINGS, ryFrame::inputSettings)
 EVT_MENU(FPS_LIMITER, ryFrame::toggleFpsLimit)
+EVT_MENU(EXPANSION_PAK, ryFrame::toggleExpanPak)
 EVT_MENU(THREADED_RDP, ryFrame::toggleThreadRdp)
 EVT_MENU(TEX_FILTER, ryFrame::toggleTexFilter)
 EVT_TIMER(UPDATE_JOY, ryFrame::updateJoystick)
@@ -77,11 +79,14 @@ ryFrame::ryFrame(std::string path): wxFrame(nullptr, wxID_ANY, "rokuyon")
     settingsMenu->Append(INPUT_BINDINGS, "&Input Bindings");
     settingsMenu->AppendSeparator();
     settingsMenu->AppendCheckItem(FPS_LIMITER, "&FPS Limiter");
+    settingsMenu->AppendCheckItem(EXPANSION_PAK, "&Expansion Pak");
+    settingsMenu->AppendSeparator();
     settingsMenu->AppendCheckItem(THREADED_RDP, "&Threaded RDP");
     settingsMenu->AppendCheckItem(TEX_FILTER, "&Texture Filter");
 
     // Set the initial checkbox states
     settingsMenu->Check(FPS_LIMITER, Settings::fpsLimiter);
+    settingsMenu->Check(EXPANSION_PAK, Settings::expansionPak);
     settingsMenu->Check(THREADED_RDP, Settings::threadedRdp);
     settingsMenu->Check(TEX_FILTER, Settings::texFilter);
 
@@ -314,6 +319,13 @@ void ryFrame::toggleFpsLimit(wxCommandEvent &event)
 {
     // Toggle the FPS limiter setting
     Settings::fpsLimiter = !Settings::fpsLimiter;
+    Settings::save();
+}
+
+void ryFrame::toggleExpanPak(wxCommandEvent &event)
+{
+    // Toggle the Expansion Pak setting
+    Settings::expansionPak = !Settings::expansionPak;
     Settings::save();
 }
 
