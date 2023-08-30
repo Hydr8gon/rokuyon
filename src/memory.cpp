@@ -150,7 +150,7 @@ lookup:
     {
         // Get a pointer to data in RDRAM
         // TODO: figure out RDRAM registers and how they affect mapping
-        data = &rdram[pAddr & 0x3FFFFF];
+        data = &rdram[pAddr];
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
     {
@@ -293,7 +293,7 @@ lookup:
     {
         // Get a pointer to data in RDRAM
         // TODO: figure out RDRAM registers and how they affect mapping
-        data = &rdram[pAddr & 0x3FFFFF];
+        data = &rdram[pAddr];
     }
     else if (pAddr >= 0x4000000 && pAddr < 0x4040000)
     {

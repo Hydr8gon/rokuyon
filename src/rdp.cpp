@@ -213,7 +213,7 @@ void RDP::reset()
     endAddr = 0;
     status = 0;
     addrBase = 0xA0000000;
-    addrMask = 0x3FFFFF;
+    addrMask = 0xFFFFFF;
     paramCount = 0;
     opcode.clear();
     cycleType = ONE_CYCLE;
@@ -322,7 +322,7 @@ void RDP::write(int index, uint32_t value)
 
             // Update the command address base and mask based on the RDRAM/DMEM bit
             addrBase = (status & 0x1) ? 0xA4000000 : 0xA0000000;
-            addrMask = (status & 0x1) ? 0x00000FFF : 0x003FFFFF;
+            addrMask = (status & 0x1) ? 0x00000FFF : 0x00FFFFFF;
 
             // Keep track of unimplemented bits that should do something
             if (uint32_t bits = (value & 0x3C0))
@@ -1824,7 +1824,7 @@ void RDP::setCombine()
 void RDP::setTexImage()
 {
     // Set the texture buffer parameters
-    texAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
+    texAddress = 0xA0000000 + (opcode[0] & 0xFFFFFF);
     texWidth = ((opcode[0] >> 32) & 0x3FF) + 1;
     texFormat = (Format)((opcode[0] >> 51) & 0x1F);
 }
@@ -1832,13 +1832,13 @@ void RDP::setTexImage()
 void RDP::setZImage()
 {
     // Set the Z buffer parameters
-    zAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
+    zAddress = 0xA0000000 + (opcode[0] & 0xFFFFFF);
 }
 
 void RDP::setColorImage()
 {
     // Set the color buffer parameters
-    colorAddress = 0xA0000000 + (opcode[0] & 0x3FFFFF);
+    colorAddress = 0xA0000000 + (opcode[0] & 0xFFFFFF);
     colorWidth = ((opcode[0] >> 32) & 0x3FF) + 1;
     colorFormat = (Format)((opcode[0] >> 51) & 0x1F);
 
