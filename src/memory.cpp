@@ -60,6 +60,7 @@ namespace Memory
     uint32_t ramSize;
 
     uint8_t writeBuf[0x80];
+    uint64_t status;
     uint32_t writeOfs;
     uint32_t eraseOfs;
     FlashState state;
@@ -165,10 +166,13 @@ lookup:
         // Get a pointer to data in cart SRAM, if it exists
         data = &Core::save[pAddr & 0x7FFF];
     }
-    else if (pAddr >= 0x8000000 && pAddr < 0x8020000 && state == FLASH_READ)
+    else if (pAddr >= 0x8000000 && pAddr < 0x8020000 && Core::saveSize == 0x20000)
     {
         // Get a pointer to data in cart FLASH, if it's readable
-        data = &Core::save[address & 0x1FFFF];
+        if (state == FLASH_READ)
+            data = &Core::save[address & 0x1FFFF];
+        else
+            return status >> ((~(address + sizeof(T) - 1) & 0x7) * 8);
     }
     else if (pAddr >= 0x10000000 && pAddr < 0x10000000 + std::min(Core::romSize, 0xFC00000U))
     {
@@ -404,11 +408,13 @@ void Memory::writeFlash(uint32_t value)
         case 0xE1: // Status
             // Change the FLASH state to status
             state = FLASH_STATUS;
+            status = 0x1111800100C2001D;
             return;
 
         case 0xF0: // Read
             // Change the FLASH state to read
             state = FLASH_READ;
+            status = 0x11118004F0000000;
             return;
 
         case 0xB4: // Write
@@ -419,6 +425,7 @@ void Memory::writeFlash(uint32_t value)
         case 0x78: // Erase
             // Change the FLASH state to erase
             state = FLASH_ERASE;
+            status = 0x1111800800C2001D;
             return;
 
         case 0x4B: // Erase Offset
@@ -429,6 +436,7 @@ void Memory::writeFlash(uint32_t value)
         case 0xA5: // Write Offset
             // Set the address of the save block to write
             writeOfs = (value & 0xFFFF) << 7;
+            status = 0x1111800400C2001D;
             return;
 
         default:
