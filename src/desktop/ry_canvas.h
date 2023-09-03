@@ -42,11 +42,14 @@ class ryCanvas: public wxGLCanvas
         int refreshRate = 0;
         std::chrono::steady_clock::time_point lastRateTime;
 
-        bool finished = false;
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t x = 0;
         uint32_t y = 0;
+
+        uint8_t sizeReset = 0;
+        bool fullScreen = false;
+        bool finished = false;
 
         void draw(wxPaintEvent &event);
         void resize(wxSizeEvent &event);

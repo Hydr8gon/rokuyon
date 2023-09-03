@@ -24,6 +24,8 @@
 #include <wx/wx.h>
 #include <wx/joystick.h>
 
+#define MIN_SIZE wxSize(480, 360)
+
 class ryCanvas;
 
 class ryFrame: public wxFrame

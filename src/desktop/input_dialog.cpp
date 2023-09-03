@@ -41,6 +41,7 @@ enum InputEvent
     REMAP_SLEFT,
     REMAP_SRIGHT,
     REMAP_SMOD,
+    REMAP_FULLSCREEN,
     CLEAR_MAP,
     UPDATE_JOY
 };
@@ -65,6 +66,7 @@ EVT_BUTTON(REMAP_SDOWN, InputDialog::remapSDown)
 EVT_BUTTON(REMAP_SLEFT, InputDialog::remapSLeft)
 EVT_BUTTON(REMAP_SRIGHT, InputDialog::remapSRight)
 EVT_BUTTON(REMAP_SMOD, InputDialog::remapSMod)
+EVT_BUTTON(REMAP_FULLSCREEN, InputDialog::remapFullScreen)
 EVT_BUTTON(CLEAR_MAP, InputDialog::clearMap)
 EVT_TIMER(UPDATE_JOY, InputDialog::updateJoystick)
 EVT_BUTTON(wxID_OK, InputDialog::confirm)
@@ -211,7 +213,7 @@ InputDialog::InputDialog(wxJoystick *joystick):
         "L Button", "R Button",
         "C-Pad Up", "C-Pad Down", "C-Pad Left", "C-Pad Right",
         "Stick Up", "Stick Down", "Stick Left", "Stick Right",
-        "Stick Mod"
+        "Stick Mod", "Full Screen"
     };
 
     // Set up individual buttons for each binding
@@ -254,7 +256,7 @@ InputDialog::InputDialog(wxJoystick *joystick):
     column4->Add(keySizers[5], 1, wxEXPAND | wxALL, scale / 8);
     column4->Add(keySizers[6], 1, wxEXPAND | wxALL, scale / 8);
     column4->Add(keySizers[7], 1, wxEXPAND | wxALL, scale / 8);
-    column4->Add(new wxStaticText(this, wxID_ANY, ""), 1, wxEXPAND | wxALL, scale / 8);
+    column4->Add(keySizers[19], 1, wxEXPAND | wxALL, scale / 8);
 
     // Combine the button tab contents and add a final border around it
     wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -338,6 +340,7 @@ REMAP_FUNC(remapSDown, 15)
 REMAP_FUNC(remapSLeft, 16)
 REMAP_FUNC(remapSRight, 17)
 REMAP_FUNC(remapSMod, 18)
+REMAP_FUNC(remapFullScreen, 19)
 
 void InputDialog::clearMap(wxCommandEvent &event)
 {

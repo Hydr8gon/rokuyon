@@ -124,9 +124,13 @@ void ryCanvas::draw(wxPaintEvent &event)
 
 void ryCanvas::resize(wxSizeEvent &event)
 {
-    SetCurrent(*context);
+    // Full screen breaks the minimum frame size, but changing to a different value fixes it
+    // As a workaround, clear the minimum size on full screen and reset it shortly after
+    frame->SetMinClientSize(sizeReset ? wxSize(0, 0) : MIN_SIZE);
+    sizeReset -= (bool)sizeReset;
 
     // Update the canvas dimensions
+    SetCurrent(*context);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     wxSize size = GetSize();
@@ -153,10 +157,17 @@ void ryCanvas::resize(wxSizeEvent &event)
 void ryCanvas::pressKey(wxKeyEvent &event)
 {
     // Trigger a key press if a mapped key was pressed
-    for (int i = 0; i < MAX_KEYS; i++)
+    for (int i = 0; i < 19; i++)
     {
         if (event.GetKeyCode() == ryApp::keyBinds[i])
             return frame->pressKey(i);
+    }
+
+    // Toggle full screen if the hotkey was pressed
+    if (event.GetKeyCode() == ryApp::keyBinds[19])
+    {
+        frame->ShowFullScreen(fullScreen = !fullScreen);
+        sizeReset = 2;
     }
 }
 

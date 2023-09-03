@@ -24,7 +24,7 @@
 
 #include "ry_frame.h"
 
-#define MAX_KEYS 19
+#define MAX_KEYS 20
 
 class ryApp: public wxApp
 {

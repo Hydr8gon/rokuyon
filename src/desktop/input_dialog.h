@@ -60,6 +60,7 @@ class InputDialog: public wxDialog
         void remapSLeft(wxCommandEvent &event);
         void remapSRight(wxCommandEvent &event);
         void remapSMod(wxCommandEvent &event);
+        void remapFullScreen(wxCommandEvent &event);
 
         void clearMap(wxCommandEvent &event);
         void updateJoystick(wxTimerEvent &event);
