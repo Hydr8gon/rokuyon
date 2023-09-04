@@ -10,6 +10,9 @@ rokuyon is available for Linux, macOS, Windows, and Switch. Automatic builds are
 ### Usage
 Although still in early stages, rokuyon should be plug-and-play with any NTSC ROMs in big-endian format. Performance will be bad and there will be plenty of issues. At this stage, rokuyon should be considered a curiosity and not a dedicated emulator for playing games.
 
+### Contributing
+While I appreciate anyone who wants to contribute, my goal with this project is to challenge myself and not to review code. I feel guilty rejecting a change that someone spent time on, but I also don't feel great accepting changes that I didn't ask for. For this reason, I've decided to stop accepting pull requests. You're of course still free to do anything with the code that's allowed by the license, but if you submit a pull request it will likely be ignored. I hope this is understandable!
+
 ### References
 * [n64dev](https://github.com/mikeryan/n64dev) - A collection of useful materials for initial research
 * [N64brew Wiki](https://n64brew.dev/wiki/Main_Page) - Extensive and organized documentation of the whole system
