@@ -24,6 +24,7 @@
 #include "cpu.h"
 #include "log.h"
 #include "memory.h"
+#include "settings.h"
 
 namespace PIF
 {
@@ -171,7 +172,7 @@ void PIF::reset()
 
     // Set the memory size to 4MB
     // TODO: I think IPL3 is supposed to set this, but stubbing RI_SELECT_REG to 1 skips it
-    Memory::write<uint32_t>(0xA0000318, 0x00400000);
+    Memory::write<uint32_t>(0xA0000318, Settings::expansionPak ? 0x800000 : 0x400000);
 }
 
 void PIF::runCommand()
