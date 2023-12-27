@@ -368,7 +368,7 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t, bool rect)
     s -= tile.sBase;
     t -= tile.tBase;
 
-    // Fall back to nearest sampling when appropriate
+    // Fall back to nearest sampling, or filter based on https://www.shadertoy.com/view/Ws2fWV
     if (!Settings::texFilter || !texFilter || cycleType >= COPY_MODE)
         return getRawTexel(tile, s >> 5, t >> 5);
 

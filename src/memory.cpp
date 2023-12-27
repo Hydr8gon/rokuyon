@@ -382,7 +382,7 @@ lookup:
 
 void Memory::writeFlash(uint32_t value)
 {
-    // Handle a FLASH register write based on the command byte
+    // Handle a FLASH register write based on https://github.com/Dillonb/n64
     switch (uint8_t command = value >> 24)
     {
         case 0xD2: // Execute
