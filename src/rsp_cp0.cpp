@@ -31,8 +31,8 @@ namespace RSP_CP0
     uint32_t status;
     uint32_t semaphore;
 
-    void performReadDma(uint32_t address);
-    void performWriteDma(uint32_t address);
+    void performReadDma(uint32_t length, uint32_t count, uint32_t skip);
+    void performWriteDma(uint32_t length, uint32_t count, uint32_t skip);
 }
 
 void RSP_CP0::reset()
@@ -79,30 +79,22 @@ void RSP_CP0::write(int index, uint32_t value)
     {
         case 0: // SP_MEM_ADDR
             // Set the RSP DMA address
-            memAddr = value & 0x1FFF;
+            memAddr = value & 0x1FF8;
             return;
 
         case 1: // SP_DRAM_ADDR
             // Set the RDRAM DMA address
-            dramAddr = value & 0xFFFFFF;
+            dramAddr = value & 0xFFFFF8;
             return;
 
         case 2: // SP_RD_LEN
             // Start a DMA transfer from RDRAM to RSP MEM
-            performReadDma((value & 0xFF8) + 1);
-
-            // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (value & 0xFF8FF000))
-                LOG_WARN("Unimplemented RSP CP0 read length bits set: 0x%X\n", bits);
+            performReadDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
             return;
 
         case 3: // SP_WR_LEN
             // Start a DMA transfer from RSP MEM to RDRAM
-            performWriteDma((value & 0xFF8) + 1);
-
-            // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (value & 0xFF8FF000))
-                LOG_WARN("Unimplemented RSP CP0 write length bits set: 0x%X\n", bits);
+            performWriteDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
             return;
 
         case 4: // SP_STATUS
@@ -162,28 +154,42 @@ void RSP_CP0::triggerBreak()
     status |= 0x3;
 }
 
-void RSP_CP0::performReadDma(uint32_t size)
+void RSP_CP0::performReadDma(uint32_t length, uint32_t count, uint32_t skip)
 {
-    LOG_INFO("RSP DMA from RDRAM 0x%X to RSP MEM 0x%X with size 0x%X\n", dramAddr, memAddr, size);
+    LOG_INFO("RSP DMA from RDRAM 0x%X to RSP MEM 0x%X with length 0x%X, "
+        "count 0x%X, skip 0x%X\n", dramAddr, memAddr, length, count, skip);
 
-    // Copy data from memory to the RSP
-    for (uint32_t i = 0; i < size; i += 8)
+    // Copy rows of data from memory to the RSP
+    uint32_t dramBase = dramAddr, memBase = memAddr;
+    for (uint32_t c = 0; c <= count; c++)
     {
-        uint32_t dst = 0x84000000 + ((memAddr + i) & 0x1FFF);
-        uint32_t src = 0x80000000 + dramAddr + i;
-        Memory::write<uint64_t>(dst & ~7, Memory::read<uint64_t>(src & ~7));
+        for (uint32_t l = 0; l <= length; l += 8)
+        {
+            uint32_t dst = 0x84000000 + ((memBase + l) & 0x1FF8);
+            uint32_t src = 0x80000000 + ((dramBase + l) & 0xFFFFF8);
+            Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));
+        }
+        dramBase += length + skip + 8;
+        memBase += length + 8;
     }
 }
 
-void RSP_CP0::performWriteDma(uint32_t size)
+void RSP_CP0::performWriteDma(uint32_t length, uint32_t count, uint32_t skip)
 {
-    LOG_INFO("RSP DMA from RSP MEM 0x%X to RDRAM 0x%X with size 0x%X\n", memAddr, dramAddr, size);
+    LOG_INFO("RSP DMA from RSP MEM 0x%X to RDRAM 0x%X with length 0x%X, "
+        "count 0x%X, skip 0x%X\n", memAddr, dramAddr, length, count, skip);
 
-    // Copy data from the RSP to memory
-    for (uint32_t i = 0; i < size; i += 8)
+    // Copy rows of data from the RSP to memory
+    uint32_t dramBase = dramAddr, memBase = memAddr;
+    for (uint32_t c = 0; c <= count; c++)
     {
-        uint32_t dst = 0x80000000 + dramAddr + i;
-        uint32_t src = 0x84000000 + ((memAddr + i) & 0x1FFF);
-        Memory::write<uint64_t>(dst & ~7, Memory::read<uint64_t>(src & ~7));
+        for (uint32_t l = 0; l <= length; l += 8)
+        {
+            uint32_t dst = 0x80000000 + ((dramBase + l) & 0xFFFFF8);
+            uint32_t src = 0x84000000 + ((memBase + l) & 0x1FF8);
+            Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));
+        }
+        dramBase += length + skip + 8;
+        memBase += length + 8;
     }
 }
