@@ -179,8 +179,7 @@ uint64_t CPU_CP1::read(CP1Type type, int index)
         case CP1_32BIT:
             // Read a 32-bit register value, mapped based on the current mode
             // TODO: make this endian-safe
-            return fullMode ? *(uint32_t*)&registers[index] :
-                *((uint32_t*)&registers[index & ~1] + (index & 1));
+            return fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1));
 
         case CP1_64BIT:
             // Read a 64-bit register value
@@ -208,8 +207,7 @@ void CPU_CP1::write(CP1Type type, int index, uint64_t value)
         case CP1_32BIT:
             // Write a 32-bit value to a register, mapped based on the current mode
             // TODO: make this endian-safe
-            (fullMode ? *(uint32_t*)&registers[index] :
-                *((uint32_t*)&registers[index & ~1] + (index & 1))) = value;
+            (fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1))) = value;
             return;
 
         case CP1_64BIT:

@@ -757,7 +757,7 @@ void CPU::mult(uint32_t opcode)
     int64_t value = (int64_t)(int32_t)registersR[(opcode >> 16) & 0x1F] *
         (int32_t)registersR[(opcode >> 21) & 0x1F];
     hi = value >> 32;
-    lo = (uint32_t)value;
+    lo = (int32_t)value;
 }
 
 void CPU::multu(uint32_t opcode)
@@ -766,7 +766,7 @@ void CPU::multu(uint32_t opcode)
     uint64_t value = (uint64_t)(uint32_t)registersR[(opcode >> 16) & 0x1F] *
         (uint32_t)registersR[(opcode >> 21) & 0x1F];
     hi = value >> 32;
-    lo = (uint32_t)value;
+    lo = (int32_t)value;
 }
 
 void CPU::div(uint32_t opcode)

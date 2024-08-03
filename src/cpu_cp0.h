@@ -27,8 +27,8 @@ namespace CPU_CP0
     extern void (*cp0Instrs[])(uint32_t);
 
     void reset();
-    uint32_t read(int index);
-    void write(int index, uint32_t value);
+    int32_t read(int index);
+    void write(int index, int32_t value);
 
     void resetCycles();
     void checkInterrupts();

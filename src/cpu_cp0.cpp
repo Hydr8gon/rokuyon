@@ -90,7 +90,7 @@ void CPU_CP0::reset()
     scheduleCount();
 }
 
-uint32_t CPU_CP0::read(int index)
+int32_t CPU_CP0::read(int index)
 {
     // Read from a CPU CP0 register if one exists at the given index
     switch (index)
@@ -153,7 +153,7 @@ uint32_t CPU_CP0::read(int index)
     }
 }
 
-void CPU_CP0::write(int index, uint32_t value)
+void CPU_CP0::write(int index, int32_t value)
 {
     // Write to a CPU CP0 register if one exists at the given index
     switch (index)
