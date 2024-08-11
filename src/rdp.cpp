@@ -45,12 +45,12 @@ enum CycleType
 
 struct Tile
 {
-    uint16_t sBase;
+    uint16_t s1, s2;
     uint16_t sMask;
     bool sMirror;
     bool sClamp;
 
-    uint16_t tBase;
+    uint16_t t1, t2;
     uint16_t tMask;
     bool tMirror;
     bool tClamp;
@@ -365,8 +365,8 @@ inline uint32_t RDP::colorToAlpha(uint32_t color)
 uint32_t RDP::getTexel(Tile &tile, int s, int t, bool rect)
 {
     // Offset the texture coordinates relative to the tile
-    s -= tile.sBase;
-    t -= tile.tBase;
+    s -= tile.s1;
+    t -= tile.t1;
 
     // Fall back to nearest sampling, or filter based on https://www.shadertoy.com/view/Ws2fWV
     if (!Settings::texFilter || !texFilter || cycleType >= COPY_MODE)
@@ -407,20 +407,14 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t, bool rect)
 uint32_t RDP::getRawTexel(Tile &tile, int s, int t)
 {
     // Clamp, mirror, or mask the S-coordinate based on tile settings
-    if (tile.sClamp)
-        s = std::max<int>(std::min<int>(s, tile.sMask), 0);
-    else if (tile.sMirror)
-        s = ((s & (tile.sMask + 1)) ? ~s : s) & tile.sMask;
-    else
-        s &= tile.sMask;
+    if (tile.sClamp) s = std::max<int>(std::min<int>(s, (tile.s2 - tile.s1) >> 5), 0);
+    if (tile.sMirror && (s & (tile.sMask + 1))) s = ~s;
+    s &= tile.sMask;
 
     // Clamp, mirror, or mask the T-coordinate based on tile settings
-    if (tile.tClamp)
-        t = std::max<int>(std::min<int>(t, tile.tMask), 0);
-    else if (tile.tMirror)
-        t = ((t & (tile.tMask + 1)) ? ~t : t) & tile.tMask;
-    else
-        t &= tile.tMask;
+    if (tile.tClamp) t = std::max<int>(std::min<int>(t, (tile.t2 - tile.t1) >> 5), 0);
+    if (tile.tMirror && (t & (tile.tMask + 1))) t = ~t;
+    t &= tile.tMask;
 
     // Get an RGBA32 texel from a tile at the given coordinates
     switch (tile.format)
@@ -1438,40 +1432,48 @@ void RDP::setOtherModes()
 
 void RDP::loadTlut()
 {
-    // Decode the operands
+    // Decode the operands and set texture coordinate bounds
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
-    uint16_t indexL = ((opcode[0] >> 44) & 0xFFF) >> 1;
-    uint16_t indexH = ((opcode[0] >> 12) & 0xFFF) >> 1;
+    uint16_t s1 = (tile.s1 = ((opcode[0] >> 44) & 0xFFF) << 3) >> 4;
+    uint16_t t1 = (tile.t1 = ((opcode[0] >> 32) & 0xFFF) << 3) >> 4;
+    uint16_t s2 = (tile.s2 = ((opcode[0] >> 12) & 0xFFF) << 3) >> 4;
+    uint16_t t2 = (tile.t2 = ((opcode[0] >> 0) & 0xFFF) << 3) >> 4;
 
-    // Copy 16-bit texture lookup values into TMEM
-    for (int i = indexL; i <= indexH; i += 2)
+    // Copy 16-bit texture lookup values into TMEM, duplicated 4 times
+    // TODO: actually use T-coordinates?
+    for (int s = s1; s <= s2; s += 2)
     {
-        uint16_t src = Memory::read<uint16_t>(texAddress + i);
-        uint8_t *dst = &tmem[(tile.address + i * 4) & 0xFF8];
-        dst[0] = src >> 8;
-        dst[1] = src >> 0;
+        uint16_t src = Memory::read<uint16_t>(texAddress + s);
+        uint8_t *dst = &tmem[(tile.address + s * 4) & 0xFF8];
+        for (int i = 0; i < 8; i += 2)
+        {
+            dst[i + 0] = src >> 8;
+            dst[i + 1] = src >> 0;
+        }
     }
 }
 
 void RDP::setTileSize()
 {
-    // Set the low texture coordinates for reference
-    // TODO: use the high coordinates for something?
+    // Set the texture coordinate bounds
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
-    tile.sBase = ((opcode[0] >> 44) & 0xFFF) << 3;
-    tile.tBase = ((opcode[0] >> 32) & 0xFFF) << 3;
+    tile.s1 = ((opcode[0] >> 44) & 0xFFF) << 3;
+    tile.t1 = ((opcode[0] >> 32) & 0xFFF) << 3;
+    tile.s2 = ((opcode[0] >> 12) & 0xFFF) << 3;
+    tile.t2 = ((opcode[0] >> 0) & 0xFFF) << 3;
 }
 
 void RDP::loadBlock()
 {
-    // Decode the operands
+    // Decode the operands and set texture coordinate bounds
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
-    uint16_t count = ((opcode[0] >> 12) & 0xFFF);
-    uint16_t dxt = (opcode[0] & 0xFFF);
+    uint16_t s1 = (tile.s1 = ((opcode[0] >> 44) & 0xFFF) << 3) >> 1;
+    uint16_t t1 = (tile.t1 = ((opcode[0] >> 32) & 0xFFF) << 3) >> 1;
+    uint16_t s2 = (tile.s2 = ((opcode[0] >> 12) & 0xFFF) << 3) >> 1;
+    uint16_t dxt = (tile.t2 = ((opcode[0] >> 0) & 0xFFF) << 3) >> 3;
 
-    // Adjust the byte count based on the texel size
-    count = (count << 2) >> (~texFormat & 0x3);
-
+    // Adjust the byte count based on texel size
+    uint16_t count = (s2 - s1) >> (~texFormat & 0x3);
     uint16_t d = 0;
     bool odd = false;
 
@@ -1523,16 +1525,12 @@ void RDP::loadBlock()
 
 void RDP::loadTile()
 {
-    // Decode the operands
+    // Decode the operands and set texture coordinate bounds
     Tile &tile = tiles[(opcode[0] >> 24) & 0x7];
-    uint16_t t2 = ((opcode[0] >>  0) & 0xFFF) >> 2;
-    uint16_t s2 = ((opcode[0] >> 12) & 0xFFF) >> 2;
-    uint16_t t1 = ((opcode[0] >> 32) & 0xFFF) >> 2;
-    uint16_t s1 = ((opcode[0] >> 44) & 0xFFF) >> 2;
-
-    // Save the low texture coordinates for reference
-    tile.sBase = ((opcode[0] >> 44) & 0xFFF) << 3;
-    tile.tBase = ((opcode[0] >> 32) & 0xFFF) << 3;
+    uint16_t s1 = (tile.s1 = ((opcode[0] >> 44) & 0xFFF) << 3) >> 5;
+    uint16_t t1 = (tile.t1 = ((opcode[0] >> 32) & 0xFFF) << 3) >> 5;
+    uint16_t s2 = (tile.s2 = ((opcode[0] >> 12) & 0xFFF) << 3) >> 5;
+    uint16_t t2 = (tile.t2 = ((opcode[0] >> 0) & 0xFFF) << 3) >> 5;
 
     // Only support loading textures without conversion for now
     if (texFormat != tile.format)
