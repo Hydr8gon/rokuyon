@@ -32,10 +32,10 @@
 enum Format
 {
     RGBA4, RGBA8, RGBA16, RGBA32,
-    YUV4,  YUV8,  YUV16,  YUV32,
-    CI4,   CI8,   CI16,   CI32,
-    IA4,   IA8,   IA16,   IA32,
-    I4,    I8,    I16,    I32
+    YUV4, YUV8, YUV16, YUV32,
+    CI4, CI8, CI16, CI32,
+    IA4, IA8, IA16, IA32,
+    I4, I8, I16, I32
 };
 
 enum CycleType
@@ -54,7 +54,7 @@ struct Tile
     uint16_t tMask;
     bool tMirror;
     bool tClamp;
-    
+
     uint16_t address;
     uint16_t width;
     uint8_t palette;
@@ -142,14 +142,7 @@ namespace RDP
     void runThreaded();
     void runCommands();
 
-    void triangle();
-    void triDepth();
-    void triTexture();
-    void triDepthTex();
-    void triShade();
-    void triDepthSha();
-    void triShadeTex();
-    void triDepShaTex();
+    template <bool shade, bool texture, bool depth> void triangle();
     void texRectangle();
     void syncFull();
     void setScissor();
@@ -175,34 +168,34 @@ namespace RDP
 // RDP command lookup table, based on opcode bits 56-61
 void (*RDP::commands[0x40])() =
 {
-    unknown,      unknown,       unknown,       unknown,       // 0x00-0x03
-    unknown,      unknown,       unknown,       unknown,       // 0x04-0x07
-    triangle,     triDepth,      triTexture,    triDepthTex,   // 0x08-0x0B
-    triShade,     triDepthSha,   triShadeTex,   triDepShaTex,  // 0x0C-0x0F
-    unknown,      unknown,       unknown,       unknown,       // 0x10-0x13
-    unknown,      unknown,       unknown,       unknown,       // 0x14-0x17
-    unknown,      unknown,       unknown,       unknown,       // 0x18-0x1B
-    unknown,      unknown,       unknown,       unknown,       // 0x1C-0x1F
-    unknown,      unknown,       unknown,       unknown,       // 0x20-0x23
-    texRectangle, unknown,       unknown,       unknown,       // 0x24-0x27
-    unknown,      syncFull,      unknown,       unknown,       // 0x28-0x2B
-    unknown,      setScissor,    unknown,       setOtherModes, // 0x2C-0x2F
-    loadTlut,     unknown,       setTileSize,   loadBlock,     // 0x30-0x33
-    loadTile,     setTile,       fillRectangle, setFillColor,  // 0x34-0x37
-    setFogColor,  setBlendColor, setPrimColor,  setEnvColor,   // 0x38-0x3B
-    setCombine,   setTexImage,   setZImage,     setColorImage  // 0x3C-0x3F
+    unknown, unknown, unknown, unknown, // 0x00-0x03
+    unknown, unknown, unknown, unknown, // 0x04-0x07
+    triangle<0,0,0>, triangle<0,0,1>, triangle<0,1,0>, triangle<0,1,1>, // 0x08-0x0B
+    triangle<1,0,0>, triangle<1,0,1>, triangle<1,1,0>, triangle<1,1,1>, // 0x0C-0x0F
+    unknown, unknown, unknown, unknown, // 0x10-0x13
+    unknown, unknown, unknown, unknown, // 0x14-0x17
+    unknown, unknown, unknown, unknown, // 0x18-0x1B
+    unknown, unknown, unknown, unknown, // 0x1C-0x1F
+    unknown, unknown, unknown, unknown, // 0x20-0x23
+    texRectangle, unknown, unknown, unknown, // 0x24-0x27
+    unknown, syncFull, unknown, unknown, // 0x28-0x2B
+    unknown, setScissor, unknown, setOtherModes, // 0x2C-0x2F
+    loadTlut, unknown, setTileSize, loadBlock, // 0x30-0x33
+    loadTile, setTile, fillRectangle, setFillColor, // 0x34-0x37
+    setFogColor, setBlendColor, setPrimColor, setEnvColor, // 0x38-0x3B
+    setCombine, setTexImage, setZImage, setColorImage // 0x3C-0x3F
 };
 
 uint8_t RDP::paramCounts[0x40] =
 {
-    1, 1,  1,  1,  1,  1,  1,  1, // 0x00-0x07
+    1, 1, 1, 1, 1, 1, 1, 1, // 0x00-0x07
     4, 6, 12, 14, 12, 14, 20, 22, // 0x08-0x0F
-    1, 1,  1,  1,  1,  1,  1,  1, // 0x10-0x17
-    1, 1,  1,  1,  1,  1,  1,  1, // 0x18-0x1F
-    1, 1,  1,  1,  2,  2,  1,  1, // 0x20-0x27
-    1, 1,  1,  1,  1,  1,  1,  1, // 0x28-0x2F
-    1, 1,  1,  1,  1,  1,  1,  1, // 0x30-0x37
-    1, 1,  1,  1,  1,  1,  1,  1  // 0x38-0x3F
+    1, 1, 1, 1, 1, 1, 1, 1, // 0x10-0x17
+    1, 1, 1, 1, 1, 1, 1, 1, // 0x18-0x1F
+    1, 1, 1, 1, 2, 2, 1, 1, // 0x20-0x27
+    1, 1, 1, 1, 1, 1, 1, 1, // 0x28-0x2F
+    1, 1, 1, 1, 1, 1, 1, 1, // 0x30-0x37
+    1, 1, 1, 1, 1, 1, 1, 1 // 0x38-0x3F
 };
 
 void RDP::reset()
@@ -768,12 +761,12 @@ void RDP::runCommands()
     mutex.unlock();
 }
 
-void RDP::triangle()
+template <bool shade, bool texture, bool depth> void RDP::triangle()
 {
     // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
+    int32_t y1 = int16_t(opcode[0] << 2) >> 4; // High Y-coord
+    int32_t y2 = int16_t(opcode[0] >> 14) >> 4; // Middle Y-coord
+    int32_t y3 = int16_t(opcode[0] >> 30) >> 4; // Low Y-coord
     int32_t slope1 = opcode[1]; // Low edge slope
     int32_t slope2 = opcode[2]; // High edge slope
     int32_t slope3 = opcode[3]; // Middle edge slope
@@ -782,575 +775,122 @@ void RDP::triangle()
     int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
     bool orient = (opcode[0] >> 55) & 0x1;
 
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
+    // Declare optional parameters
+    Tile *tile;
+    int32_t r1, g1, b1, a1, s1, t1, w1, z1;
+    int32_t ra, ga, ba, aa, sa, ta, wa, za;
+    int32_t drdx, dgdx, dbdx, dadx, dsdx, dtdx, dwdx, dzdx;
+    int32_t drde, dgde, dbde, dade, dsde, dtde, dwde, dzde;
 
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Draw pixels if they're within scissor bounds
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-                drawPixel(x, y);
-        }
+    // Get the base triangle color components and gradients if enabled
+    if (shade)
+    {
+        r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
+        g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
+        b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
+        a1 = (((opcode[4] >> 0) & 0xFFFF) << 16) | ((opcode[6] >> 0) & 0xFFFF);
+        drdx = ((((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF));
+        dgdx = ((((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF));
+        dbdx = ((((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF));
+        dadx = ((((opcode[5] >> 0) & 0xFFFF) << 16) | ((opcode[7] >> 0) & 0xFFFF));
+        drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
+        dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
+        dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
+        dade = (((opcode[8] >> 0) & 0xFFFF) << 16) | ((opcode[10] >> 0) & 0xFFFF);
     }
-}
 
-void RDP::triDepth()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
+    // Get the base triangle texture coordinates and gradients if enabled
+    if (texture)
+    {
+        uint64_t *params = &opcode[4 + shade * 8];
+        tile = &tiles[(opcode[0] >> 48) & 0x7];
+        bool hack = (!shade && !depth); // TODO: fix sodium64 tile offset
+        dsdx = ((((params[1] >> 48) & 0xFFFF) << 16) | ((params[3] >> 48) & 0xFFFF));
+        dtdx = ((((params[1] >> 32) & 0xFFFF) << 16) | ((params[3] >> 32) & 0xFFFF));
+        dwdx = ((((params[1] >> 16) & 0xFFFF) << 16) | ((params[3] >> 16) & 0xFFFF));
+        dsde = (((params[4] >> 48) & 0xFFFF) << 16) | ((params[6] >> 48) & 0xFFFF);
+        dtde = (((params[4] >> 32) & 0xFFFF) << 16) | ((params[6] >> 32) & 0xFFFF);
+        dwde = (((params[4] >> 16) & 0xFFFF) << 16) | ((params[6] >> 16) & 0xFFFF);
+        s1 = ((((params[0] >> 48) & 0xFFFF) << 16) | ((params[2] >> 48) & 0xFFFF));
+        t1 = ((((params[0] >> 32) & 0xFFFF) << 16) | ((params[2] >> 32) & 0xFFFF)) - dtde * hack;
+        w1 = ((((params[0] >> 16) & 0xFFFF) << 16) | ((params[2] >> 16) & 0xFFFF));
+    }
 
-    // Get the base triangle depth and gradients
-    int32_t z1 = (opcode[4] >> 32);
-    int32_t dzdx = (opcode[4] >> 0);
-    int32_t dzde = (opcode[5] >> 32);
+    // Get the base triangle depth and gradients if enabled
+    if (depth)
+    {
+        uint64_t *params = &opcode[4 + shade * 8 + texture * 8];
+        z1 = (params[0] >> 32);
+        dzdx = (params[0] >> 0);
+        dzde = (params[1] >> 32);
+    }
 
     // Draw a triangle from top to bottom
     for (int y = y1; y < y3; y++)
     {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
+        // Get X-bounds between the high and middle edges from Y1 to Y2, or the high and low edges from Y2 to Y3
+        int xa, xb;
+        if (orient)
+        {
+            xa = std::min(x2, x2 += slope2) >> 16;
+            xb = (((y < y2) ? std::max(x3, x3 += slope3) : std::max(x1, x1 += slope1)) + 0xFFFF) >> 16;
+        }
+        else
+        {
+            xa = ((y < y2) ? std::min(x3, x3 += slope3) : std::min(x1, x1 += slope1)) >> 16;
+            xb = (std::max(x2, x2 += slope2) + 0xFFFF) >> 16;
+        }
 
         // Get the interpolated values at the start of the line
-        int32_t za = (z1 += dzde);
+        int offset = (xb - xa - 1) * !orient;
+        if (shade) ra = (r1 += drde) - drdx * offset;
+        if (shade) ga = (g1 += dgde) - dgdx * offset;
+        if (shade) ba = (b1 += dbde) - dbdx * offset;
+        if (shade) aa = (a1 += dade) - dadx * offset;
+        if (texture) sa = (s1 += dsde) - dsdx * offset;
+        if (texture) ta = (t1 += dtde) - dtdx * offset;
+        if (texture) wa = (w1 += dwde) - dwdx * offset;
+        if (depth) za = (z1 += dzde) - dzdx * offset;
 
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
+        // Draw a line of the triangle from left to right
+        for (int x = xa; x < xb; x++)
         {
-            // Get the current pixel's depth value
-            uint16_t z = za >> 16;
-
             // Draw a pixel if within scissor bounds and the depth test passes
             if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || testDepth(x, y, z)))
+                (!depth || !zCompare || testDepth(x, y, za >> 16)))
             {
-                // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y) && zUpdate)
-                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-            }
-
-            // Interpolate the values across the line
-            za += dzdx * inc;
-        }
-    }
-}
-
-void RDP::triTexture()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle texture coordinates and gradients
-    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    int32_t s1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t t1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t w1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t dsdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dtdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dwdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dsde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dtde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dwde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-
-    // Draw a triangle from top to bottom
-    // This differs slightly from others as a hack for sodium64's renderer
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t sa = s1; s1 += dsde;
-        int32_t ta = t1; t1 += dtde;
-        int32_t wa = w1; w1 += dwde;
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x < xb) : (x > xb); x += inc)
-        {
-            // Draw a pixel if it's within scissor bounds
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-            {
-                // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 15)
+                // Update the shade color for the current pixel
+                if (shade)
                 {
-                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
-                    texelAlpha = colorToAlpha(texelColor);
+                    uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
+                    uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
+                    uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
+                    uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
+                    shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
+                    shadeAlpha = colorToAlpha(shadeColor);
                 }
 
-                drawPixel(x, y);
-            }
-
-            // Interpolate the values across the line
-            sa += dsdx * inc;
-            ta += dtdx * inc;
-            wa += dwdx * inc;
-        }
-    }
-}
-
-void RDP::triDepthTex()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle texture coordinates and gradients
-    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    int32_t s1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t t1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t w1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t dsdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dtdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dwdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dsde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dtde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dwde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-
-    // Get the base triangle depth and gradients
-    int32_t z1 = (opcode[12] >> 32);
-    int32_t dzdx = (opcode[12] >> 0);
-    int32_t dzde = (opcode[13] >> 32);
-
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t sa = (s1 += dsde);
-        int32_t ta = (t1 += dtde);
-        int32_t wa = (w1 += dwde);
-        int32_t za = (z1 += dzde);
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Get the current pixel's depth value
-            uint16_t z = za >> 16;
-
-            // Draw a pixel if within scissor bounds and the depth test passes
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || testDepth(x, y, z)))
-            {
                 // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 15)
+                if (texture && (wa >> 15))
                 {
-                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
+                    texelColor = getTexel(*tile, sa / (wa >> 15), ta / (wa >> 15));
                     texelAlpha = colorToAlpha(texelColor);
                 }
 
                 // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y) && zUpdate)
-                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
+                if (drawPixel(x, y) && depth && zUpdate)
+                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, za >> 16);
             }
 
             // Interpolate the values across the line
-            sa += dsdx * inc;
-            ta += dtdx * inc;
-            wa += dwdx * inc;
-            za += dzdx * inc;
-        }
-    }
-}
-
-void RDP::triShade()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle color components and gradients
-    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
-
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t ra = (r1 += drde);
-        int32_t ga = (g1 += dgde);
-        int32_t ba = (b1 += dbde);
-        int32_t aa = (a1 += dade);
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Draw a pixel if it's within scissor bounds
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-            {
-                // Update the shade color for the current pixel
-                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
-                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
-                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
-                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
-                shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
-                shadeAlpha = colorToAlpha(shadeColor);
-
-                drawPixel(x, y);
-            }
-
-            // Interpolate the values across the line
-            ra += drdx * inc;
-            ga += dgdx * inc;
-            ba += dbdx * inc;
-            aa += dadx * inc;
-        }
-    }
-}
-
-void RDP::triDepthSha()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle color components and gradients
-    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
-
-    // Get the base triangle depth and gradients
-    int32_t z1 = (opcode[12] >> 32);
-    int32_t dzdx = (opcode[12] >> 0);
-    int32_t dzde = (opcode[13] >> 32);
-
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t ra = (r1 += drde);
-        int32_t ga = (g1 += dgde);
-        int32_t ba = (b1 += dbde);
-        int32_t aa = (a1 += dade);
-        int32_t za = (z1 += dzde);
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Get the current pixel's Z value
-            uint16_t z = za >> 16;
-
-            // Draw a pixel if within scissor bounds and the depth test passes
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || testDepth(x, y, z)))
-            {
-                // Update the shade color for the current pixel
-                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
-                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
-                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
-                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
-                shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
-                shadeAlpha = colorToAlpha(shadeColor);
-
-                // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y) && zUpdate)
-                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-            }
-
-            // Interpolate the values across the line
-            ra += drdx * inc;
-            ga += dgdx * inc;
-            ba += dbdx * inc;
-            aa += dadx * inc;
-            za += dzdx * inc;
-        }
-    }
-}
-
-void RDP::triShadeTex()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle color components and gradients
-    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
-
-    // Get the base triangle texture coordinates and gradients
-    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    int32_t s1 = (((opcode[12] >> 48) & 0xFFFF) << 16) | ((opcode[14] >> 48) & 0xFFFF);
-    int32_t t1 = (((opcode[12] >> 32) & 0xFFFF) << 16) | ((opcode[14] >> 32) & 0xFFFF);
-    int32_t w1 = (((opcode[12] >> 16) & 0xFFFF) << 16) | ((opcode[14] >> 16) & 0xFFFF);
-    int32_t dsdx = (((opcode[13] >> 48) & 0xFFFF) << 16) | ((opcode[15] >> 48) & 0xFFFF);
-    int32_t dtdx = (((opcode[13] >> 32) & 0xFFFF) << 16) | ((opcode[15] >> 32) & 0xFFFF);
-    int32_t dwdx = (((opcode[13] >> 16) & 0xFFFF) << 16) | ((opcode[15] >> 16) & 0xFFFF);
-    int32_t dsde = (((opcode[16] >> 48) & 0xFFFF) << 16) | ((opcode[18] >> 48) & 0xFFFF);
-    int32_t dtde = (((opcode[16] >> 32) & 0xFFFF) << 16) | ((opcode[18] >> 32) & 0xFFFF);
-    int32_t dwde = (((opcode[16] >> 16) & 0xFFFF) << 16) | ((opcode[18] >> 16) & 0xFFFF);
-
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t ra = (r1 += drde);
-        int32_t ga = (g1 += dgde);
-        int32_t ba = (b1 += dbde);
-        int32_t aa = (a1 += dade);
-        int32_t sa = (s1 += dsde);
-        int32_t ta = (t1 += dtde);
-        int32_t wa = (w1 += dwde);
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Draw a pixel if it's within scissor bounds
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2)
-            {
-                // Update the shade color for the current pixel
-                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
-                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
-                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
-                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
-                shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
-                shadeAlpha = colorToAlpha(shadeColor);
-
-                // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 15)
-                {
-                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
-                    texelAlpha = colorToAlpha(texelColor);
-                }
-
-                drawPixel(x, y);
-            }
-
-            // Interpolate the values across the line
-            ra += drdx * inc;
-            ga += dgdx * inc;
-            ba += dbdx * inc;
-            aa += dadx * inc;
-            sa += dsdx * inc;
-            ta += dtdx * inc;
-            wa += dwdx * inc;
-        }
-    }
-}
-
-void RDP::triDepShaTex()
-{
-    // Decode the base triangle parameters
-    int32_t y1 = (int16_t)(opcode[0] <<  2) >> 4; // High Y-coord
-    int32_t y2 = (int16_t)(opcode[0] >> 14) >> 4; // Middle Y-coord
-    int32_t y3 = (int16_t)(opcode[0] >> 30) >> 4; // Low Y-coord
-    int32_t slope1 = opcode[1]; // Low edge slope
-    int32_t slope2 = opcode[2]; // High edge slope
-    int32_t slope3 = opcode[3]; // Middle edge slope
-    int32_t x1 = (opcode[1] >> 32) - slope1; // Low edge X-coord
-    int32_t x2 = (opcode[2] >> 32); // High edge X-coord
-    int32_t x3 = (opcode[3] >> 32); // Middle edge X-coord
-    bool orient = (opcode[0] >> 55) & 0x1;
-
-    // Get the base triangle color components and gradients
-    int32_t r1 = (((opcode[4] >> 48) & 0xFFFF) << 16) | ((opcode[6] >> 48) & 0xFFFF);
-    int32_t g1 = (((opcode[4] >> 32) & 0xFFFF) << 16) | ((opcode[6] >> 32) & 0xFFFF);
-    int32_t b1 = (((opcode[4] >> 16) & 0xFFFF) << 16) | ((opcode[6] >> 16) & 0xFFFF);
-    int32_t a1 = (((opcode[4] >>  0) & 0xFFFF) << 16) | ((opcode[6] >>  0) & 0xFFFF);
-    int32_t drdx = (((opcode[5] >> 48) & 0xFFFF) << 16) | ((opcode[7] >> 48) & 0xFFFF);
-    int32_t dgdx = (((opcode[5] >> 32) & 0xFFFF) << 16) | ((opcode[7] >> 32) & 0xFFFF);
-    int32_t dbdx = (((opcode[5] >> 16) & 0xFFFF) << 16) | ((opcode[7] >> 16) & 0xFFFF);
-    int32_t dadx = (((opcode[5] >>  0) & 0xFFFF) << 16) | ((opcode[7] >>  0) & 0xFFFF);
-    int32_t drde = (((opcode[8] >> 48) & 0xFFFF) << 16) | ((opcode[10] >> 48) & 0xFFFF);
-    int32_t dgde = (((opcode[8] >> 32) & 0xFFFF) << 16) | ((opcode[10] >> 32) & 0xFFFF);
-    int32_t dbde = (((opcode[8] >> 16) & 0xFFFF) << 16) | ((opcode[10] >> 16) & 0xFFFF);
-    int32_t dade = (((opcode[8] >>  0) & 0xFFFF) << 16) | ((opcode[10] >>  0) & 0xFFFF);
-
-    // Get the base triangle texture coordinates and gradients
-    Tile &tile = tiles[(opcode[0] >> 48) & 0x7];
-    int32_t s1 = (((opcode[12] >> 48) & 0xFFFF) << 16) | ((opcode[14] >> 48) & 0xFFFF);
-    int32_t t1 = (((opcode[12] >> 32) & 0xFFFF) << 16) | ((opcode[14] >> 32) & 0xFFFF);
-    int32_t w1 = (((opcode[12] >> 16) & 0xFFFF) << 16) | ((opcode[14] >> 16) & 0xFFFF);
-    int32_t dsdx = (((opcode[13] >> 48) & 0xFFFF) << 16) | ((opcode[15] >> 48) & 0xFFFF);
-    int32_t dtdx = (((opcode[13] >> 32) & 0xFFFF) << 16) | ((opcode[15] >> 32) & 0xFFFF);
-    int32_t dwdx = (((opcode[13] >> 16) & 0xFFFF) << 16) | ((opcode[15] >> 16) & 0xFFFF);
-    int32_t dsde = (((opcode[16] >> 48) & 0xFFFF) << 16) | ((opcode[18] >> 48) & 0xFFFF);
-    int32_t dtde = (((opcode[16] >> 32) & 0xFFFF) << 16) | ((opcode[18] >> 32) & 0xFFFF);
-    int32_t dwde = (((opcode[16] >> 16) & 0xFFFF) << 16) | ((opcode[18] >> 16) & 0xFFFF);
-
-    // Get the base triangle depth and gradients
-    int32_t z1 = (opcode[20] >> 32);
-    int32_t dzdx = (opcode[20] >> 0);
-    int32_t dzde = (opcode[21] >> 32);
-
-    // Draw a triangle from top to bottom
-    for (int y = y1; y < y3; y++)
-    {
-        // Get the X-bounds of the triangle on the current line
-        // From Y1 to Y2, the high and middle edges are used
-        // From Y2 to Y3, the high and low edges are used
-        int xa = (x2 += slope2) >> 16;
-        int xb = ((y < y2) ? (x3 += slope3) : (x1 += slope1)) >> 16;
-        int inc = (orient ? 1 : -1);
-
-        // Get the interpolated values at the start of the line
-        int32_t ra = (r1 += drde);
-        int32_t ga = (g1 += dgde);
-        int32_t ba = (b1 += dbde);
-        int32_t aa = (a1 += dade);
-        int32_t sa = (s1 += dsde);
-        int32_t ta = (t1 += dtde);
-        int32_t wa = (w1 += dwde);
-        int32_t za = (z1 += dzde);
-
-        // Draw a line of the triangle based on orientation
-        for (int x = xa; orient ? (x <= xb) : (x >= xb); x += inc)
-        {
-            // Get the current pixel's Z value
-            uint16_t z = za >> 16;
-
-            // Draw a pixel if within scissor bounds and the depth test passes
-            if (x >= scissorX1 && x < scissorX2 && y >= scissorY1 && y < scissorY2 &&
-                (!zCompare || testDepth(x, y, z)))
-            {
-                // Update the shade color for the current pixel
-                uint8_t r = std::max(0x00, std::min(0xFF, ra >> 16));
-                uint8_t g = std::max(0x00, std::min(0xFF, ga >> 16));
-                uint8_t b = std::max(0x00, std::min(0xFF, ba >> 16));
-                uint8_t a = std::max(0x00, std::min(0xFF, aa >> 16));
-                shadeColor = (r << 24) | (g << 16) | (b << 8) | a;
-                shadeAlpha = colorToAlpha(shadeColor);
-
-                // Update the texel color for the current pixel, with perspective correction
-                if (wa >> 15)
-                {
-                    texelColor = getTexel(tile, sa / (wa >> 15), ta / (wa >> 15));
-                    texelAlpha = colorToAlpha(texelColor);
-                }
-
-                // Update the Z buffer if a pixel is drawn
-                if (drawPixel(x, y) && zUpdate)
-                    Memory::write<uint16_t>(zAddress + (y * colorWidth + x) * 2, z);
-            }
-
-            // Interpolate the values across the line
-            ra += drdx * inc;
-            ga += dgdx * inc;
-            ba += dbdx * inc;
-            aa += dadx * inc;
-            sa += dsdx * inc;
-            ta += dtdx * inc;
-            wa += dwdx * inc;
-            za += dzdx * inc;
+            if (shade) ra += drdx;
+            if (shade) ga += dgdx;
+            if (shade) ba += dbdx;
+            if (shade) aa += dadx;
+            if (texture) sa += dsdx;
+            if (texture) ta += dtdx;
+            if (texture) wa += dwdx;
+            if (depth) za += dzdx;
         }
     }
 }
