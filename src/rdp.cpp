@@ -81,6 +81,7 @@ namespace RDP
     std::vector<uint64_t> opcode;
 
     CycleType cycleType;
+    bool persCorrect;
     bool texFilter;
     uint8_t blendA[2];
     uint8_t blendB[2];
@@ -210,6 +211,7 @@ void RDP::reset()
     paramCount = 0;
     opcode.clear();
     cycleType = ONE_CYCLE;
+    persCorrect = false;
     texFilter = false;
     blendA[0] = blendA[1] = 0;
     blendB[0] = blendB[1] = 0;
@@ -389,12 +391,18 @@ uint32_t RDP::getTexel(Tile &tile, int s, int t, bool rect)
     int l3 = abs((v1x * v3y - v3x * v1y) / den);
     int l1 = 0x20 - l2 - l3;
 
+    // Multiply weights by alpha for proper balance
+    l1 *= (col1 & 0xFF);
+    l2 *= (col2 & 0xFF);
+    l3 *= (col3 & 0xFF);
+    int a = (l1 + l2 + l3);
+    if (!a) return 0;
+
     // Blend each channel of the output filtered texel
-    uint8_t r = (((col1 >> 24) & 0xFF) * l1 + ((col2 >> 24) & 0xFF) * l2 + ((col3 >> 24) & 0xFF) * l3) >> 5;
-    uint8_t g = (((col1 >> 16) & 0xFF) * l1 + ((col2 >> 16) & 0xFF) * l2 + ((col3 >> 16) & 0xFF) * l3) >> 5;
-    uint8_t b = (((col1 >>  8) & 0xFF) * l1 + ((col2 >>  8) & 0xFF) * l2 + ((col3 >>  8) & 0xFF) * l3) >> 5;
-    uint8_t a = (((col1 >>  0) & 0xFF) * l1 + ((col2 >>  0) & 0xFF) * l2 + ((col3 >>  0) & 0xFF) * l3) >> 5;
-    return (r << 24) | (g << 16) | (b << 8) | a;
+    uint8_t r = (((col1 >> 24) & 0xFF) * l1 + ((col2 >> 24) & 0xFF) * l2 + ((col3 >> 24) & 0xFF) * l3) / a;
+    uint8_t g = (((col1 >> 16) & 0xFF) * l1 + ((col2 >> 16) & 0xFF) * l2 + ((col3 >> 16) & 0xFF) * l3) / a;
+    uint8_t b = (((col1 >> 8) & 0xFF) * l1 + ((col2 >> 8) & 0xFF) * l2 + ((col3 >> 8) & 0xFF) * l3) / a;
+    return (r << 24) | (g << 16) | (b << 8) | (a >> 5);
 }
 
 uint32_t RDP::getRawTexel(Tile &tile, int s, int t)
@@ -811,7 +819,7 @@ template <bool shade, bool texture, bool depth> void RDP::triangle()
         dsde = (((params[4] >> 48) & 0xFFFF) << 16) | ((params[6] >> 48) & 0xFFFF);
         dtde = (((params[4] >> 32) & 0xFFFF) << 16) | ((params[6] >> 32) & 0xFFFF);
         dwde = (((params[4] >> 16) & 0xFFFF) << 16) | ((params[6] >> 16) & 0xFFFF);
-        s1 = ((((params[0] >> 48) & 0xFFFF) << 16) | ((params[2] >> 48) & 0xFFFF));
+        s1 = ((((params[0] >> 48) & 0xFFFF) << 16) | ((params[2] >> 48) & 0xFFFF)) - dsde * hack;
         t1 = ((((params[0] >> 32) & 0xFFFF) << 16) | ((params[2] >> 32) & 0xFFFF)) - dtde * hack;
         w1 = ((((params[0] >> 16) & 0xFFFF) << 16) | ((params[2] >> 16) & 0xFFFF));
     }
@@ -871,10 +879,13 @@ template <bool shade, bool texture, bool depth> void RDP::triangle()
                 }
 
                 // Update the texel color for the current pixel, with perspective correction
-                if (texture && (wa >> 15))
+                if (texture)
                 {
-                    texelColor = getTexel(*tile, sa / (wa >> 15), ta / (wa >> 15));
-                    texelAlpha = colorToAlpha(texelColor);
+                    if (int div = persCorrect ? (wa >> 15) : 0x10000)
+                    {
+                        texelColor = getTexel(*tile, sa / div, ta / div);
+                        texelAlpha = colorToAlpha(texelColor);
+                    }
                 }
 
                 // Update the Z buffer if a pixel is drawn
@@ -909,7 +920,6 @@ void RDP::texRectangle()
     int s1 = (int16_t)(opcode[1] >> 48) << 5;
 
     // Adjust some things based on the cycle type
-    // TODO: handle this more accurately
     if (cycleType >= COPY_MODE)
     {
         dsdx >>= 2;
@@ -954,6 +964,7 @@ void RDP::setOtherModes()
     // Set various rendering parameters
     // TODO: actually use the other bits
     cycleType = (CycleType)((opcode[0] >> 52) & 0x3);
+    persCorrect = (opcode[0] >> 51) & 0x1;
     texFilter = (opcode[0] >> 45) & 0x1;
     blendA[0] = (opcode[0] >> 30) & 0x3;
     blendA[1] = (opcode[0] >> 28) & 0x3;
@@ -1164,7 +1175,6 @@ void RDP::fillRectangle()
     uint16_t x2 = ((opcode[0] >> 44) & 0xFFF) >> 2;
 
     // Adjust some things based on the cycle type
-    // TODO: handle this more accurately
     if (cycleType >= COPY_MODE)
     {
         x2++;
