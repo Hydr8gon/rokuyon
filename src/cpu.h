@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,13 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CPU_H
-#define CPU_H
+#pragma once
 
 #include <cstdint>
 
-namespace CPU
-{
+namespace CPU {
     extern uint64_t *registersW[32];
     extern uint32_t programCounter;
     extern uint32_t nextOpcode;
@@ -32,5 +30,3 @@ namespace CPU
     void reset();
     void runOpcode();
 }
-
-#endif // CPU_H

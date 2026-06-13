@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,57 +17,52 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef INPUT_DIALOG_H
-#define INPUT_DIALOG_H
+#pragma once
 
 #include "ry_app.h"
 
-class InputDialog: public wxDialog
-{
-    public:
-        InputDialog(wxJoystick *joystick);
-        ~InputDialog();
+class InputDialog: public wxDialog {
+public:
+    InputDialog(wxJoystick *joystick);
+    ~InputDialog();
 
-    private:
-        wxJoystick *joystick;
-        wxTimer *timer;
-        wxButton *keys[MAX_KEYS];
+private:
+    wxJoystick *joystick;
+    wxTimer *timer;
+    wxButton *keys[MAX_KEYS];
 
-        int keyBinds[MAX_KEYS];
-        std::vector<int> axisBases;
-        wxButton *current = nullptr;
-        int keyIndex = 0;
+    int keyBinds[MAX_KEYS];
+    std::vector<int> axisBases;
+    wxButton *current = nullptr;
+    int keyIndex = 0;
 
-        std::string keyToString(int key);
-        void resetLabels();
+    std::string keyToString(int key);
+    void resetLabels();
 
-        void remapA(wxCommandEvent &event);
-        void remapB(wxCommandEvent &event);
-        void remapZ(wxCommandEvent &event);
-        void remapStart(wxCommandEvent &event);
-        void remapDUp(wxCommandEvent &event);
-        void remapDDown(wxCommandEvent &event);
-        void remapDLeft(wxCommandEvent &event);
-        void remapDRight(wxCommandEvent &event);
-        void remapL(wxCommandEvent &event);
-        void remapR(wxCommandEvent &event);
-        void remapCUp(wxCommandEvent &event);
-        void remapCDown(wxCommandEvent &event);
-        void remapCLeft(wxCommandEvent &event);
-        void remapCRight(wxCommandEvent &event);
-        void remapSUp(wxCommandEvent &event);
-        void remapSDown(wxCommandEvent &event);
-        void remapSLeft(wxCommandEvent &event);
-        void remapSRight(wxCommandEvent &event);
-        void remapSMod(wxCommandEvent &event);
-        void remapFullScreen(wxCommandEvent &event);
+    void remapA(wxCommandEvent &event);
+    void remapB(wxCommandEvent &event);
+    void remapZ(wxCommandEvent &event);
+    void remapStart(wxCommandEvent &event);
+    void remapDUp(wxCommandEvent &event);
+    void remapDDown(wxCommandEvent &event);
+    void remapDLeft(wxCommandEvent &event);
+    void remapDRight(wxCommandEvent &event);
+    void remapL(wxCommandEvent &event);
+    void remapR(wxCommandEvent &event);
+    void remapCUp(wxCommandEvent &event);
+    void remapCDown(wxCommandEvent &event);
+    void remapCLeft(wxCommandEvent &event);
+    void remapCRight(wxCommandEvent &event);
+    void remapSUp(wxCommandEvent &event);
+    void remapSDown(wxCommandEvent &event);
+    void remapSLeft(wxCommandEvent &event);
+    void remapSRight(wxCommandEvent &event);
+    void remapSMod(wxCommandEvent &event);
+    void remapFullScreen(wxCommandEvent &event);
 
-        void clearMap(wxCommandEvent &event);
-        void updateJoystick(wxTimerEvent &event);
-        void confirm(wxCommandEvent &event);
-        void pressKey(wxKeyEvent &event);
-
-        wxDECLARE_EVENT_TABLE();
+    void clearMap(wxCommandEvent &event);
+    void updateJoystick(wxTimerEvent &event);
+    void confirm(wxCommandEvent &event);
+    void pressKey(wxKeyEvent &event);
+    wxDECLARE_EVENT_TABLE();
 };
-
-#endif // INPUT_DIALOG_H

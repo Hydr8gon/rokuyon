@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -22,8 +22,7 @@
 
 #include "switch_ui.h"
 
-struct VertexData
-{
+struct VertexData {
     VertexData(float x, float y, float s, float t, float r, float g, float b):
         x(x), y(y), s(s), t(t), r(r), g(g), b(b) {}
 
@@ -42,8 +41,7 @@ GLuint SwitchUI::program;
 GLuint SwitchUI::vbo;
 GLuint SwitchUI::textures[3];
 
-const char *SwitchUI::vertexShader =
-R"(
+const char *SwitchUI::vertexShader = R"(
     #version 330 core
     precision mediump float;
 
@@ -53,16 +51,14 @@ R"(
     out vec2 vtxTexCoord;
     out vec3 vtxColor;
 
-    void main()
-    {
+    void main() {
         gl_Position = vec4(-1.0 + inPos.x / 640, 1.0 - inPos.y / 360, 0.0, 1.0);
         vtxTexCoord = inTexCoord;
         vtxColor = inColor;
     }
 )";
 
-const char *SwitchUI::fragmentShader =
-R"(
+const char *SwitchUI::fragmentShader = R"(
     #version 330 core
     precision mediump float;
 
@@ -71,8 +67,7 @@ R"(
     out vec4 fragColor;
     uniform sampler2D texDiffuse;
 
-    void main()
-    {
+    void main() {
         fragColor = texture(texDiffuse, vtxTexCoord) * vec4(vtxColor.x / 255, vtxColor.y / 255, vtxColor.z / 255, 1.0);
     }
 )";
@@ -80,18 +75,17 @@ R"(
 const uint32_t *SwitchUI::font;
 const uint32_t SwitchUI::empty = 0xFFFFFFFF;
 
-const int SwitchUI::charWidths[] =
-{
-    11,  9, 11, 20, 18, 28, 24,  7, 12, 12,
-    14, 24,  9, 12,  9, 16, 21, 21, 21, 21,
-    21, 21, 21, 21, 21, 21,  9,  9, 26, 24,
+const int SwitchUI::charWidths[] = {
+    11, 9, 11, 20, 18, 28, 24, 7, 12, 12,
+    14, 24, 9, 12, 9, 16, 21, 21, 21, 21,
+    21, 21, 21, 21, 21, 21, 9, 9, 26, 24,
     26, 18, 28, 24, 21, 24, 26, 20, 20, 27,
-    23,  9, 17, 21, 16, 31, 27, 29, 19, 29,
+    23, 9, 17, 21, 16, 31, 27, 29, 19, 29,
     20, 18, 21, 26, 24, 37, 21, 21, 24, 12,
-    16, 12, 18, 16,  9, 20, 21, 18, 21, 20,
-    10, 20, 20,  8, 12, 19,  9, 30, 20, 21,
+    16, 12, 18, 16, 9, 20, 21, 18, 21, 20,
+    10, 20, 20, 8, 12, 19, 9, 30, 20, 21,
     21, 21, 12, 16, 12, 20, 17, 29, 17, 17,
-    16,  9,  8,  9, 12,  0, 40, 40, 40, 40
+    16, 9, 8, 9, 12, 0, 40, 40, 40, 40
 };
 
 bool SwitchUI::darkTheme = false;
@@ -100,19 +94,15 @@ Color SwitchUI::palette[6];
 PadState SwitchUI::pad;
 bool SwitchUI::touchMode = false;
 
-int SwitchUI::stringWidth(std::string string)
-{
-    int width = 0;
-
+int SwitchUI::stringWidth(std::string string) {
     // Add the widths of each character in the string
+    int width = 0;
     for (unsigned int i = 0; i < string.size(); i++)
         width += charWidths[string[i] - 32];
-
     return width;
 }
 
-void SwitchUI::initialize()
-{
+void SwitchUI::initialize() {
     // Initialize EGL
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     eglInitialize(display, NULL, NULL);
@@ -189,23 +179,21 @@ void SwitchUI::initialize()
     setsysExit();
 
     // Set the theme palette
-    if (darkTheme)
-    {
-        palette[0] = Color( 45,  45,  45);
+    if (darkTheme) {
+        palette[0] = Color(45, 45, 45);
         palette[1] = Color(255, 255, 255);
-        palette[2] = Color( 75,  75,  75);
-        palette[3] = Color( 35,  35,  35);
-        palette[4] = Color( 85, 185, 225);
-        palette[5] = Color(  0, 255, 200);
+        palette[2] = Color(75, 75, 75);
+        palette[3] = Color(35, 35, 35);
+        palette[4] = Color(85, 185, 225);
+        palette[5] = Color(0, 255, 200);
     }
-    else
-    {
+    else {
         palette[0] = Color(235, 235, 235);
-        palette[1] = Color( 45,  45,  45);
+        palette[1] = Color(45, 45, 45);
         palette[2] = Color(205, 205, 205);
         palette[3] = Color(255, 255, 255);
-        palette[4] = Color( 50, 215, 210);
-        palette[5] = Color( 50,  80, 240);
+        palette[4] = Color(50, 215, 210);
+        palette[5] = Color(50, 80, 240);
     }
 
     // Initialize input
@@ -214,8 +202,7 @@ void SwitchUI::initialize()
     hidInitializeTouchScreen();
 }
 
-void SwitchUI::deinitialize()
-{
+void SwitchUI::deinitialize() {
     // Clean up
     glDeleteProgram(program);
     glDeleteBuffers(1, &vbo);
@@ -230,8 +217,7 @@ void SwitchUI::deinitialize()
     eglTerminate(display);
 }
 
-uint32_t *SwitchUI::bmpToTexture(std::string filename)
-{
+uint32_t *SwitchUI::bmpToTexture(std::string filename) {
     // Attempt to load the file
     FILE *bmp = fopen(filename.c_str(), "rb");
     if (!bmp) return nullptr;
@@ -249,13 +235,11 @@ uint32_t *SwitchUI::bmpToTexture(std::string filename)
 
     // Convert the bitmap data to RGBA8 format
     uint32_t *texture = new uint32_t[width * height];
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             uint32_t color = data[(height - y - 1) * width + x];
-            uint8_t b = (color >>  0) & 0xFF;
-            uint8_t g = (color >>  8) & 0xFF;
+            uint8_t b = (color >> 0) & 0xFF;
+            uint8_t g = (color >> 8) & 0xFF;
             uint8_t r = (color >> 16) & 0xFF;
             uint8_t a = (color >> 24) & 0xFF;
             texture[y * width + x] = (a << 24) | (b << 16) | (g << 8) | r;
@@ -266,24 +250,21 @@ uint32_t *SwitchUI::bmpToTexture(std::string filename)
     return texture;
 }
 
-void SwitchUI::drawImage(uint32_t *image, int width, int height, int x, int y, int scaleWidth, int scaleHeight, bool filter, int rotation)
-{
+void SwitchUI::drawImage(uint32_t *image, int width, int height, int x, int y, int scaleWidth, int scaleHeight, bool filter, int rotation) {
     // Rotate the texture coordinates
     uint8_t texCoords;
-    switch (rotation)
-    {
-        case 0:  texCoords = 0x4B; break; // None
-        case 1:  texCoords = 0x2D; break; // Clockwise
-        case 2:  texCoords = 0xD2; break; // Counter-clockwise
+    switch (rotation) {
+        case 0: texCoords = 0x4B; break; // None
+        case 1: texCoords = 0x2D; break; // Clockwise
+        case 2: texCoords = 0xD2; break; // Counter-clockwise
         default: texCoords = 0xB4; break; // Flipped
     }
 
-    VertexData vertices[] =
-    {
+    VertexData vertices[] = {
         VertexData(x + scaleWidth, y + scaleHeight, (texCoords >> 0) & 1, (texCoords >> 1) & 1, 255, 255, 255),
-        VertexData(x,              y + scaleHeight, (texCoords >> 2) & 1, (texCoords >> 3) & 1, 255, 255, 255),
-        VertexData(x,              y,               (texCoords >> 4) & 1, (texCoords >> 5) & 1, 255, 255, 255),
-        VertexData(x + scaleWidth, y,               (texCoords >> 6) & 1, (texCoords >> 7) & 1, 255, 255, 255)
+        VertexData(x, y + scaleHeight, (texCoords >> 2) & 1, (texCoords >> 3) & 1, 255, 255, 255),
+        VertexData(x, y, (texCoords >> 4) & 1, (texCoords >> 5) & 1, 255, 255, 255),
+        VertexData(x + scaleWidth, y, (texCoords >> 6) & 1, (texCoords >> 7) & 1, 255, 255, 255)
     };
 
     // Load the image as a texture and set filtering
@@ -297,28 +278,24 @@ void SwitchUI::drawImage(uint32_t *image, int width, int height, int x, int y, i
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-void SwitchUI::drawString(std::string string, int x, int y, int size, Color color, bool alignRight)
-{
-    float curWidth = 0;
-
+void SwitchUI::drawString(std::string string, int x, int y, int size, Color color, bool alignRight) {
     // Align the string to the right if enabled
+    float curWidth = 0;
     if (alignRight)
         curWidth -= stringWidth(string);
 
     // Draw each character of the string
-    for (unsigned int i = 0; i < string.size(); i++)
-    {
+    for (unsigned int i = 0; i < string.size(); i++) {
         float x1 = x + curWidth * size / 48;
         float x2 = x + (curWidth + 48) * size / 48;
         float s = 48.0f * ((string[i] - 32) % 10) / 512;
         float t = 48.0f * ((string[i] - 32) / 10) / 512;
 
-        VertexData vertices[] =
-        {
-            VertexData(x1, y + size, s,                 t + (47.0f / 512), color.r, color.g, color.b),
+        VertexData vertices[] = {
+            VertexData(x1, y + size, s, t + (47.0f / 512), color.r, color.g, color.b),
             VertexData(x2, y + size, s + (47.0f / 512), t + (47.0f / 512), color.r, color.g, color.b),
-            VertexData(x2, y,        s + (47.0f / 512), t,                 color.r, color.g, color.b),
-            VertexData(x1, y,        s,                 t,                 color.r, color.g, color.b)
+            VertexData(x2, y, s + (47.0f / 512), t, color.r, color.g, color.b),
+            VertexData(x1, y, s, t, color.r, color.g, color.b)
         };
 
         // Load the vertex and texture data and draw a character
@@ -331,14 +308,12 @@ void SwitchUI::drawString(std::string string, int x, int y, int size, Color colo
     }
 }
 
-void SwitchUI::drawRectangle(int x, int y, int width, int height, Color color)
-{
-    VertexData vertices[] =
-    {
+void SwitchUI::drawRectangle(int x, int y, int width, int height, Color color) {
+    VertexData vertices[] = {
         VertexData(x + width, y + height, 1.0f, 1.0f, color.r, color.g, color.b),
-        VertexData(x,         y + height, 0.0f, 1.0f, color.r, color.g, color.b),
-        VertexData(x,         y,          0.0f, 0.0f, color.r, color.g, color.b),
-        VertexData(x + width, y,          1.0f, 0.0f, color.r, color.g, color.b)
+        VertexData(x, y + height, 0.0f, 1.0f, color.r, color.g, color.b),
+        VertexData(x, y, 0.0f, 0.0f, color.r, color.g, color.b),
+        VertexData(x + width, y, 1.0f, 0.0f, color.r, color.g, color.b)
     };
 
     // Load the vertex and texture data and draw the rectangle
@@ -347,33 +322,30 @@ void SwitchUI::drawRectangle(int x, int y, int width, int height, Color color)
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-void SwitchUI::clear(Color color)
-{
+void SwitchUI::clear(Color color) {
     // Clear the canvas with the specified color
     glClearColor((float)color.r / 0xFF, (float)color.g / 0xFF, (float)color.b / 0xFF, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void SwitchUI::update()
-{
+void SwitchUI::update() {
     // Display a new frame
     glFinish();
     eglSwapBuffers(display, surface);
 }
 
-Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t index, std::string actionX, std::string actionPlus)
-{
+Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t index, std::string actionX, std::string actionPlus) {
     // Format the action strings
     if (actionPlus != "") actionPlus = "\x83 " + actionPlus + "     ";
-    if (actionX    != "") actionX    = "\x82 " + actionX    + "     ";
+    if (actionX != "") actionX = "\x82 " + actionX + "     ";
     std::string actionB = "\x81 Back     ";
     std::string actionA = "\x80 OK";
 
     // Calculate the touch bounds for the action buttons
-    unsigned int boundsAB    = 1218 - (stringWidth(actionA) + 2.5f * charWidths[0]) * 34 / 48;
-    unsigned int boundsBX    = boundsAB    - stringWidth(actionB)    * 34 / 48;
-    unsigned int boundsXPlus = boundsBX    - stringWidth(actionX)    * 34 / 48;
-    unsigned int boundsPlus  = boundsXPlus - stringWidth(actionPlus) * 34 / 48;
+    unsigned int boundsAB = 1218 - (stringWidth(actionA) + 2.5f * charWidths[0]) * 34 / 48;
+    unsigned int boundsBX = boundsAB - stringWidth(actionB) * 34 / 48;
+    unsigned int boundsXPlus = boundsBX - stringWidth(actionX) * 34 / 48;
+    unsigned int boundsPlus = boundsXPlus - stringWidth(actionPlus) * 34 / 48;
 
     bool upHeld = false;
     bool downHeld = false;
@@ -385,13 +357,12 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
     bool touchScroll = false;
     HidTouchScreenState touchStart = {};
 
-    while (appletMainLoop() && !shouldExit)
-    {
+    while (appletMainLoop() && !shouldExit) {
         clear(palette[0]);
 
         // Draw the borders
         drawString(title, 72, 30, 42, palette[1]);
-        drawRectangle(30,  88, 1220, 1, palette[1]);
+        drawRectangle(30, 88, 1220, 1, palette[1]);
         drawRectangle(30, 648, 1220, 1, palette[1]);
         drawString(actionPlus + actionX + actionB + actionA, 1218, 667, 34, palette[1], true);
 
@@ -401,8 +372,7 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
         u32 released = padGetButtonsUp(&pad);
 
         // Handle up input presses
-        if ((pressed & HidNpadButton_AnyUp) && !(pressed & HidNpadButton_AnyDown))
-        {
+        if ((pressed & HidNpadButton_AnyUp) && !(pressed & HidNpadButton_AnyDown)) {
             // If touch mode is active, disable it to make the selection box visible
             // If the selection box is visible, move it up one item
             if (touchMode)
@@ -416,8 +386,7 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
         }
 
         // Handle down input presses
-        if ((pressed & HidNpadButton_AnyDown) && !(pressed & HidNpadButton_AnyUp))
-        {
+        if ((pressed & HidNpadButton_AnyDown) && !(pressed & HidNpadButton_AnyUp)) {
             // If touch mode is active, disable it to make the selection box visible
             // If the selection box is visible, move it down one item
             if (touchMode)
@@ -432,8 +401,7 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
 
         // Return button presses so they can be handled externally
         if (((pressed & HidNpadButton_A) && !touchMode) || (pressed & HidNpadButton_B) ||
-            (actionX != "" && (pressed & HidNpadButton_X)) || (actionPlus != "" && (pressed & HidNpadButton_Plus)))
-        {
+            (actionX != "" && (pressed & HidNpadButton_X)) || (actionPlus != "" && (pressed & HidNpadButton_Plus))) {
             touchMode = false;
             return Selection(pressed, index);
         }
@@ -443,30 +411,26 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
             touchMode = false;
 
         // Cancel up input if it was released
-        if (released & HidNpadButton_AnyUp)
-        {
+        if (released & HidNpadButton_AnyUp) {
             upHeld = false;
             scroll = false;
         }
 
         // Cancel down input if it was released
-        if (released & HidNpadButton_AnyDown)
-        {
+        if (released & HidNpadButton_AnyDown) {
             downHeld = false;
             scroll = false;
         }
 
         // Scroll continuously when a directional input is held
-        if ((upHeld && index > 0) || (downHeld && index < items->size() - 1))
-        {
+        if ((upHeld && index > 0) || (downHeld && index < items->size() - 1)) {
             // Wait a bit after the input before starting to scroll
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - timeHeld;
             if (!scroll && elapsed.count() > 0.5f)
                 scroll = true;
 
             // Scroll up or down one item at a fixed interval
-            if (scroll && elapsed.count() > 0.1f)
-            {
+            if (scroll && elapsed.count() > 0.1f) {
                 index += upHeld ? -1 : 1;
                 timeHeld = std::chrono::steady_clock::now();
             }
@@ -476,26 +440,22 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
         HidTouchScreenState touch;
         hidGetTouchScreenStates(&touch, 1);
 
-        if (touch.count > 0) // Pressed
-        {
+        if (touch.count > 0) { // Pressed
             // Track the beginning of a touch input
-            if (!touchStarted)
-            {
+            if (!touchStarted) {
                 touchStart = touch;
                 touchStarted = true;
                 touchScroll = false;
                 touchMode = true;
             }
 
-            if (touchScroll)
-            {
+            if (touchScroll) {
                 // Calculate how far the drag has gone
                 int newIndex = touchIndex + (int)(touchStart.touches[0].y - touch.touches[0].y) / 70;
 
                 // Scroll the list by adjusting the index
                 // At the edges of the list, adjust the index to stay centered
-                if (items->size() > 7 && newIndex != (int)touchIndex)
-                {
+                if (items->size() > 7 && newIndex != (int)touchIndex) {
                     if (newIndex < 3)
                         index = 3;
                     else if (newIndex > (int)items->size() - 4)
@@ -505,8 +465,7 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
                 }
             }
             else if (touch.touches[0].x > touchStart.touches[0].x + 25 || touch.touches[0].x < touchStart.touches[0].x - 25 ||
-                     touch.touches[0].y > touchStart.touches[0].y + 25 || touch.touches[0].y < touchStart.touches[0].y - 25)
-            {
+                    touch.touches[0].y > touchStart.touches[0].y + 25 || touch.touches[0].y < touchStart.touches[0].y - 25) {
                 // Activate touch scrolling if a touch starts dragging
                 touchScroll = true;
 
@@ -520,12 +479,10 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
                     touchIndex = index;
             }
         }
-        else // Released
-        {
+        else { // Released
             // Simulate a button press if its action text was touched
             // If the touch is dragged instead of just pressed, this won't register
-            if (!touchScroll && touchStart.touches[0].y >= 650)
-            {
+            if (!touchScroll && touchStart.touches[0].y >= 650) {
                 if (touchStart.touches[0].x >= boundsBX && touchStart.touches[0].x < boundsAB)
                     return Selection(HidNpadButton_B, index);
                 else if (touchStart.touches[0].x >= boundsXPlus && touchStart.touches[0].x < boundsBX)
@@ -533,7 +490,6 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
                 else if (touchStart.touches[0].x >= boundsPlus && touchStart.touches[0].x < boundsXPlus)
                     return Selection(HidNpadButton_Plus, index);
             }
-
             touchStarted = false;
         }
 
@@ -542,10 +498,8 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
             drawRectangle(90, 124, 1100, 1, palette[2]);
 
         // Draw the list items
-        for (unsigned int i = 0; i < 7; i++)
-        {
-            if (i < items->size())
-            {
+        for (unsigned int i = 0; i < 7; i++) {
+            if (i < items->size()) {
                 // Determine the scroll offset
                 unsigned int offset;
                 if (index < 4 || items->size() <= 7)
@@ -561,29 +515,25 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
                     touchStart.touches[0].y >= 124 + i * 70 && touchStart.touches[0].y < 194 + i * 70)
                     return Selection(HidNpadButton_A, offset);
 
-                if (!touchMode && offset == index)
-                {
+                if (!touchMode && offset == index) {
                     // Draw the selection box around the selected item if not in touch mode
                     drawRectangle(  90, 125 + i * 70, 1100, 69, palette[3]);
-                    drawRectangle(  89, 121 + i * 70, 1103,  5, palette[4]);
-                    drawRectangle(  89, 191 + i * 70, 1103,  5, palette[4]);
-                    drawRectangle(  88, 122 + i * 70,    5, 73, palette[4]);
-                    drawRectangle(1188, 122 + i * 70,    5, 73, palette[4]);
+                    drawRectangle(  89, 121 + i * 70, 1103, 5, palette[4]);
+                    drawRectangle(  89, 191 + i * 70, 1103, 5, palette[4]);
+                    drawRectangle(  88, 122 + i * 70, 5, 73, palette[4]);
+                    drawRectangle(1188, 122 + i * 70, 5, 73, palette[4]);
                 }
-                else
-                {
+                else {
                     // Draw the item separators
                     drawRectangle(90, 194 + i * 70, 1100, 1, palette[2]);
                 }
 
-                if ((*items)[offset].iconSize > 0)
-                {
+                if ((*items)[offset].iconSize > 0) {
                     // Draw the item's icon and its name beside it
                     drawImage((*items)[offset].icon, (*items)[offset].iconSize, (*items)[offset].iconSize, 105, 127 + i * 70, 64, 64);
                     drawString((*items)[offset].name, 184, 140 + i * 70, 38, palette[1]);
                 }
-                else
-                {
+                else {
                     // Draw the item's name
                     drawString((*items)[offset].name, 105, 140 + i * 70, 38, palette[1]);
                 }
@@ -593,7 +543,6 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
                     drawString((*items)[offset].setting, 1175, 143 + i * 70, 32, palette[5], true);
             }
         }
-
         update();
     }
 
@@ -602,21 +551,19 @@ Selection SwitchUI::menu(std::string title, std::vector<ListItem> *items, size_t
     return Selection(0, 0);
 }
 
-bool SwitchUI::message(std::string title, std::vector<std::string> text, bool cancel)
-{
+bool SwitchUI::message(std::string title, std::vector<std::string> text, bool cancel) {
     clear(palette[0]);
-
     std::string actionB = "\x81 Back     ";
     std::string actionA = "\x80 OK";
 
     // Calculate the touch bounds for the action buttons
-    unsigned int boundsA  = 1218 + (2.5f * charWidths[0]) * 34 / 48;
+    unsigned int boundsA = 1218 + (2.5f * charWidths[0]) * 34 / 48;
     unsigned int boundsAB = 1218 - (stringWidth(actionA) + 2.5f * charWidths[0]) * 34 / 48;
-    unsigned int boundsB  = boundsAB - stringWidth(actionB) * 34 / 48;
+    unsigned int boundsB = boundsAB - stringWidth(actionB) * 34 / 48;
 
     // Draw the borders
     drawString(title, 72, 30, 42, palette[1]);
-    drawRectangle(30,  88, 1220, 1, palette[1]);
+    drawRectangle(30, 88, 1220, 1, palette[1]);
     drawRectangle(30, 648, 1220, 1, palette[1]);
     drawString((cancel ? actionB : "") + actionA, 1218, 667, 34, palette[1], true);
 
@@ -624,15 +571,13 @@ bool SwitchUI::message(std::string title, std::vector<std::string> text, bool ca
     // Each string in the array is drawn on a separate line
     for (unsigned int i = 0; i < text.size(); i++)
         drawString(text[i], 90, 124 + i * 38, 38, palette[1]);
-
     update();
 
     bool touchStarted = false;
     bool touchScroll = false;
     HidTouchScreenState touchStart = {};
 
-    while (appletMainLoop() && !shouldExit)
-    {
+    while (appletMainLoop() && !shouldExit) {
         // Scan for key input
         padUpdate(&pad);
         u32 pressed = padGetButtonsDown(&pad);
@@ -647,11 +592,9 @@ bool SwitchUI::message(std::string title, std::vector<std::string> text, bool ca
         HidTouchScreenState touch;
         hidGetTouchScreenStates(&touch, 1);
 
-        if (touch.count > 0) // Pressed
-        {
+        if (touch.count > 0) { // Pressed
             // Track the beginning of a touch input
-            if (!touchStarted)
-            {
+            if (!touchStarted) {
                 touchStart = touch;
                 touchStarted = true;
                 touchScroll = false;
@@ -663,18 +606,15 @@ bool SwitchUI::message(std::string title, std::vector<std::string> text, bool ca
                 touch.touches[0].y > touchStart.touches[0].y + 25 || touch.touches[0].y < touchStart.touches[0].y - 25)
                 touchScroll = true;
         }
-        else // Released
-        {
+        else { // Released
             // Simulate a button press if its action text was touched
             // If the touch is dragged instead of just pressed, this won't register
-            if (!touchScroll && touchStart.touches[0].y >= 650)
-            {
+            if (!touchScroll && touchStart.touches[0].y >= 650) {
                 if (touchStart.touches[0].x >= boundsAB && touchStart.touches[0].x < boundsA)
                     return true;
                 else if (touchStart.touches[0].x >= boundsB && touchStart.touches[0].x < boundsAB && cancel)
                     return false;
             }
-
             touchStarted = false;
         }
     }

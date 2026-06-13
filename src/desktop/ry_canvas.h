@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,8 +17,7 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RY_CANVAS_H
-#define RY_CANVAS_H
+#pragma once
 
 #include <chrono>
 #include <wx/wx.h>
@@ -26,37 +25,32 @@
 
 class ryFrame;
 
-class ryCanvas: public wxGLCanvas
-{
-    public:
-        ryCanvas(ryFrame *frame);
+class ryCanvas: public wxGLCanvas {
+public:
+    ryCanvas(ryFrame *frame);
+    void finish();
 
-        void finish();
+private:
+    ryFrame *frame;
+    wxGLContext *context;
 
-    private:
-        ryFrame *frame;
-        wxGLContext *context;
+    int frameCount = 0;
+    int swapInterval = 0;
+    int refreshRate = 0;
+    std::chrono::steady_clock::time_point lastRateTime;
 
-        int frameCount = 0;
-        int swapInterval = 0;
-        int refreshRate = 0;
-        std::chrono::steady_clock::time_point lastRateTime;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t x = 0;
+    uint32_t y = 0;
 
-        uint32_t width = 0;
-        uint32_t height = 0;
-        uint32_t x = 0;
-        uint32_t y = 0;
+    uint8_t sizeReset = 0;
+    bool fullScreen = false;
+    bool finished = false;
 
-        uint8_t sizeReset = 0;
-        bool fullScreen = false;
-        bool finished = false;
-
-        void draw(wxPaintEvent &event);
-        void resize(wxSizeEvent &event);
-        void pressKey(wxKeyEvent &event);
-        void releaseKey(wxKeyEvent &event);
-
-        wxDECLARE_EVENT_TABLE();
+    void draw(wxPaintEvent &event);
+    void resize(wxSizeEvent &event);
+    void pressKey(wxKeyEvent &event);
+    void releaseKey(wxKeyEvent &event);
+    wxDECLARE_EVENT_TABLE();
 };
-
-#endif // RY_CANVAS_H

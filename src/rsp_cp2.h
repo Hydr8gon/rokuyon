@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,18 +17,14 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RSP_CP2_H
-#define RSP_CP2_H
+#pragma once
 
 #include <cstdint>
 
-namespace RSP_CP2
-{
+namespace RSP_CP2 {
     extern void (*vecInstrs[])(uint32_t);
 
     void reset();
     int16_t read(bool control, int index, int byte);
     void write(bool control, int index, int byte, int16_t value);
 }
-
-#endif // RSP_CP2_H

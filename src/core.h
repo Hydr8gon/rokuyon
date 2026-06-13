@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,14 +17,12 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CORE_H
-#define CORE_H
+#pragma once
 
 #include <cstdint>
 #include <string>
 
-namespace Core
-{
+namespace Core {
     extern bool running;
     extern bool cpuRunning;
     extern bool rspRunning;
@@ -45,5 +43,3 @@ namespace Core
     void writeSave(uint32_t address, uint8_t value);
     void schedule(void (*function)(), uint32_t cycles);
 }
-
-#endif // CORE_H

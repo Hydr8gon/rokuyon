@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -24,8 +24,7 @@
 #include "rdp.h"
 #include "rsp.h"
 
-namespace RSP_CP0
-{
+namespace RSP_CP0 {
     uint32_t memAddr;
     uint32_t dramAddr;
     uint32_t status;
@@ -35,8 +34,7 @@ namespace RSP_CP0
     void performWriteDma(uint32_t length, uint32_t count, uint32_t skip);
 }
 
-void RSP_CP0::reset()
-{
+void RSP_CP0::reset() {
     // Reset the RSP CP0 to its initial state
     memAddr = 0;
     dramAddr = 0;
@@ -44,109 +42,102 @@ void RSP_CP0::reset()
     semaphore = 0;
 }
 
-uint32_t RSP_CP0::read(int index)
-{
+uint32_t RSP_CP0::read(int index) {
     // Read from an RSP CP0 register if one exists at the given index
-    switch (index)
-    {
-        case 4: // SP_STATUS
-            // Get the status register
-            return status;
+    switch (index) {
+    case 4: // SP_STATUS
+        // Get the status register
+        return status;
 
-        case 7: // SP_SEMAPHORE
-        {
-            // Set the semaphore to 1 and get the previous value
-            uint32_t value = semaphore;
-            semaphore = 1;
-            return value;
+    case 7: { // SP_SEMAPHORE
+        // Set the semaphore to 1 and get the previous value
+        uint32_t value = semaphore;
+        semaphore = 1;
+        return value;
+    }
+
+    case 8: case 9: case 10: case 11:
+    case 12: case 13: case 14: case 15:
+        // Get an RDP register
+        return RDP::read(index - 8);
+
+    default:
+        LOG_WARN("Read from unknown RSP CP0 register: %d\n", index);
+        return 0;
+    }
+}
+
+void RSP_CP0::write(int index, uint32_t value) {
+    // Write to an RSP CP0 register if one exists at the given index
+    switch (index) {
+    case 0: // SP_MEM_ADDR
+        // Set the RSP DMA address
+        memAddr = value & 0x1FF8;
+        return;
+
+    case 1: // SP_DRAM_ADDR
+        // Set the RDRAM DMA address
+        dramAddr = value & 0xFFFFF8;
+        return;
+
+    case 2: // SP_RD_LEN
+        // Start a DMA transfer from RDRAM to RSP MEM
+        performReadDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
+        return;
+
+    case 3: // SP_WR_LEN
+        // Start a DMA transfer from RSP MEM to RDRAM
+        performWriteDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
+        return;
+
+    case 4: // SP_STATUS
+        // Set or clear the halt flag and update the RSP's state
+        if (value & 0x1)
+            status &= ~0x1;
+        else if (value & 0x2)
+            status |= 0x1;
+        RSP::setState(status & 0x1);
+
+        // Clear the broke flag
+        if (value & 0x4)
+            status &= ~0x2;
+
+        // Acknowledge or trigger an SP interrupt
+        if (value & 0x8)
+            MI::clearInterrupt(0);
+        else if (value & 0x10)
+            MI::setInterrupt(0);
+
+        // Set or clear the remaining status bits
+        for (int i = 0; i < 20; i += 2) {
+            if (value & (1 << (i + 5)))
+                status &= ~(1 << ((i / 2) + 5));
+            else if (value & (1 << (i + 6)))
+                status |= (1 << ((i / 2) + 5));
         }
 
-        case  8: case  9: case 10: case 11:
-        case 12: case 13: case 14: case 15:
-            // Get an RDP register
-            return RDP::read(index - 8);
+        // Keep track of unimplemented bits that should do something
+        if (uint32_t bits = (status & 0x20))
+            LOG_WARN("Unimplemented RSP CP0 status bits set: 0x%X\n", bits);
+        return;
 
-        default:
-            LOG_WARN("Read from unknown RSP CP0 register: %d\n", index);
-            return 0;
+    case 7: // SP_SEMAPHORE
+        // Set the semaphore value
+        semaphore = value & 0x1;
+        return;
+
+    case 8: case 9: case 10: case 11:
+    case 12: case 13: case 14: case 15:
+        // Set an RDP register
+        return RDP::write(index - 8, value);
+
+    default:
+        LOG_WARN("Write to unknown RSP CP0 register: %d\n", index);
+        return;
     }
 }
 
-void RSP_CP0::write(int index, uint32_t value)
-{
-    // Write to an RSP CP0 register if one exists at the given index
-    switch (index)
-    {
-        case 0: // SP_MEM_ADDR
-            // Set the RSP DMA address
-            memAddr = value & 0x1FF8;
-            return;
-
-        case 1: // SP_DRAM_ADDR
-            // Set the RDRAM DMA address
-            dramAddr = value & 0xFFFFF8;
-            return;
-
-        case 2: // SP_RD_LEN
-            // Start a DMA transfer from RDRAM to RSP MEM
-            performReadDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
-            return;
-
-        case 3: // SP_WR_LEN
-            // Start a DMA transfer from RSP MEM to RDRAM
-            performWriteDma(value & 0xFF8, (value >> 12) & 0xFF, (value >> 20) & 0xFF8);
-            return;
-
-        case 4: // SP_STATUS
-            // Set or clear the halt flag and update the RSP's state
-            if (value & 0x1)
-                status &= ~0x1;
-            else if (value & 0x2)
-                status |= 0x1;
-            RSP::setState(status & 0x1);
-
-            // Clear the broke flag
-            if (value & 0x4)
-                status &= ~0x2;
-
-            // Acknowledge or trigger an SP interrupt
-            if (value & 0x8)
-                MI::clearInterrupt(0);
-            else if (value & 0x10)
-                MI::setInterrupt(0);
-
-            // Set or clear the remaining status bits
-            for (int i = 0; i < 20; i += 2)
-            {
-                if (value & (1 << (i + 5)))
-                    status &= ~(1 << ((i / 2) + 5));
-                else if (value & (1 << (i + 6)))
-                    status |= (1 << ((i / 2) + 5));
-            }
-
-            // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (status & 0x20))
-                LOG_WARN("Unimplemented RSP CP0 status bits set: 0x%X\n", bits);
-            return;
-
-        case 7: // SP_SEMAPHORE
-            // Set the semaphore value
-            semaphore = value & 0x1;
-            return;
-
-        case  8: case  9: case 10: case 11:
-        case 12: case 13: case 14: case 15:
-            // Set an RDP register
-            return RDP::write(index - 8, value);
-
-        default:
-            LOG_WARN("Write to unknown RSP CP0 register: %d\n", index);
-            return;
-    }
-}
-
-void RSP_CP0::triggerBreak()
-{
+void RSP_CP0::triggerBreak() {
     // Trigger an SP interrupt if enabled, halt the RSP, and set the broke flag
     if (status & 0x40)
         MI::setInterrupt(0);
@@ -154,17 +145,14 @@ void RSP_CP0::triggerBreak()
     status |= 0x3;
 }
 
-void RSP_CP0::performReadDma(uint32_t length, uint32_t count, uint32_t skip)
-{
+void RSP_CP0::performReadDma(uint32_t length, uint32_t count, uint32_t skip) {
     LOG_INFO("RSP DMA from RDRAM 0x%X to RSP MEM 0x%X with length 0x%X, "
         "count 0x%X, skip 0x%X\n", dramAddr, memAddr, length, count, skip);
 
     // Copy rows of data from memory to the RSP
     uint32_t dramBase = dramAddr, memBase = memAddr;
-    for (uint32_t c = 0; c <= count; c++)
-    {
-        for (uint32_t l = 0; l <= length; l += 8)
-        {
+    for (uint32_t c = 0; c <= count; c++) {
+        for (uint32_t l = 0; l <= length; l += 8) {
             uint32_t dst = 0x84000000 + ((memBase + l) & 0x1FF8);
             uint32_t src = 0x80000000 + ((dramBase + l) & 0xFFFFF8);
             Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));
@@ -174,17 +162,14 @@ void RSP_CP0::performReadDma(uint32_t length, uint32_t count, uint32_t skip)
     }
 }
 
-void RSP_CP0::performWriteDma(uint32_t length, uint32_t count, uint32_t skip)
-{
+void RSP_CP0::performWriteDma(uint32_t length, uint32_t count, uint32_t skip) {
     LOG_INFO("RSP DMA from RSP MEM 0x%X to RDRAM 0x%X with length 0x%X, "
         "count 0x%X, skip 0x%X\n", memAddr, dramAddr, length, count, skip);
 
     // Copy rows of data from the RSP to memory
     uint32_t dramBase = dramAddr, memBase = memAddr;
-    for (uint32_t c = 0; c <= count; c++)
-    {
-        for (uint32_t l = 0; l <= length; l += 8)
-        {
+    for (uint32_t c = 0; c <= count; c++) {
+        for (uint32_t l = 0; l <= length; l += 8) {
             uint32_t dst = 0x80000000 + ((dramBase + l) & 0xFFFFF8);
             uint32_t src = 0x84000000 + ((memBase + l) & 0x1FF8);
             Memory::write<uint64_t>(dst, Memory::read<uint64_t>(src));

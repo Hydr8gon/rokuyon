@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -40,8 +40,7 @@ std::string path;
 std::thread *audioThread;
 bool showFps;
 
-const uint32_t keyMap[] =
-{
+const uint32_t keyMap[] = {
     (HidNpadButton_A | HidNpadButton_B), (HidNpadButton_X | HidNpadButton_Y), // A, B
     (HidNpadButton_ZL | HidNpadButton_ZR), HidNpadButton_Plus, // Z, Start
     HidNpadButton_Up, HidNpadButton_Down, HidNpadButton_Left, HidNpadButton_Right, // D-pad
@@ -51,10 +50,8 @@ const uint32_t keyMap[] =
     (HidNpadButton_StickL | HidNpadButton_StickR), HidNpadButton_Minus // FPS, Pause
 };
 
-void outputAudio()
-{
-    while (Core::running)
-    {
+void outputAudio() {
+    while (Core::running) {
         // Load audio samples from the core when a buffer is empty
         audoutWaitPlayFinish(&audioReleasedBuffer, &count, UINT64_MAX);
         AI::fillBuffer((uint32_t*)audioReleasedBuffer->buffer);
@@ -62,13 +59,10 @@ void outputAudio()
     }
 }
 
-bool startCore(bool reset)
-{
-    if (!audioThread)
-    {
+bool startCore(bool reset) {
+    if (!audioThread) {
         // Try to boot a ROM at the current path, but display an error if failed
-        if (reset && !Core::bootRom(path))
-        {
+        if (reset && !Core::bootRom(path)) {
             std::vector<std::string> message = { "Make sure the ROM file is accessible and try again." };
             SwitchUI::message("Error Loading ROM", message);
             return false;
@@ -78,14 +72,11 @@ bool startCore(bool reset)
         Core::start();
         audioThread = new std::thread(outputAudio);
     }
-
     return true;
 }
 
-void stopCore()
-{
-    if (audioThread)
-    {
+void stopCore() {
+    if (audioThread) {
         // Stop the emulator core
         Core::stop();
         audioThread->join();
@@ -94,16 +85,13 @@ void stopCore()
     }
 }
 
-void settingsMenu()
-{
+void settingsMenu() {
     const std::vector<std::string> toggle = { "Off", "On" };
     size_t index = 0;
 
-    while (true)
-    {
+    while (true) {
         // Make a list of settings and current values
-        std::vector<ListItem> settings =
-        {
+        std::vector<ListItem> settings = {
             ListItem("FPS Limiter", toggle[Settings::fpsLimiter]),
             ListItem("Expansion Pak", toggle[Settings::expansionPak]),
             ListItem("Threaded RDP", toggle[Settings::threadedRdp]),
@@ -115,19 +103,16 @@ void settingsMenu()
         index = menu.index;
 
         // Handle menu input
-        if (menu.pressed & HidNpadButton_A)
-        {
+        if (menu.pressed & HidNpadButton_A) {
             // Change the chosen setting to its next value
-            switch (index)
-            {
+            switch (index) {
                 case 0: Settings::fpsLimiter = !Settings::fpsLimiter; break;
                 case 1: Settings::expansionPak = !Settings::expansionPak; break;
                 case 2: Settings::threadedRdp = !Settings::threadedRdp; break;
                 case 3: Settings::texFilter = !Settings::texFilter; break;
             }
         }
-        else
-        {
+        else {
             // Close the settings menu
             Settings::save();
             return;
@@ -135,24 +120,21 @@ void settingsMenu()
     }
 }
 
-void fileBrowser()
-{
+void fileBrowser() {
     size_t index = 0;
     path = "sdmc:/";
 
     // Load the appropriate icons for the current theme
-    uint32_t *file   = SwitchUI::bmpToTexture(SwitchUI::isDarkTheme() ? "romfs:/file-dark.bmp"   : "romfs:/file-light.bmp");
+    uint32_t *file = SwitchUI::bmpToTexture(SwitchUI::isDarkTheme() ? "romfs:/file-dark.bmp"   : "romfs:/file-light.bmp");
     uint32_t *folder = SwitchUI::bmpToTexture(SwitchUI::isDarkTheme() ? "romfs:/folder-dark.bmp" : "romfs:/folder-light.bmp");
 
-    while (true)
-    {
+    while (true) {
         std::vector<ListItem> files;
         DIR *dir = opendir(path.c_str());
         dirent *entry;
 
         // Add all folders and ROMs at the current path to a list with icons
-        while ((entry = readdir(dir)))
-        {
+        while ((entry = readdir(dir))) {
             std::string name = entry->d_name;
             if (entry->d_type == DT_DIR)
                 files.push_back(ListItem(name, "", folder, 64));
@@ -168,16 +150,13 @@ void fileBrowser()
         index = menu.index;
 
         // Handle menu input
-        if (menu.pressed & HidNpadButton_A)
-        {
-            if (!files.empty())
-            {
+        if (menu.pressed & HidNpadButton_A) {
+            if (!files.empty()) {
                 // Navigate to the selected path
                 path += "/" + files[menu.index].name;
                 index = 0;
 
-                if (files[menu.index].icon == file)
-                {
+                if (files[menu.index].icon == file) {
                     // Close the browser If a ROM is loaded successfully
                     if (startCore(true))
                         break;
@@ -187,22 +166,18 @@ void fileBrowser()
                 }
             }
         }
-        else if (menu.pressed & HidNpadButton_B)
-        {
-            if (path != "sdmc:/")
-            {
+        else if (menu.pressed & HidNpadButton_B) {
+            if (path != "sdmc:/") {
                 // Navigate to the previous directory
                 path = path.substr(0, path.rfind("/"));
                 index = 0;
             }
         }
-        else if (menu.pressed & HidNpadButton_X)
-        {
+        else if (menu.pressed & HidNpadButton_X) {
             // Open the settings menu
             settingsMenu();
         }
-        else
-        {
+        else {
             // Close the file browser
             break;
         }
@@ -213,11 +188,9 @@ void fileBrowser()
     delete[] folder;
 }
 
-bool saveTypeMenu()
-{
+bool saveTypeMenu() {
     size_t index = 0;
-    std::vector<ListItem> items =
-    {
+    std::vector<ListItem> items = {
         ListItem("None"),
         ListItem("EEPROM 0.5KB"),
         ListItem("EEPROM 2KB"),
@@ -226,8 +199,7 @@ bool saveTypeMenu()
     };
 
     // Select the current save type by default
-    switch (Core::saveSize)
-    {
+    switch (Core::saveSize) {
         case 0x00200: index = 1; break; // EEPROM 0.5KB
         case 0x00800: index = 2; break; // EEPROM 8KB
         case 0x08000: index = 3; break; // SRAM 32KB
@@ -239,16 +211,14 @@ bool saveTypeMenu()
     index = menu.index;
 
     // Handle menu input
-    if (menu.pressed & HidNpadButton_A)
-    {
+    if (menu.pressed & HidNpadButton_A) {
         // Ask for confirmation before doing anything because accidents could be bad!
         std::vector<std::string> message = { "Are you sure? This may result in data loss!" };
         if (!SwitchUI::message("Changing Save Type", message, true))
             return false;
 
         // On confirmation, change the save type
-        switch (index)
-        {
+        switch (index) {
             case 0: Core::resizeSave(0x00000); break; // None
             case 1: Core::resizeSave(0x00200); break; // EEPROM 0.5KB
             case 2: Core::resizeSave(0x00800); break; // EEPROM 8KB
@@ -260,15 +230,12 @@ bool saveTypeMenu()
         Core::bootRom(path);
         return true;
     }
-
     return false;
 }
 
-void pauseMenu()
-{
+void pauseMenu() {
     size_t index = 0;
-    std::vector<ListItem> items =
-    {
+    std::vector<ListItem> items = {
         ListItem("Resume"),
         ListItem("Restart"),
         ListItem("Change Save Type"),
@@ -279,60 +246,54 @@ void pauseMenu()
     // Pause the emulator
     stopCore();
 
-    while (true)
-    {
+    while (true) {
         // Create the pause menu
         Selection menu = SwitchUI::menu("rokuyon", &items, index);
         index = menu.index;
 
         // Handle menu input
-        if (menu.pressed & HidNpadButton_A)
-        {
-            switch (index)
-            {
-                case 0: // Resume
-                    // Return to the emulator
-                    startCore(false);
-                    return;
+        if (menu.pressed & HidNpadButton_A) {
+            switch (index) {
+            case 0: // Resume
+                // Return to the emulator
+                startCore(false);
+                return;
 
-                case 2: // Change Save Type
-                    // Open the save type menu and restart if the save changed
-                    if (!saveTypeMenu())
-                        break;
-
-                case 1: // Restart
-                    // Restart and return to the emulator
-                    if (!startCore(true))
-                        fileBrowser();
-                    return;
-
-                case 3: // Settings
-                    // Open the settings menu
-                    settingsMenu();
+            case 2: // Change Save Type
+                // Open the save type menu and restart if the save changed
+                if (!saveTypeMenu())
                     break;
 
-                case 4: // File Browser
-                    // Open the file browser
+            case 1: // Restart
+                // Restart and return to the emulator
+                if (!startCore(true))
                     fileBrowser();
-                    return;
+                return;
+
+            case 3: // Settings
+                // Open the settings menu
+                settingsMenu();
+                break;
+
+            case 4: // File Browser
+                // Open the file browser
+                fileBrowser();
+                return;
             }
         }
-        else if (menu.pressed & HidNpadButton_B)
-        {
+        else if (menu.pressed & HidNpadButton_B) {
             // Return to the emulator
             startCore(false);
             return;
         }
-        else
-        {
+        else {
             // Close the pause menu
             return;
         }
     }
 }
 
-int main()
-{
+int main() {
     // Initialize the UI and lock exiting until cleanup
     appletLockExit();
     SwitchUI::initialize();
@@ -346,8 +307,7 @@ int main()
     audoutStartAudioOut();
 
     // Initialize the audio buffers
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         size_t size = 1024 * 2 * sizeof(int16_t);
         audioData[i] = (int16_t*)memalign(0x1000, size);
         memset(audioData[i], 0, size);
@@ -368,8 +328,7 @@ int main()
     // Open the file browser
     fileBrowser();
 
-    while (appletMainLoop() && Core::running)
-    {
+    while (appletMainLoop() && Core::running) {
         // Maintain the CPU overclock if it was reset from ex. leaving the app
         uint32_t rate;
         clkrstGetClockRate(&cpuSession, &rate);
@@ -383,8 +342,7 @@ int main()
         HidAnalogStickState stick = padGetStickPos(SwitchUI::getPad(), 0);
 
         // Send key input to the core
-        for (int i = 0; i < 16; i++)
-        {
+        for (int i = 0; i < 16; i++) {
             if (pressed & keyMap[i])
                 PIF::pressKey(i);
             else if (released & keyMap[i])
@@ -395,8 +353,7 @@ int main()
         PIF::setStick(stick.x >> 8, stick.y >> 8);
 
         // Draw a new frame if one is ready
-        if (_Framebuffer *fb = VI::getFramebuffer())
-        {
+        if (_Framebuffer *fb = VI::getFramebuffer()) {
             SwitchUI::clear(Color(0, 0, 0));
             SwitchUI::drawImage(fb->data, fb->width, fb->height, 160, 0, 960, 720, true, 0);
             if (showFps) SwitchUI::drawString(std::to_string(Core::fps) + " FPS", 5, 0, 48, Color(255, 255, 255));

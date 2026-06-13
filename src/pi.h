@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,17 +17,13 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef PI_H
-#define PI_H
+#pragma once
 
 #include <cstdint>
 #include <cstdio>
 
-namespace PI
-{
+namespace PI {
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 }
-
-#endif // PI_H

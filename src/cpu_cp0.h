@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,13 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CPU_CP0_H
-#define CPU_CP0_H
+#pragma once
 
 #include <cstdint>
 
-namespace CPU_CP0
-{
+namespace CPU_CP0 {
     extern void (*cp0Instrs[])(uint32_t);
 
     void reset();
@@ -36,5 +34,3 @@ namespace CPU_CP0
     void setTlbAddress(uint32_t address);
     bool cpUsable(uint8_t cp);
 }
-
-#endif // CPU_CP0_H

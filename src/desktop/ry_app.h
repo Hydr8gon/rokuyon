@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,34 +17,28 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RY_APP_H
-#define RY_APP_H
+#pragma once
 
 #include <portaudio.h>
-
 #include "ry_frame.h"
 
 #define MAX_KEYS 20
 
-class ryApp: public wxApp
-{
-    public:
-        static int keyBinds[MAX_KEYS];
+class ryApp: public wxApp {
+public:
+    static int keyBinds[MAX_KEYS];
 
-    private:
-        ryFrame *frame;
-        wxTimer *timer;
-        PaStream *stream;
+private:
+    ryFrame *frame;
+    wxTimer *timer;
+    PaStream *stream;
 
-        bool OnInit();
-        int  OnExit();
+    bool OnInit();
+    int OnExit();
 
-        void update(wxTimerEvent &event);
+    static int audioCallback(const void *in, void *out, unsigned long count,
+        const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data);
 
-        static int audioCallback(const void *in, void *out, unsigned long count,
-            const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data);
-
-        wxDECLARE_EVENT_TABLE();
+    void update(wxTimerEvent &event);
+    wxDECLARE_EVENT_TABLE();
 };
-
-#endif // RY_APP_H

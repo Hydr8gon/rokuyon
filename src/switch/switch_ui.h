@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,15 +17,13 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef SWITCH_UI_H
-#define SWITCH_UI_H
+#pragma once
 
 #include <string>
 #include <vector>
 #include <glad/glad.h>
 
-struct ListItem
-{
+struct ListItem {
     ListItem(std::string name, std::string setting = "", uint32_t *icon = nullptr, int iconSize = 0):
         name(name), setting(setting), icon(icon), iconSize(iconSize) {}
 
@@ -37,71 +35,67 @@ struct ListItem
     bool operator < (const ListItem &item) { return (name < item.name); }
 };
 
-struct Selection
-{
+struct Selection {
     Selection(uint32_t pressed, size_t index): pressed(pressed), index(index) {}
 
     uint32_t pressed;
     size_t index;
 };
 
-struct Color
-{
+struct Color {
     Color(uint8_t r, uint8_t g, uint8_t b): r(r), g(g), b(b) {}
     Color(): r(0), g(0), b(0) {}
 
     uint8_t r, g, b;
 };
 
-class SwitchUI
-{
-    public:
-        static void initialize();
-        static void deinitialize();
+class SwitchUI {
+public:
+    static void initialize();
+    static void deinitialize();
 
-        static uint32_t *bmpToTexture(std::string filename);
+    static uint32_t *bmpToTexture(std::string filename);
 
-        static void drawImage(uint32_t *image, int width, int height, int x, int y, int scaleWidth, int scaleHeight, bool filter = true, int rotation = 0);
-        static void drawString(std::string string, int x, int y, int size, Color color, bool alignRight = false);
-        static void drawRectangle(int x, int y, int width, int height, Color color);
-        static void clear(Color color);
-        static void update();
+    static void drawImage(uint32_t *image, int width, int height, int x, int y,
+        int scaleWidth, int scaleHeight, bool filter = true, int rotation = 0);
+    static void drawString(std::string string, int x, int y, int size, Color color, bool alignRight = false);
+    static void drawRectangle(int x, int y, int width, int height, Color color);
+    static void clear(Color color);
+    static void update();
 
-        static Selection menu(std::string title, std::vector<ListItem> *items, size_t index = 0,
-                              std::string actionX = "", std::string actionPlus = "");
-        static bool message(std::string title, std::vector<std::string> text, bool cancel = false);
+    static Selection menu(std::string title, std::vector<ListItem> *items, size_t index = 0,
+        std::string actionX = "", std::string actionPlus = "");
+    static bool message(std::string title, std::vector<std::string> text, bool cancel = false);
 
-        static bool isDarkTheme() { return darkTheme; }
-        static PadState *getPad() { return &pad;      }
+    static bool isDarkTheme() { return darkTheme; }
+    static PadState *getPad() { return &pad; }
 
-    private:
-        SwitchUI() {} // Private to prevent instantiation
+private:
+    SwitchUI() {} // Private to prevent instantiation
 
-        static bool shouldExit;
+    static bool shouldExit;
 
-        static EGLDisplay display;
-        static EGLContext context;
-        static EGLSurface surface;
+    static EGLDisplay display;
+    static EGLContext context;
+    static EGLSurface surface;
 
-        static GLuint program;
-        static GLuint vbo;
-        static GLuint textures[3];
+    static GLuint program;
+    static GLuint vbo;
+    static GLuint textures[3];
 
-        static const char *vertexShader;
-        static const char *fragmentShader;
+    static const char *vertexShader;
+    static const char *fragmentShader;
 
-        static const uint32_t *font;
-        static const uint32_t empty;
+    static const uint32_t *font;
+    static const uint32_t empty;
 
-        static const int charWidths[];
+    static const int charWidths[];
 
-        static bool darkTheme;
-        static Color palette[6];
+    static bool darkTheme;
+    static Color palette[6];
 
-        static PadState pad;
-        static bool touchMode;
+    static PadState pad;
+    static bool touchMode;
 
-        static int stringWidth(std::string string);
+    static int stringWidth(std::string string);
 };
-
-#endif // SWITCH_UI_H

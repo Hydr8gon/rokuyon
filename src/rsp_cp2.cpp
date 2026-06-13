@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -24,8 +24,7 @@
 #include "log.h"
 #include "rsp.h"
 
-namespace RSP_CP2
-{
+namespace RSP_CP2 {
     extern const uint8_t elements[16][8];
     extern const uint16_t rcpTable[0x200];
     extern const uint16_t rsqTable[0x200];
@@ -88,21 +87,19 @@ namespace RSP_CP2
 }
 
 // RSP vector unit instruction lookup table, using opcode bits 0-5
-void (*RSP_CP2::vecInstrs[0x40])(uint32_t) =
-{
-    vmulf, vmulu, unk,   unk,  vmudl, vmudm, vmudn, vmudh, // 0x00-0x07
-    vmacf, vmacu, unk,   unk,  vmadl, vmadm, vmadn, vmadh, // 0x08-0x0F
-    vadd,  vsub,  unk,   vabs, vaddc, vsubc, unk,   unk,   // 0x10-0x17
-    unk,   unk,   unk,   unk,  unk,   vsar,  unk,   unk,   // 0x18-0x1F
-    vlt,   veq,   vne,   vge,  vcl,   vch,   vcr,   vmrg,  // 0x20-0x27
-    vand,  vnand, vor,   vnor, vxor,  vnxor, unk,   unk,   // 0x28-0x2F
-    vrcp,  vrcpl, vrcph, vmov, vrsq,  vrsql, vrcph, unk,   // 0x30-0x37
-    unk,   unk,   unk,   unk,  unk,   unk,   unk,   unk    // 0x38-0x3F
+void (*RSP_CP2::vecInstrs[0x40])(uint32_t) = {
+    vmulf, vmulu, unk, unk, vmudl, vmudm, vmudn, vmudh, // 0x00-0x07
+    vmacf, vmacu, unk, unk, vmadl, vmadm, vmadn, vmadh, // 0x08-0x0F
+    vadd, vsub, unk, vabs, vaddc, vsubc, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, vsar, unk, unk, // 0x18-0x1F
+    vlt, veq, vne, vge, vcl, vch, vcr, vmrg, // 0x20-0x27
+    vand, vnand, vor, vnor, vxor, vnxor, unk, unk, // 0x28-0x2F
+    vrcp, vrcpl, vrcph, vmov, vrsq, vrsql, vrcph, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk // 0x38-0x3F
 };
 
 // Lane modifiers for each element
-const uint8_t RSP_CP2::elements[16][8] =
-{
+const uint8_t RSP_CP2::elements[16][8] = {
     { 0, 1, 2, 3, 4, 5, 6, 7 },
     { 0, 1, 2, 3, 4, 5, 6, 7 },
     { 0, 0, 2, 2, 4, 4, 6, 6 },
@@ -122,8 +119,7 @@ const uint8_t RSP_CP2::elements[16][8] =
 };
 
 // Lookup table for calculating a reciprocal
-const uint16_t RSP_CP2::rcpTable[0x200] =
-{
+const uint16_t RSP_CP2::rcpTable[0x200] = {
     0xFFFF, 0xFF00, 0xFE01, 0xFD04, 0xFC07, 0xFB0C, 0xFA11, 0xF918,
     0xF81F, 0xF727, 0xF631, 0xF53B, 0xF446, 0xF352, 0xF25F, 0xF16D,
     0xF07C, 0xEF8B, 0xEE9C, 0xEDAE, 0xECC0, 0xEBD3, 0xEAE8, 0xE9FD,
@@ -191,8 +187,7 @@ const uint16_t RSP_CP2::rcpTable[0x200] =
 };
 
 // Lookup table for calculating a square root reciprocal
-const uint16_t RSP_CP2::rsqTable[0x200] =
-{
+const uint16_t RSP_CP2::rsqTable[0x200] = {
     0xFFFF, 0xFF00, 0xFE02, 0xFD06, 0xFC0B, 0xFB12, 0xFA1A, 0xF923,
     0xF82E, 0xF73B, 0xF648, 0xF557, 0xF467, 0xF379, 0xF28C, 0xF1A0,
     0xF0B6, 0xEFCD, 0xEEE5, 0xEDFF, 0xED19, 0xEC35, 0xEB52, 0xEA71,
@@ -259,8 +254,7 @@ const uint16_t RSP_CP2::rsqTable[0x200] =
     0x0206, 0x01C4, 0x0183, 0x0142, 0x0101, 0x00C0, 0x0080, 0x0040
 };
 
-void RSP_CP2::reset()
-{
+void RSP_CP2::reset() {
     // Reset the RSP CP2 to its initial state
     memset(registers, 0, sizeof(registers));
     memset(accumulator, 0, sizeof(accumulator));
@@ -271,124 +265,106 @@ void RSP_CP2::reset()
     vce = 0;
 }
 
-int16_t RSP_CP2::read(bool control, int index, int byte)
-{
-    if (!control)
-    {
+int16_t RSP_CP2::read(bool control, int index, int byte) {
+    if (!control) {
         // Wrap reads that start out of bounds
         byte &= 0xF;
 
-        if (byte == 15)
-        {
+        if (byte == 15) {
             // Wrap around to the first byte if the starting byte is 15
             return (registers[index][7] << 8) | (registers[index][0] >> 8);
         }
-        else if (!(byte & 1))
-        {
+        else if (!(byte & 1)) {
             // Read from a single register lane if the starting byte is even
             return registers[index][byte / 2];
         }
-        else
-        {
+        else {
             // Read bytes from 2 register lanes if the starting byte is odd
             return (registers[index][byte / 2] << 8) | (registers[index][byte / 2 + 1] >> 8);
         }
     }
-    else
-    {
+    else {
         // Read from an RSP CP2 control register if one exists at the given index
-        switch (index)
-        {
-            case 0:
-                // Get the VCO register
-                return vco;
+        switch (index) {
+        case 0:
+            // Get the VCO register
+            return vco;
 
-            case 1:
-                // Get the VCC register
-                return vcc;
+        case 1:
+            // Get the VCC register
+            return vcc;
 
-            case 2:
-                // Get the VCE register
-                return vce;
+        case 2:
+            // Get the VCE register
+            return vce;
 
-            default:
-                LOG_WARN("Read from unknown RSP CP2 control register: %d\n", index);
-                return 0;
+        default:
+            LOG_WARN("Read from unknown RSP CP2 control register: %d\n", index);
+            return 0;
         }
     }
 }
 
-void RSP_CP2::write(bool control, int index, int byte, int16_t value)
-{
-    if (!control)
-    {
-        if (byte > 15)
-        {
+void RSP_CP2::write(bool control, int index, int byte, int16_t value) {
+    if (!control) {
+        if (byte > 15) {
             // Ignore writes that start out of bounds
             return;
         }
-        else if (byte == 15)
-        {
+        else if (byte == 15) {
             // Ignore the second byte if the starting byte is 15
             registers[index][7] = (registers[index][7] & ~0xFF) | ((value >> 8) & 0xFF);
         }
-        else if (!(byte & 1))
-        {
+        else if (!(byte & 1)) {
             // Write to a single register lane if the starting byte is even
             registers[index][byte / 2] = value;
         }
-        else
-        {
+        else {
             // Write bytes to 2 register lanes if the starting byte is odd
-            registers[index][byte / 2 + 0] = (registers[index][byte / 2 + 0] & ~0xFF) | ((value >> 8) &  0xFF);
-            registers[index][byte / 2 + 1] = (registers[index][byte / 2 + 1] &  0xFF) | ((value << 8) & ~0xFF);
+            registers[index][byte / 2 + 0] = (registers[index][byte / 2 + 0] & ~0xFF) | ((value >> 8) & 0xFF);
+            registers[index][byte / 2 + 1] = (registers[index][byte / 2 + 1] & 0xFF) | ((value << 8) & ~0xFF);
         }
     }
-    else
-    {
+    else {
         // Write to an RSP CP2 control register if one exists at the given index
-        switch (index)
-        {
-            case 0:
-                // Set the VCO register
-                vco = value;
-                return;
+        switch (index) {
+        case 0:
+            // Set the VCO register
+            vco = value;
+            return;
 
-            case 1:
-                // Set the VCC register
-                vcc = value;
-                return;
+        case 1:
+            // Set the VCC register
+            vcc = value;
+            return;
 
-            case 2:
-                // Set the VCE register
-                vce = value;
-                return;
+        case 2:
+            // Set the VCE register
+            vce = value;
+            return;
 
-            default:
-                LOG_WARN("Write to unknown RSP CP2 control register: %d\n", index);
-                return;
+        default:
+            LOG_WARN("Write to unknown RSP CP2 control register: %d\n", index);
+            return;
         }
     }
 }
 
-uint16_t RSP_CP2::clampSigned(int64_t value)
-{
+uint16_t RSP_CP2::clampSigned(int64_t value) {
     // Clamp a value to the signed 16-bit range
     if (value < -32768) return -32768;
-    if (value >  32767) return  32767;
+    if (value > 32767) return 32767;
     return value;
 }
 
-uint16_t RSP_CP2::clampUnsigned(int64_t value)
-{
+uint16_t RSP_CP2::clampUnsigned(int64_t value) {
     // Clamp a value to the unsigned 16-bit range (bugged)
-    if (value <     0) return     0;
+    if (value < 0) return 0;
     if (value > 32767) return 65535;
     return value;
 }
 
-void RSP_CP2::vmulf(uint32_t opcode)
-{
+void RSP_CP2::vmulf(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -402,8 +378,7 @@ void RSP_CP2::vmulf(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmulu(uint32_t opcode)
-{
+void RSP_CP2::vmulu(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -417,8 +392,7 @@ void RSP_CP2::vmulu(uint32_t opcode)
         vd[i] = clampUnsigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmudl(uint32_t opcode)
-{
+void RSP_CP2::vmudl(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -432,8 +406,7 @@ void RSP_CP2::vmudl(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i]);
 }
 
-void RSP_CP2::vmudm(uint32_t opcode)
-{
+void RSP_CP2::vmudm(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -447,8 +420,7 @@ void RSP_CP2::vmudm(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmudn(uint32_t opcode)
-{
+void RSP_CP2::vmudn(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -462,8 +434,7 @@ void RSP_CP2::vmudn(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vmudh(uint32_t opcode)
-{
+void RSP_CP2::vmudh(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -477,8 +448,7 @@ void RSP_CP2::vmudh(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmacf(uint32_t opcode)
-{
+void RSP_CP2::vmacf(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -492,8 +462,7 @@ void RSP_CP2::vmacf(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmacu(uint32_t opcode)
-{
+void RSP_CP2::vmacu(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -507,8 +476,7 @@ void RSP_CP2::vmacu(uint32_t opcode)
         vd[i] = clampUnsigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vmadl(uint32_t opcode)
-{
+void RSP_CP2::vmadl(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -522,8 +490,7 @@ void RSP_CP2::vmadl(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vmadm(uint32_t opcode)
-{
+void RSP_CP2::vmadm(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -537,8 +504,7 @@ void RSP_CP2::vmadm(uint32_t opcode)
         vd[i] = accumulator[i] >> 16;
 }
 
-void RSP_CP2::vmadn(uint32_t opcode)
-{
+void RSP_CP2::vmadn(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -552,8 +518,7 @@ void RSP_CP2::vmadn(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vmadh(uint32_t opcode)
-{
+void RSP_CP2::vmadh(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -567,8 +532,7 @@ void RSP_CP2::vmadh(uint32_t opcode)
         vd[i] = clampSigned(accumulator[i] >> 16);
 }
 
-void RSP_CP2::vadd(uint32_t opcode)
-{
+void RSP_CP2::vadd(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -578,16 +542,14 @@ void RSP_CP2::vadd(uint32_t opcode)
     // Add two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] + vt[e[i]] + ((vco >> i) & 1);
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
     vco = 0;
 }
 
-void RSP_CP2::vsub(uint32_t opcode)
-{
+void RSP_CP2::vsub(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -597,20 +559,18 @@ void RSP_CP2::vsub(uint32_t opcode)
     // Subtract two vector registers with signed clamping and modifier for the second
     for (int i = 0; i < 8; i++)
         accumulator[i] = vs[i] - vt[e[i]] - ((vco >> i) & 1);
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         vd[i] = clampSigned(accumulator[i]);
         accumulator[i] &= 0xFFFF;
     }
     vco = 0;
 }
 
-void RSP_CP2::vabs(uint32_t opcode)
-{
+void RSP_CP2::vabs(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
-    int16_t *vd = (int16_t*)registers[(opcode >>  6) & 0x1F];
+    int16_t *vd = (int16_t*)registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Negate one vector register based on the sign of another register
@@ -620,18 +580,16 @@ void RSP_CP2::vabs(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vaddc(uint32_t opcode)
-{
+void RSP_CP2::vaddc(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Add two vector registers with modifier for the second, and set the overflow bits
     vco = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         accumulator[i] = vs[i] + vt[e[i]];
         vco |= ((accumulator[i] >> 16) & 1) << i;
     }
@@ -639,8 +597,7 @@ void RSP_CP2::vaddc(uint32_t opcode)
         vd[i] = (accumulator[i] &= 0xFFFF);
 }
 
-void RSP_CP2::vsubc(uint32_t opcode)
-{
+void RSP_CP2::vsubc(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -649,8 +606,7 @@ void RSP_CP2::vsubc(uint32_t opcode)
 
     // Subtract two vector registers with modifier for the second, and set the overflow bits
     vco = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         accumulator[i] = vs[i] - vt[e[i]];
         vco |= (((accumulator[i] & 0x1FFF) ? 0x100 : 0) | ((accumulator[i] >> 16) & 1)) << i;
     }
@@ -658,8 +614,7 @@ void RSP_CP2::vsubc(uint32_t opcode)
         vd[i] = (accumulator[i] &= 0xFFFF);
 }
 
-void RSP_CP2::vsar(uint32_t opcode)
-{
+void RSP_CP2::vsar(uint32_t opcode) {
     // Decode the operands
     uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     int shift = ((2 - (opcode >> 21)) & 0x3) * 16;
@@ -669,8 +624,7 @@ void RSP_CP2::vsar(uint32_t opcode)
         vd[i] = accumulator[i] >> shift;
 }
 
-void RSP_CP2::vlt(uint32_t opcode)
-{
+void RSP_CP2::vlt(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -679,8 +633,7 @@ void RSP_CP2::vlt(uint32_t opcode)
 
     // Perform a less than comparison on two vector registers, and set the compare bits
     vcc = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool res = (vs[i] < vt[e[i]] || (vs[i] == vt[e[i]] && (((vco & (vco >> 8)) >> i) & 1)));
         accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
@@ -690,8 +643,7 @@ void RSP_CP2::vlt(uint32_t opcode)
     vco = 0;
 }
 
-void RSP_CP2::veq(uint32_t opcode)
-{
+void RSP_CP2::veq(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -700,8 +652,7 @@ void RSP_CP2::veq(uint32_t opcode)
 
     // Perform an equal comparison on two vector registers, and set the compare bits
     vcc = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool res = (vs[i] == vt[e[i]] && !(vco & (0x100 << i)));
         accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
@@ -711,8 +662,7 @@ void RSP_CP2::veq(uint32_t opcode)
     vco = 0;
 }
 
-void RSP_CP2::vne(uint32_t opcode)
-{
+void RSP_CP2::vne(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -721,8 +671,7 @@ void RSP_CP2::vne(uint32_t opcode)
 
     // Perform a not equal comparison on two vector registers, and set the compare bits
     vcc = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool res = (vs[i] != vt[e[i]] || (vco & (0x100 << i)));
         accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
@@ -732,8 +681,7 @@ void RSP_CP2::vne(uint32_t opcode)
     vco = 0;
 }
 
-void RSP_CP2::vge(uint32_t opcode)
-{
+void RSP_CP2::vge(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -742,8 +690,7 @@ void RSP_CP2::vge(uint32_t opcode)
 
     // Perform a greater or equal comparison on two vector registers, and set the compare bits
     vcc = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool res = (vs[i] > vt[e[i]] || (vs[i] == vt[e[i]] && !(((vco & (vco >> 8)) >> i) & 1)));
         accumulator[i] = res ? vs[i] : vt[e[i]];
         vcc |= res << i;
@@ -753,8 +700,7 @@ void RSP_CP2::vge(uint32_t opcode)
     vco = 0;
 }
 
-void RSP_CP2::vcl(uint32_t opcode)
-{
+void RSP_CP2::vcl(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
@@ -762,8 +708,7 @@ void RSP_CP2::vcl(uint32_t opcode)
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Clip a vector register, treating it as the lower half of 32-bit values following VCH
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         if (!((vco >> i) & 0x101))
             vcc = (vcc & ~(0x100 << i)) | ((vs[i] >= vt[e[i]]) << (i + 8));
         else if (((vco >> i) & 0x101) == 0x1)
@@ -777,8 +722,7 @@ void RSP_CP2::vcl(uint32_t opcode)
     vco = vce = 0;
 }
 
-void RSP_CP2::vch(uint32_t opcode)
-{
+void RSP_CP2::vch(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -787,8 +731,7 @@ void RSP_CP2::vch(uint32_t opcode)
 
     // Clip a vector register with respect to another register, and set the status bits
     vco = vcc = vce = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool diff = (vs[i] ^ vt[e[i]]) & 0x8000;
         bool comp = (diff && vs[i] == -vt[e[i]] - 1);
         int16_t abs = (diff ? -vt[e[i]] : vt[e[i]]);
@@ -801,8 +744,7 @@ void RSP_CP2::vch(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vcr(uint32_t opcode)
-{
+void RSP_CP2::vcr(uint32_t opcode) {
     // Decode the operands
     int16_t *vt = (int16_t*)registers[(opcode >> 16) & 0x1F];
     int16_t *vs = (int16_t*)registers[(opcode >> 11) & 0x1F];
@@ -811,8 +753,7 @@ void RSP_CP2::vcr(uint32_t opcode)
 
     // Clip a vector register with respect to another register, using one's complement
     vco = vcc = vce = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         bool diff = (vs[i] ^ vt[e[i]]) & 0x8000;
         int16_t abs = (diff ? ~vt[e[i]] : vt[e[i]]);
         vcc |= (((vs[i] >= vt[e[i]]) << 8) | (vs[i] <= ~vt[e[i]])) << i;
@@ -822,12 +763,11 @@ void RSP_CP2::vcr(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vmrg(uint32_t opcode)
-{
+void RSP_CP2::vmrg(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Merge two vector registers using the compare bits to choose lanes
@@ -837,12 +777,11 @@ void RSP_CP2::vmrg(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vand(uint32_t opcode)
-{
+void RSP_CP2::vand(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Bitwise and two vector registers with modifier for the second
@@ -852,12 +791,11 @@ void RSP_CP2::vand(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vnand(uint32_t opcode)
-{
+void RSP_CP2::vnand(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Negated bitwise and two vector registers with modifier for the second
@@ -867,12 +805,11 @@ void RSP_CP2::vnand(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vor(uint32_t opcode)
-{
+void RSP_CP2::vor(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Bitwise or two vector registers with modifier for the second
@@ -882,12 +819,11 @@ void RSP_CP2::vor(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vnor(uint32_t opcode)
-{
+void RSP_CP2::vnor(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Negated bitwise or two vector registers with modifier for the second
@@ -897,12 +833,11 @@ void RSP_CP2::vnor(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vxor(uint32_t opcode)
-{
+void RSP_CP2::vxor(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Bitwise exclusive or two vector registers with modifier for the second
@@ -912,12 +847,11 @@ void RSP_CP2::vxor(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vnxor(uint32_t opcode)
-{
+void RSP_CP2::vnxor(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     uint16_t *vs = registers[(opcode >> 11) & 0x1F];
-    uint16_t *vd = registers[(opcode >>  6) & 0x1F];
+    uint16_t *vd = registers[(opcode >> 6) & 0x1F];
     const uint8_t *e = elements[(opcode >> 21) & 0xF];
 
     // Negated bitwise exclusive or two vector registers with modifier for the second
@@ -927,12 +861,11 @@ void RSP_CP2::vnxor(uint32_t opcode)
         vd[i] = accumulator[i];
 }
 
-void RSP_CP2::vrcp(uint32_t opcode)
-{
+void RSP_CP2::vrcp(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (int16_t)vt[(opcode >> 21) & 0x7];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
     divIn = 0;
 
     // Lookup the 32-bit reciprocal of a signed 16-bit value
@@ -946,12 +879,11 @@ void RSP_CP2::vrcp(uint32_t opcode)
     vd = result;
 }
 
-void RSP_CP2::vrcpl(uint32_t opcode)
-{
+void RSP_CP2::vrcpl(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (divIn & 0x10000) ? ((divIn << 16) | vt[(opcode >> 21) & 0x7]) : (int16_t)vt[(opcode >> 21) & 0x7];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
     divIn = 0;
 
     // Lookup the 32-bit reciprocal of a signed 32-bit value, or 16 if upper isn't set
@@ -965,11 +897,10 @@ void RSP_CP2::vrcpl(uint32_t opcode)
     vd = result;
 }
 
-void RSP_CP2::vrcph(uint32_t opcode)
-{
+void RSP_CP2::vrcph(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
 
     // Set the upper half of the reciprocal input and get the lower half of the output
     for (int i = 0; i < 8; i++)
@@ -978,11 +909,10 @@ void RSP_CP2::vrcph(uint32_t opcode)
     vd = divOut;
 }
 
-void RSP_CP2::vmov(uint32_t opcode)
-{
+void RSP_CP2::vmov(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
 
     // Copy a single lane from one vector register to another
     for (int i = 0; i < 8; i++)
@@ -990,12 +920,11 @@ void RSP_CP2::vmov(uint32_t opcode)
     vd = vt[(opcode >> 21) & 0x7];
 }
 
-void RSP_CP2::vrsq(uint32_t opcode)
-{
+void RSP_CP2::vrsq(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (int16_t)vt[(opcode >> 21) & 0x7];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
     divIn = 0;
 
     // Lookup the 32-bit reciprocal of the square root of a signed 16-bit value
@@ -1008,12 +937,11 @@ void RSP_CP2::vrsq(uint32_t opcode)
     divOut = result >> 16;
     vd = result;
 }
-void RSP_CP2::vrsql(uint32_t opcode)
-{
+void RSP_CP2::vrsql(uint32_t opcode) {
     // Decode the operands
     uint16_t *vt = registers[(opcode >> 16) & 0x1F];
     int32_t vte = (divIn & 0x10000) ? ((divIn << 16) | vt[(opcode >> 21) & 0x7]) : (int16_t)vt[(opcode >> 21) & 0x7];
-    uint16_t &vd = registers[(opcode >>  6) & 0x1F][(opcode >> 11) & 0x7];
+    uint16_t &vd = registers[(opcode >> 6) & 0x1F][(opcode >> 11) & 0x7];
     divIn = 0;
 
     // Lookup the 32-bit reciprocal of the square root of a signed 32-bit value, or 16 if upper isn't set
@@ -1027,8 +955,7 @@ void RSP_CP2::vrsql(uint32_t opcode)
     vd = result;
 }
 
-void RSP_CP2::unk(uint32_t opcode)
-{
+void RSP_CP2::unk(uint32_t opcode) {
     // Warn about unknown instructions
     LOG_CRIT("Unknown RSP VU opcode: 0x%08X @ 0x%X\n", opcode, 0x1000 | ((RSP::readPC() - 4) & 0xFFF));
 }

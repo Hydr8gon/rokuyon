@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -30,8 +30,7 @@
 #include "mi.h"
 #include "rdp.h"
 
-namespace VI
-{
+namespace VI {
     std::queue<_Framebuffer*> framebuffers;
     std::atomic<bool> ready;
     std::mutex mutex;
@@ -47,8 +46,7 @@ namespace VI
     void drawFrame();
 }
 
-_Framebuffer *VI::getFramebuffer()
-{
+_Framebuffer *VI::getFramebuffer() {
     // Wait until a new frame is ready
     if (!ready.load())
         return nullptr;
@@ -62,8 +60,7 @@ _Framebuffer *VI::getFramebuffer()
     return fb;
 }
 
-void VI::reset()
-{
+void VI::reset() {
     // Reset the VI to its initial state
     control = 0;
     origin = 0;
@@ -77,96 +74,87 @@ void VI::reset()
     Core::schedule(drawFrame, (93750000 / 60) * 2);
 }
 
-uint32_t VI::read(uint32_t address)
-{
+uint32_t VI::read(uint32_t address) {
     // Read from an I/O register if one exists at the given address
-    switch (address)
-    {
-        default:
-            LOG_WARN("Unknown VI register read: 0x%X\n", address);
-            return 0;
+    switch (address) {
+    default:
+        LOG_WARN("Unknown VI register read: 0x%X\n", address);
+        return 0;
     }
 }
 
-void VI::write(uint32_t address, uint32_t value)
-{
+void VI::write(uint32_t address, uint32_t value) {
     // Write to an I/O register if one exists at the given address
-    switch (address)
-    {
-        case 0x4400000: // VI_CONTROL
-            // Set the VI control register
-            // TODO: actually use bits other than type
-            control = (value & 0x1FBFF);
-            return;
+    switch (address) {
+    case 0x4400000: // VI_CONTROL
+        // Set the VI control register
+        // TODO: actually use bits other than type
+        control = (value & 0x1FBFF);
+        return;
 
-        case 0x4400004: // VI_ORIGIN
-            // Set the framebuffer address
-            origin = 0x80000000 | (value & 0xFFFFFF);
-            return;
+    case 0x4400004: // VI_ORIGIN
+        // Set the framebuffer address
+        origin = 0x80000000 | (value & 0xFFFFFF);
+        return;
 
-        case 0x4400008: // VI_WIDTH
-            // Set the framebuffer width in pixels
-            width = (value & 0xFFF);
-            return;
+    case 0x4400008: // VI_WIDTH
+        // Set the framebuffer width in pixels
+        width = (value & 0xFFF);
+        return;
 
-        case 0x4400010: // VI_V_CURRENT
-            // Acknowledge a VI interrupt instead of writing a value
-            MI::clearInterrupt(3);
-            return;
+    case 0x4400010: // VI_V_CURRENT
+        // Acknowledge a VI interrupt instead of writing a value
+        MI::clearInterrupt(3);
+        return;
 
-        case 0x4400024: // VI_H_VIDEO
-        {
-            // Set the range of visible horizontal pixels
-            uint32_t start = (value >> 16) & 0x3FF;
-            uint32_t end   = (value >>  0) & 0x3FF;
-            hVideo = (end - start);
-            return;
-        }
+    case 0x4400024: { // VI_H_VIDEO
+        // Set the range of visible horizontal pixels
+        uint32_t start = (value >> 16) & 0x3FF;
+        uint32_t end = (value >>  0) & 0x3FF;
+        hVideo = (end - start);
+        return;
+    }
 
-        case 0x4400028: // VI_V_VIDEO
-        {
-            // Set the range of visible vertical pixels
-            uint32_t start = (value >> 16) & 0x3FF;
-            uint32_t end   = (value >>  0) & 0x3FF;
-            vVideo = (end - start) / 2;
-            return;
-        }
+    case 0x4400028: { // VI_V_VIDEO
+        // Set the range of visible vertical pixels
+        uint32_t start = (value >> 16) & 0x3FF;
+        uint32_t end = (value >>  0) & 0x3FF;
+        vVideo = (end - start) / 2;
+        return;
+    }
 
-        case 0x4400030: // VI_X_SCALE
-            // Set the framebuffer X-scale
-            // TODO: actually use offset value
-            xScale = (value & 0xFFF);
-            return;
+    case 0x4400030: // VI_X_SCALE
+        // Set the framebuffer X-scale
+        // TODO: actually use offset value
+        xScale = (value & 0xFFF);
+        return;
 
-        case 0x4400034: // VI_Y_SCALE
-            // Set the framebuffer Y-scale
-            // TODO: actually use offset value
-            yScale = (value & 0xFFF);
-            return;
+    case 0x4400034: // VI_Y_SCALE
+        // Set the framebuffer Y-scale
+        // TODO: actually use offset value
+        yScale = (value & 0xFFF);
+        return;
 
-        default:
-            LOG_WARN("Unknown VI register write: 0x%X\n", address);
-            return;
+    default:
+        LOG_WARN("Unknown VI register write: 0x%X\n", address);
+        return;
     }
 }
 
-void VI::drawFrame()
-{
+void VI::drawFrame() {
     // Ensure the RDP thread has finished drawing
     RDP::finishThread();
 
     // Allow up to 2 framebuffers to be queued, to preserve frame pacing if emulation runs ahead
-    if (framebuffers.size() < 2)
-    {
+    if (framebuffers.size() < 2) {
         // Create a new framebuffer
         _Framebuffer *fb = new _Framebuffer();
-        fb->width  = ((xScale ? xScale : 0x200) * hVideo) >> 10;
+        fb->width = ((xScale ? xScale : 0x200) * hVideo) >> 10;
         fb->height = ((yScale ? yScale : 0x200) * vVideo) >> 10;
         fb->data = new uint32_t[fb->width * fb->height];
 
         // Clear the screen if there's nothing to display
-        if (fb->width == 0 || fb->height == 0)
-        {
+        if (fb->width == 0 || fb->height == 0) {
             fb->width = 8;
             fb->height = 8;
             delete[] fb->data;
@@ -175,43 +163,38 @@ void VI::drawFrame()
         }
 
         // Read the framebuffer from N64 memory
-        switch (control & 0x3) // Type
-        {
-            case 0x3: // 32-bit
-                // Translate pixels from RGB_8888 to ARGB8888
-                for (uint32_t y = 0; y < fb->height; y++)
-                {
-                    for (uint32_t x = 0; x < fb->width; x++)
-                    {
-                        uint32_t color = Memory::read<uint32_t>(origin + ((y * width + x) << 2));
-                        uint8_t r = (color >> 24) & 0xFF;
-                        uint8_t g = (color >> 16) & 0xFF;
-                        uint8_t b = (color >>  8) & 0xFF;
-                        fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-                    }
+        switch (control & 0x3) { // Type
+        case 0x3: // 32-bit
+            // Translate pixels from RGB_8888 to ARGB8888
+            for (uint32_t y = 0; y < fb->height; y++) {
+                for (uint32_t x = 0; x < fb->width; x++) {
+                    uint32_t color = Memory::read<uint32_t>(origin + ((y * width + x) << 2));
+                    uint8_t r = (color >> 24) & 0xFF;
+                    uint8_t g = (color >> 16) & 0xFF;
+                    uint8_t b = (color >>  8) & 0xFF;
+                    fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
                 }
-                break;
+            }
+            break;
 
-            case 0x2: // 16-bit
-                // Translate pixels from RGB_5551 to ARGB8888
-                for (uint32_t y = 0; y < fb->height; y++)
-                {
-                    for (uint32_t x = 0; x < fb->width; x++)
-                    {
-                        uint16_t color = Memory::read<uint16_t>(origin + ((y * width + x) << 1));
-                        uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
-                        uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
-                        uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
-                        fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-                    }
+        case 0x2: // 16-bit
+            // Translate pixels from RGB_5551 to ARGB8888
+            for (uint32_t y = 0; y < fb->height; y++) {
+                for (uint32_t x = 0; x < fb->width; x++) {
+                    uint16_t color = Memory::read<uint16_t>(origin + ((y * width + x) << 1));
+                    uint8_t r = ((color >> 11) & 0x1F) * 255 / 31;
+                    uint8_t g = ((color >>  6) & 0x1F) * 255 / 31;
+                    uint8_t b = ((color >>  1) & 0x1F) * 255 / 31;
+                    fb->data[y * fb->width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
                 }
-                break;
+            }
+            break;
 
-            default:
-            clear:
-                // Don't show anything
-                memset(fb->data, 0, fb->width * fb->height * sizeof(uint32_t));
-                break;
+        default:
+        clear:
+            // Don't show anything
+            memset(fb->data, 0, fb->width * fb->height * sizeof(uint32_t));
+            break;
         }
 
         // Add the frame to the queue

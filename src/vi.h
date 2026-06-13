@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,13 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef VI_H
-#define VI_H
+#pragma once
 
 #include <cstdint>
 
-struct _Framebuffer
-{
+struct _Framebuffer {
     ~_Framebuffer() { delete[] data; }
 
     uint32_t *data;
@@ -31,13 +29,10 @@ struct _Framebuffer
     uint32_t height;
 };
 
-namespace VI
-{
+namespace VI {
     _Framebuffer *getFramebuffer();
 
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 }
-
-#endif // VI_H

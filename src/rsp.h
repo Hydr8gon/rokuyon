@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,18 +17,14 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RSP_H
-#define RSP_H
+#pragma once
 
 #include <cstdint>
 
-namespace RSP
-{
+namespace RSP {
     void reset();
     uint32_t readPC();
     void writePC(uint32_t value);
     void setState(bool halted);
     void runOpcode();
 }
-
-#endif // RSP_H

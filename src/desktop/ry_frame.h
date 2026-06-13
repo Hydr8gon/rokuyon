@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,8 +17,7 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef RY_FRAME_H
-#define RY_FRAME_H
+#pragma once
 
 #include <vector>
 #include <wx/wx.h>
@@ -28,49 +27,45 @@
 
 class ryCanvas;
 
-class ryFrame: public wxFrame
-{
-    public:
-        ryFrame(std::string path);
+class ryFrame: public wxFrame {
+public:
+    ryFrame(std::string path);
 
-        void Refresh();
-        bool isPaused() { return paused; }
+    void Refresh();
+    bool isPaused() { return paused; }
 
-        void pressKey(int key);
-        void releaseKey(int key);
+    void pressKey(int key);
+    void releaseKey(int key);
 
-    private:
-        ryCanvas *canvas;
-        wxMenu *fileMenu;
-        wxMenu *systemMenu;
-        wxJoystick *joystick;
-        wxTimer *timer;
+private:
+    ryCanvas *canvas;
+    wxMenu *fileMenu;
+    wxMenu *systemMenu;
+    wxJoystick *joystick;
+    wxTimer *timer;
 
-        std::string lastPath;
-        bool paused = false;
-        std::vector<int> axisBases;
-        bool stickPressed[5] = {};
+    std::string lastPath;
+    bool paused = false;
+    std::vector<int> axisBases;
+    bool stickPressed[5] = {};
 
-        void bootRom(std::string path);
-        void updateMenu();
-        void updateKeyStick();
+    void bootRom(std::string path);
+    void updateMenu();
+    void updateKeyStick();
 
-        void loadRom(wxCommandEvent &event);
-        void changeSave(wxCommandEvent &event);
-        void quit(wxCommandEvent &event);
-        void pause(wxCommandEvent &event);
-        void restart(wxCommandEvent &event);
-        void stop(wxCommandEvent &event);
-        void inputSettings(wxCommandEvent &event);
-        void toggleFpsLimit(wxCommandEvent &event);
-        void toggleExpanPak(wxCommandEvent &event);
-        void toggleThreadRdp(wxCommandEvent &event);
-        void toggleTexFilter(wxCommandEvent &event);
-        void updateJoystick(wxTimerEvent &event);
-        void dropFiles(wxDropFilesEvent &event);
-        void close(wxCloseEvent &event);
-
-        wxDECLARE_EVENT_TABLE();
+    void loadRom(wxCommandEvent &event);
+    void changeSave(wxCommandEvent &event);
+    void quit(wxCommandEvent &event);
+    void pause(wxCommandEvent &event);
+    void restart(wxCommandEvent &event);
+    void stop(wxCommandEvent &event);
+    void inputSettings(wxCommandEvent &event);
+    void toggleFpsLimit(wxCommandEvent &event);
+    void toggleExpanPak(wxCommandEvent &event);
+    void toggleThreadRdp(wxCommandEvent &event);
+    void toggleTexFilter(wxCommandEvent &event);
+    void updateJoystick(wxTimerEvent &event);
+    void dropFiles(wxDropFilesEvent &event);
+    void close(wxCloseEvent &event);
+    wxDECLARE_EVENT_TABLE();
 };
-
-#endif // RY_FRAME_H

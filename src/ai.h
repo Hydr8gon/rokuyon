@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,18 +17,14 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef AI_H
-#define AI_H
+#pragma once
 
 #include <cstdint>
 
-namespace AI
-{
+namespace AI {
     void fillBuffer(uint32_t *out);
 
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 }
-
-#endif // AI_H

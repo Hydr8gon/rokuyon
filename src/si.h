@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,16 +17,12 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef SI_H
-#define SI_H
+#pragma once
 
 #include <cstdint>
 
-namespace SI
-{
+namespace SI {
     void reset();
     uint32_t read(uint32_t address);
     void write(uint32_t address, uint32_t value);
 }
-
-#endif // SI_H

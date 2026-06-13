@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -20,8 +20,7 @@
 #include "save_dialog.h"
 #include "../core.h"
 
-enum SaveEvent
-{
+enum SaveEvent {
     SELECT_0 = 1,
     SELECT_1,
     SELECT_2,
@@ -38,35 +37,30 @@ EVT_RADIOBUTTON(SELECT_4, SaveDialog::select4)
 EVT_BUTTON(wxID_OK, SaveDialog::confirm)
 wxEND_EVENT_TABLE()
 
-uint32_t SaveDialog::selectToSize(uint32_t select)
-{
+uint32_t SaveDialog::selectToSize(uint32_t select) {
     // Convert a save selection to a size
-    switch (select)
-    {
-        case 1:  return 0x00200; // EEPROM 0.5KB
-        case 2:  return 0x00800; // EEPROM 8KB
-        case 3:  return 0x08000; // SRAM 32KB
-        case 4:  return 0x20000; // FLASH 128KB
+    switch (select) {
+        case 1: return 0x00200; // EEPROM 0.5KB
+        case 2: return 0x00800; // EEPROM 8KB
+        case 3: return 0x08000; // SRAM 32KB
+        case 4: return 0x20000; // FLASH 128KB
         default: return 0x00000; // None
     }
 }
 
-uint32_t SaveDialog::sizeToSelect(uint32_t size)
-{
+uint32_t SaveDialog::sizeToSelect(uint32_t size) {
     // Convert a save size to a selection
-    switch (size)
-    {
+    switch (size) {
         case 0x00200: return 1; // EEPROM 0.5KB
         case 0x00800: return 2; // EEPROM 8KB
         case 0x08000: return 3; // SRAM 32KB
         case 0x20000: return 4; // FLASH 128KB
-        default:      return 0; // None
+        default: return 0; // None
     }
 }
 
 SaveDialog::SaveDialog(std::string &lastPath): lastPath(lastPath),
-    wxDialog(nullptr, wxID_ANY, "Change Save Type")
-{
+    wxDialog(nullptr, wxID_ANY, "Change Save Type") {
     // Get the height of a button in pixels as a reference scale for the rest of the UI
     wxButton *dummy = new wxButton(this, wxID_ANY, "");
     size_t scale = dummy->GetSize().y;
@@ -116,45 +110,38 @@ SaveDialog::SaveDialog(std::string &lastPath): lastPath(lastPath),
     SetMaxSize(GetSize());
 }
 
-void SaveDialog::select0(wxCommandEvent &event)
-{
+void SaveDialog::select0(wxCommandEvent &event) {
     // Select save type 0
     selection = 0;
 }
 
-void SaveDialog::select1(wxCommandEvent &event)
-{
+void SaveDialog::select1(wxCommandEvent &event) {
     // Select save type 1
     selection = 1;
 }
 
-void SaveDialog::select2(wxCommandEvent &event)
-{
+void SaveDialog::select2(wxCommandEvent &event) {
     // Select save type 2
     selection = 2;
 }
 
-void SaveDialog::select3(wxCommandEvent &event)
-{
+void SaveDialog::select3(wxCommandEvent &event) {
     // Select save type 3
     selection = 3;
 }
 
-void SaveDialog::select4(wxCommandEvent &event)
-{
+void SaveDialog::select4(wxCommandEvent &event) {
     // Select save type 4
     selection = 4;
 }
 
-void SaveDialog::confirm(wxCommandEvent &event)
-{
+void SaveDialog::confirm(wxCommandEvent &event) {
     // Ask for confirmation before doing anything because accidents could be bad!
     wxMessageDialog dialog(this, "Are you sure? This may result in data loss!",
         "Changing Save Type", wxYES_NO | wxICON_NONE);
 
     // On confirmation, change the save type and restart the emulator
-    if (dialog.ShowModal() == wxID_YES)
-    {
+    if (dialog.ShowModal() == wxID_YES) {
         Core::stop();
         Core::resizeSave(selectToSize(selection));
         Core::bootRom(lastPath);

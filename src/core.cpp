@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -41,22 +41,19 @@
 #include "si.h"
 #include "vi.h"
 
-struct Task
-{
+struct Task {
     Task(void (*function)(), uint32_t cycles):
         function(function), cycles(cycles) {}
 
     void (*function)();
     uint32_t cycles;
 
-    bool operator<(const Task &task) const
-    {
+    bool operator<(const Task &task) const {
         return cycles < task.cycles;
     }
 };
 
-namespace Core
-{
+namespace Core {
     std::thread *emuThread;
     std::thread *saveThread;
     std::condition_variable condVar;
@@ -89,8 +86,7 @@ namespace Core
     void resetCycles();
 }
 
-bool Core::bootRom(const std::string &path)
-{
+bool Core::bootRom(const std::string &path) {
     // Try to open the specified ROM file
     FILE *romFile = fopen(path.c_str(), "rb");
     if (!romFile) return false;
@@ -112,8 +108,7 @@ bool Core::bootRom(const std::string &path)
     if (save) delete[] save;
     saveDirty = false;
 
-    if (FILE *saveFile = fopen(savePath.c_str(), "rb"))
-    {
+    if (FILE *saveFile = fopen(savePath.c_str(), "rb")) {
         // Load the save file into memory if it exists
         fseek(saveFile, 0, SEEK_END);
         saveSize = ftell(saveFile);
@@ -122,8 +117,7 @@ bool Core::bootRom(const std::string &path)
         fread(save, sizeof(uint8_t), saveSize, saveFile);
         fclose(saveFile);
     }
-    else
-    {
+    else {
         // If no save file exists, assume no save
         // TODO: some sort of detection, or a database
         saveSize = 0;
@@ -159,20 +153,17 @@ bool Core::bootRom(const std::string &path)
     return true;
 }
 
-void Core::resizeSave(uint32_t newSize)
-{
+void Core::resizeSave(uint32_t newSize) {
     // Create a save with the new size
     saveMutex.lock();
     uint8_t *newSave = new uint8_t[newSize];
 
-    if (saveSize < newSize) // New save is larger
-    {
+    if (saveSize < newSize) { // New save is larger
         // Copy all of the old save and fill the rest with 0xFF
         memcpy(newSave, save, saveSize * sizeof(uint8_t));
         memset(&newSave[saveSize], 0xFF, (newSize - saveSize) * sizeof(uint8_t));
     }
-    else // New save is smaller
-    {
+    else { // New save is smaller
         // Copy as much of the old save as possible
         memcpy(newSave, save, newSize * sizeof(uint8_t));
     }
@@ -186,23 +177,18 @@ void Core::resizeSave(uint32_t newSize)
     updateSave();
 }
 
-void Core::start()
-{
+void Core::start() {
     // Start the threads if emulation wasn't running
-    if (!running)
-    {
+    if (!running) {
         running = true;
         emuThread = new std::thread(runLoop);
         saveThread = new std::thread(saveLoop);
     }
 }
 
-void Core::stop()
-{
-    if (running)
-    {
-        {
-            // Signal for the threads to stop
+void Core::stop() {
+    if (running) {
+        { // Signal for the threads to stop
             std::lock_guard<std::mutex> guard(waitMutex);
             running = false;
             condVar.notify_one();
@@ -217,23 +203,18 @@ void Core::stop()
     }
 }
 
-void Core::runLoop()
-{
-    while (running)
-    {
+void Core::runLoop() {
+    while (running) {
         // Run the CPUs until the next scheduled task
-        while (tasks[0].cycles > globalCycles)
-        {
+        while (tasks[0].cycles > globalCycles) {
             // Run a CPU opcode if ready and schedule the next one
-            if (cpuRunning && globalCycles >= cpuCycles)
-            {
+            if (cpuRunning && globalCycles >= cpuCycles) {
                 CPU::runOpcode();
                 cpuCycles = globalCycles + 2;
             }
 
             // Run an RSP opcode if ready and schedule the next one
-            if (rspRunning && globalCycles >= rspCycles)
-            {
+            if (rspRunning && globalCycles >= rspCycles) {
                 RSP::runOpcode();
                 rspCycles = globalCycles + 3;
             }
@@ -246,18 +227,15 @@ void Core::runLoop()
         globalCycles = tasks[0].cycles;
 
         // Run all tasks that are scheduled now
-        while (tasks[0].cycles <= globalCycles)
-        {
+        while (tasks[0].cycles <= globalCycles) {
             (*tasks[0].function)();
             tasks.erase(tasks.begin());
         }
     }
 }
 
-void Core::saveLoop()
-{
-    while (running)
-    {
+void Core::saveLoop() {
+    while (running) {
         // Every few seconds, check if the save file should be updated
         std::unique_lock<std::mutex> lock(waitMutex);
         condVar.wait_for(lock, std::chrono::seconds(3), [&]{ return !running; });
@@ -265,27 +243,23 @@ void Core::saveLoop()
     }
 }
 
-void Core::countFrame()
-{
+void Core::countFrame() {
     // Calculate the time since the FPS was last updated
     std::chrono::duration<double> fpsTime = std::chrono::steady_clock::now() - lastFpsTime;
 
-    if (fpsTime.count() >= 1.0f)
-    {
+    if (fpsTime.count() >= 1.0f) {
         // Update the FPS value after one second and reset the counter
         fps = fpsCount;
         fpsCount = 0;
         lastFpsTime = std::chrono::steady_clock::now();
     }
-    else
-    {
+    else {
         // Count another frame
         fpsCount++;
     }
 }
 
-void Core::writeSave(uint32_t address, uint8_t value)
-{
+void Core::writeSave(uint32_t address, uint8_t value) {
     // Safely write a byte of data to the current save
     saveMutex.lock();
     save[address] = value;
@@ -293,14 +267,11 @@ void Core::writeSave(uint32_t address, uint8_t value)
     saveMutex.unlock();
 }
 
-void Core::updateSave()
-{
+void Core::updateSave() {
     // Update the save file if the data changed
     saveMutex.lock();
-    if (saveDirty)
-    {
-        if (FILE *saveFile = fopen(savePath.c_str(), "wb"))
-        {
+    if (saveDirty) {
+        if (FILE *saveFile = fopen(savePath.c_str(), "wb")) {
             LOG_INFO("Writing save file to disk\n");
             fwrite(save, sizeof(uint8_t), saveSize, saveFile);
             fclose(saveFile);
@@ -310,8 +281,7 @@ void Core::updateSave()
     saveMutex.unlock();
 }
 
-void Core::resetCycles()
-{
+void Core::resetCycles() {
     // Reset the cycle counts to prevent overflow
     CPU_CP0::resetCycles();
     for (size_t i = 0; i < tasks.size(); i++)
@@ -324,8 +294,7 @@ void Core::resetCycles()
     schedule(resetCycles, 0x7FFFFFFF);
 }
 
-void Core::schedule(void (*function)(), uint32_t cycles)
-{
+void Core::schedule(void (*function)(), uint32_t cycles) {
     // Add a task to the scheduler, sorted by least to most cycles until execution
     // Cycles run at 93.75 * 2 MHz
     Task task(function, globalCycles + cycles);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,13 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef MI_H
-#define MI_H
+#pragma once
 
 #include <cstdint>
 
-namespace MI
-{
+namespace MI {
     extern uint32_t interrupt;
     extern uint32_t mask;
 
@@ -34,5 +32,3 @@ namespace MI
     void setInterrupt(int bit);
     void clearInterrupt(int bit);
 }
-
-#endif // MI_H

@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -26,15 +26,13 @@
 #include "log.h"
 #include "memory.h"
 
-// _mul128 / _umul128
 #ifdef _MSC_VER
 #include <intrin.h>
 #pragma intrinsic(_mul128)
 #pragma intrinsic(_umul128)
 #endif
 
-namespace CPU
-{
+namespace CPU {
     uint64_t registersR[33];
     uint64_t *registersW[32];
     uint64_t hi, lo;
@@ -165,42 +163,38 @@ namespace CPU
 }
 
 // Immediate-type CPU instruction lookup table, using opcode bits 26-31
-void (*CPU::immInstrs[0x40])(uint32_t) =
-{
-    nullptr, nullptr, j,    jal,   beq,  bne,  blez,  bgtz,  // 0x00-0x07
-    addi,    addiu,   slti, sltiu, andi, ori,  xori,  lui,   // 0x08-0x0F
-    cop0,    cop1,    unk,  unk,   beql, bnel, blezl, bgtzl, // 0x10-0x17
-    daddi,   daddiu,  ldl,  ldr,   unk,  unk,  unk,   unk,   // 0x18-0x1F
-    lb,      lh,      lwl,  lw,    lbu,  lhu,  lwr,   lwu,   // 0x20-0x27
-    sb,      sh,      swl,  sw,    sdl,  sdr,  swr,   cache, // 0x28-0x2F
-    unk,     lwc1,    unk,  unk,   unk,  ldc1, unk,   ld,    // 0x30-0x37
-    unk,     swc1,    unk,  unk,   unk,  sdc1, unk,   sd     // 0x38-0x3F
+void (*CPU::immInstrs[0x40])(uint32_t) = {
+    nullptr, nullptr, j, jal, beq, bne, blez, bgtz, // 0x00-0x07
+    addi, addiu, slti, sltiu, andi, ori, xori, lui, // 0x08-0x0F
+    cop0, cop1, unk, unk, beql, bnel, blezl, bgtzl, // 0x10-0x17
+    daddi, daddiu, ldl, ldr, unk, unk, unk, unk, // 0x18-0x1F
+    lb, lh, lwl, lw, lbu, lhu, lwr, lwu, // 0x20-0x27
+    sb, sh, swl, sw, sdl, sdr, swr, cache, // 0x28-0x2F
+    unk, lwc1, unk, unk, unk, ldc1, unk, ld, // 0x30-0x37
+    unk, swc1, unk, unk, unk, sdc1, unk, sd // 0x38-0x3F
 };
 
 // Register-type CPU instruction lookup table, using opcode bits 0-5
-void (*CPU::regInstrs[0x40])(uint32_t) =
-{
-    sll,  unk,   srl,  sra,  sllv,    unk,    srlv,   srav,  // 0x00-0x07
-    jr,   jalr,  unk,  unk,  syscall, break_, unk,    unk,   // 0x08-0x0F
-    mfhi, mthi,  mflo, mtlo, dsllv,   unk,    dsrlv,  dsrav, // 0x10-0x17
-    mult, multu, div,  divu, dmult,   dmultu, ddiv,   ddivu, // 0x18-0x1F
-    add,  addu,  sub,  subu, and_,    or_,    xor_,   nor,   // 0x20-0x27
-    unk,  unk,   slt,  sltu, dadd,    daddu,  dsub,   dsubu, // 0x28-0x2F
-    unk,  unk,   unk,  unk,  unk,     unk,    unk,    unk,   // 0x30-0x37
-    dsll, unk,   dsrl, dsra, dsll32,  unk,    dsrl32, dsra32 // 0x38-0x3F
+void (*CPU::regInstrs[0x40])(uint32_t) = {
+    sll, unk, srl, sra, sllv, unk, srlv, srav, // 0x00-0x07
+    jr, jalr, unk, unk, syscall, break_, unk, unk, // 0x08-0x0F
+    mfhi, mthi, mflo, mtlo, dsllv, unk, dsrlv, dsrav, // 0x10-0x17
+    mult, multu, div, divu, dmult, dmultu, ddiv, ddivu, // 0x18-0x1F
+    add, addu, sub, subu, and_, or_, xor_, nor, // 0x20-0x27
+    unk, unk, slt, sltu, dadd, daddu, dsub, dsubu, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    dsll, unk, dsrl, dsra, dsll32, unk, dsrl32, dsra32 // 0x38-0x3F
 };
 
 // Extra-type CPU instruction lookup table, using opcode bits 16-20
-void (*CPU::extInstrs[0x20])(uint32_t) =
-{
-    bltz,   bgez,   bltzl,   bgezl,   unk, unk, unk, unk, // 0x00-0x07
-    unk,    unk,    unk,     unk,     unk, unk, unk, unk, // 0x08-0x0F
+void (*CPU::extInstrs[0x20])(uint32_t) = {
+    bltz, bgez, bltzl, bgezl, unk, unk, unk, unk, // 0x00-0x07
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
     bltzal, bgezal, bltzall, bgezall, unk, unk, unk, unk, // 0x10-0x17
-    unk,    unk,    unk,     unk,     unk, unk, unk, unk  // 0x18-0x1F
+    unk, unk, unk, unk, unk, unk, unk, unk // 0x18-0x1F
 };
 
-void CPU::reset()
-{
+void CPU::reset() {
     // Map the writable registers so that writes to r0 are redirected
     registersW[0] = &registersR[32];
     for (int i = 1; i < 32; i++)
@@ -214,8 +208,7 @@ void CPU::reset()
     delaySlot = -1;
 }
 
-void CPU::runOpcode()
-{
+void CPU::runOpcode() {
     // Move an opcode through the pipeline
     // TODO: unaligned address exception
     uint32_t opcode = nextOpcode;
@@ -223,11 +216,10 @@ void CPU::runOpcode()
     bool clear = (delaySlot != -1);
 
     // Look up and execute an instruction
-    switch (opcode >> 26)
-    {
-        default: (*immInstrs[opcode >> 26])(opcode);          break;
-        case 0:  (*regInstrs[opcode & 0x3F])(opcode);         break;
-        case 1:  (*extInstrs[(opcode >> 16) & 0x1F])(opcode); break;
+    switch (opcode >> 26) {
+        default: (*immInstrs[opcode >> 26])(opcode); break;
+        case 0: (*regInstrs[opcode & 0x3F])(opcode); break;
+        case 1: (*extInstrs[(opcode >> 16) & 0x1F])(opcode); break;
     }
 
     // Clear the delay slot address after it executes
@@ -235,23 +227,20 @@ void CPU::runOpcode()
         delaySlot = -1;
 }
 
-void CPU::j(uint32_t opcode)
-{
+void CPU::j(uint32_t opcode) {
     // Jump to an immediate value
     delaySlot = programCounter;
     programCounter = ((programCounter & 0xF0000000) | ((opcode & 0x3FFFFFF) << 2)) - 4;
 }
 
-void CPU::jal(uint32_t opcode)
-{
+void CPU::jal(uint32_t opcode) {
     // Save the return address and jump to an immediate value
     delaySlot = programCounter;
     *registersW[31] = programCounter + 4;
     programCounter = ((programCounter & 0xF0000000) | ((opcode & 0x3FFFFFF) << 2)) - 4;
 }
 
-void CPU::beq(uint32_t opcode)
-{
+void CPU::beq(uint32_t opcode) {
     // If an idle loop is detected, halt the CPU until an exception occurs
     // This is common since the CPU doesn't have an actual halt function
     if (opcode == 0x1000FFFF && !nextOpcode)
@@ -263,32 +252,28 @@ void CPU::beq(uint32_t opcode)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bne(uint32_t opcode)
-{
+void CPU::bne(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if two registers aren't equal
     delaySlot = programCounter;
     if (registersR[(opcode >> 21) & 0x1F] != registersR[(opcode >> 16) & 0x1F])
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::blez(uint32_t opcode)
-{
+void CPU::blez(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less or equal to zero
     delaySlot = programCounter;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] <= 0)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bgtz(uint32_t opcode)
-{
+void CPU::bgtz(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater than zero
     delaySlot = programCounter;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] > 0)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::addi(uint32_t opcode)
-{
+void CPU::addi(uint32_t opcode) {
     // Add a signed 16-bit immediate to a register and store the lower result
     // On overflow, trigger an integer overflow exception
     int32_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -299,56 +284,48 @@ void CPU::addi(uint32_t opcode)
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::addiu(uint32_t opcode)
-{
+void CPU::addiu(uint32_t opcode) {
     // Add a signed 16-bit immediate to a register and store the lower result
     int32_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::slti(uint32_t opcode)
-{
+void CPU::slti(uint32_t opcode) {
     // Check if a signed register is less than a signed 16-bit immediate, and store the result
     bool value = (int64_t)registersR[(opcode >> 21) & 0x1F] < (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::sltiu(uint32_t opcode)
-{
+void CPU::sltiu(uint32_t opcode) {
     // Check if a register is less than a signed 16-bit immediate, and store the result
     bool value = registersR[(opcode >> 21) & 0x1F] < (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::andi(uint32_t opcode)
-{
+void CPU::andi(uint32_t opcode) {
     // Bitwise and a register with a 16-bit immediate and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] & (opcode & 0xFFFF);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::ori(uint32_t opcode)
-{
+void CPU::ori(uint32_t opcode) {
     // Bitwise or a register with a 16-bit immediate and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] | (opcode & 0xFFFF);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::xori(uint32_t opcode)
-{
+void CPU::xori(uint32_t opcode) {
     // Bitwise exclusive or a register with a 16-bit immediate and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] ^ (opcode & 0xFFFF);
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::lui(uint32_t opcode)
-{
+void CPU::lui(uint32_t opcode) {
     // Load a 16-bit immediate into the upper 16 bits of a register
     *registersW[(opcode >> 16) & 0x1F] = (int16_t)opcode << 16;
 }
 
-void CPU::beql(uint32_t opcode)
-{
+void CPU::beql(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if two registers are equal
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -358,8 +335,7 @@ void CPU::beql(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bnel(uint32_t opcode)
-{
+void CPU::bnel(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if two registers aren't equal
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -369,8 +345,7 @@ void CPU::bnel(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::blezl(uint32_t opcode)
-{
+void CPU::blezl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less or equal to zero
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -380,8 +355,7 @@ void CPU::blezl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bgtzl(uint32_t opcode)
-{
+void CPU::bgtzl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater than zero
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -391,8 +365,7 @@ void CPU::bgtzl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::daddi(uint32_t opcode)
-{
+void CPU::daddi(uint32_t opcode) {
     // Add a signed 16-bit immediate to a register and store the result
     // On overflow, trigger an integer overflow exception
     int64_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -403,15 +376,13 @@ void CPU::daddi(uint32_t opcode)
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::daddiu(uint32_t opcode)
-{
+void CPU::daddiu(uint32_t opcode) {
     // Add a signed 16-bit immediate to a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = value;
 }
 
-void CPU::ldl(uint32_t opcode)
-{
+void CPU::ldl(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 64-bit word
     // The aligned 64-bit word is shifted left so its bytes misalign to match the address
@@ -423,8 +394,7 @@ void CPU::ldl(uint32_t opcode)
     *reg = (*reg & ~((uint64_t)-1 << ((address & 7) * 8))) | value;
 }
 
-void CPU::ldr(uint32_t opcode)
-{
+void CPU::ldr(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 64-bit word
     // The aligned 64-bit word is shifted right so its bytes misalign to match the address
@@ -436,23 +406,20 @@ void CPU::ldr(uint32_t opcode)
     *reg = (*reg & ~((uint64_t)-1 >> ((7 - (address & 7)) * 8))) | value;
 }
 
-void CPU::lb(uint32_t opcode)
-{
+void CPU::lb(uint32_t opcode) {
     // Load a signed byte from memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int8_t)Memory::read<uint8_t>(address);
 }
 
-void CPU::lh(uint32_t opcode)
-{
+void CPU::lh(uint32_t opcode) {
     // Load a signed half-word from memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int16_t)Memory::read<uint16_t>(address);
 }
 
-void CPU::lwl(uint32_t opcode)
-{
+void CPU::lwl(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 32-bit word
     // The aligned 32-bit word is shifted left so its bytes misalign to match the address
@@ -464,31 +431,27 @@ void CPU::lwl(uint32_t opcode)
     *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 << ((address & 7) * 8))) | value);
 }
 
-void CPU::lw(uint32_t opcode)
-{
+void CPU::lw(uint32_t opcode) {
     // Load a signed word from memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = (int32_t)Memory::read<uint32_t>(address);
 }
 
-void CPU::lbu(uint32_t opcode)
-{
+void CPU::lbu(uint32_t opcode) {
     // Load a byte from memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint8_t>(address);
 }
 
-void CPU::lhu(uint32_t opcode)
-{
+void CPU::lhu(uint32_t opcode) {
     // Load a half-word from memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint16_t>(address);
 }
 
-void CPU::lwr(uint32_t opcode)
-{
+void CPU::lwr(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 32-bit word
     // The aligned 32-bit word is shifted right so its bytes misalign to match the address
@@ -500,31 +463,27 @@ void CPU::lwr(uint32_t opcode)
     *reg = (int32_t)(((uint32_t)*reg & ~((uint32_t)-1 >> ((3 - (address & 3)) * 8))) | value);
 }
 
-void CPU::lwu(uint32_t opcode)
-{
+void CPU::lwu(uint32_t opcode) {
     // Load a word from memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint32_t>(address);
 }
 
-void CPU::sb(uint32_t opcode)
-{
+void CPU::sb(uint32_t opcode) {
     // Store a byte to memory at base register plus immeditate offset
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint8_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::sh(uint32_t opcode)
-{
+void CPU::sh(uint32_t opcode) {
     // Store a half-word to memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint16_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::swl(uint32_t opcode)
-{
+void CPU::swl(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 32-bit word
     // A register value is shifted right so its bytes misalign to match the address
@@ -536,16 +495,14 @@ void CPU::swl(uint32_t opcode)
     Memory::write<uint32_t>(address & ~3, rVal | mVal);
 }
 
-void CPU::sw(uint32_t opcode)
-{
+void CPU::sw(uint32_t opcode) {
     // Store a word to memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::sdl(uint32_t opcode)
-{
+void CPU::sdl(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the most significant byte of a misaligned 64-bit word
     // A register value is shifted right so its bytes misalign to match the address
@@ -557,8 +514,7 @@ void CPU::sdl(uint32_t opcode)
     Memory::write<uint64_t>(address & ~7, rVal | mVal);
 }
 
-void CPU::sdr(uint32_t opcode)
-{
+void CPU::sdr(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the least significant byte of a misaligned 64-bit word
     // A register value is shifted left so its bytes misalign to match the address
@@ -570,8 +526,7 @@ void CPU::sdr(uint32_t opcode)
     Memory::write<uint64_t>(address & ~7, rVal | mVal);
 }
 
-void CPU::swr(uint32_t opcode)
-{
+void CPU::swr(uint32_t opcode) {
     // This instruction is confusing, but I'll try my best to explain
     // The address points to the least significant byte of a misaligned 32-bit word
     // A register value is shifted left so its bytes misalign to match the address
@@ -583,176 +538,151 @@ void CPU::swr(uint32_t opcode)
     Memory::write<uint32_t>(address & ~3, rVal | mVal);
 }
 
-void CPU::cache(uint32_t opcode)
-{
+void CPU::cache(uint32_t opcode) {
     // The cache isn't emulated, so just warn about an unknown operation
     LOG_WARN("Unknown cache operation: 0x%02X\n", (opcode >> 16) & 0x1F);
 }
 
-void CPU::lwc1(uint32_t opcode)
-{
+void CPU::lwc1(uint32_t opcode) {
     // Load a word from memory at base plus offset to a CP1 register
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     CPU_CP1::write(CP1_32BIT, (opcode >> 16) & 0x1F, Memory::read<uint32_t>(address));
 }
 
-void CPU::ldc1(uint32_t opcode)
-{
+void CPU::ldc1(uint32_t opcode) {
     // Load a double-word from memory at base plus offset to a CP1 register
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     CPU_CP1::write(CP1_64BIT, (opcode >> 16) & 0x1F, Memory::read<uint64_t>(address));
 }
 
-void CPU::ld(uint32_t opcode)
-{
+void CPU::ld(uint32_t opcode) {
     // Load a double-word from memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     *registersW[(opcode >> 16) & 0x1F] = Memory::read<uint64_t>(address);
 }
 
-void CPU::swc1(uint32_t opcode)
-{
+void CPU::swc1(uint32_t opcode) {
     // Store a word to memory at base plus offset from a CP1 register
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint32_t>(address, CPU_CP1::read(CP1_32BIT, (opcode >> 16) & 0x1F));
 }
 
-void CPU::sdc1(uint32_t opcode)
-{
+void CPU::sdc1(uint32_t opcode) {
     // Store a double-word to memory at base plus offset from a CP1 register
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint64_t>(address, CPU_CP1::read(CP1_64BIT, (opcode >> 16) & 0x1F));
 }
 
-void CPU::sd(uint32_t opcode)
-{
+void CPU::sd(uint32_t opcode) {
     // Store a double-word to memory at base register plus immeditate offset
     // TODO: unaligned address exception
     uint32_t address = registersR[(opcode >> 21) & 0x1F] + (int16_t)opcode;
     Memory::write<uint64_t>(address, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::sll(uint32_t opcode)
-{
+void CPU::sll(uint32_t opcode) {
     // Shift a register left by a 5-bit immediate and store the lower result
     int32_t value = registersR[(opcode >> 16) & 0x1F] << ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::srl(uint32_t opcode)
-{
+void CPU::srl(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate and store the lower result
     int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::sra(uint32_t opcode)
-{
+void CPU::sra(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate and store the lower signed result
     int32_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::sllv(uint32_t opcode)
-{
+void CPU::sllv(uint32_t opcode) {
     // Shift a register left by a register and store the lower result
     int32_t value = registersR[(opcode >> 16) & 0x1F] << (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::srlv(uint32_t opcode)
-{
+void CPU::srlv(uint32_t opcode) {
     // Shift a register right by a register and store the lower result
     int32_t value = (uint32_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::srav(uint32_t opcode)
-{
+void CPU::srav(uint32_t opcode) {
     // Shift a register right by a register and store the lower signed result
     int32_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::jr(uint32_t opcode)
-{
+void CPU::jr(uint32_t opcode) {
     // Jump to an address stored in a register
     delaySlot = programCounter;
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
-void CPU::jalr(uint32_t opcode)
-{
+void CPU::jalr(uint32_t opcode) {
     // Save the return address and jump to an address stored in a register
     delaySlot = programCounter;
     *registersW[(opcode >> 11) & 0x1F] = programCounter + 4;
     programCounter = registersR[(opcode >> 21) & 0x1F] - 4;
 }
 
-void CPU::syscall(uint32_t opcode)
-{
+void CPU::syscall(uint32_t opcode) {
     // Trigger a system call exception
     CPU_CP0::exception(8);
 }
 
-void CPU::break_(uint32_t opcode)
-{
+void CPU::break_(uint32_t opcode) {
     // Trigger a breakpoint exception
     CPU_CP0::exception(9);
 }
 
-void CPU::mfhi(uint32_t opcode)
-{
+void CPU::mfhi(uint32_t opcode) {
     // Copy the high word of the mult/div result to a register
     *registersW[(opcode >> 11) & 0x1F] = hi;
 }
 
-void CPU::mthi(uint32_t opcode)
-{
+void CPU::mthi(uint32_t opcode) {
     // Copy a register to the high word of the mult/div result
     hi = registersR[(opcode >> 21) & 0x1F];
 }
 
-void CPU::mflo(uint32_t opcode)
-{
+void CPU::mflo(uint32_t opcode) {
     // Copy the low word of the mult/div result to a register
     *registersW[(opcode >> 11) & 0x1F] = lo;
 }
 
-void CPU::mtlo(uint32_t opcode)
-{
+void CPU::mtlo(uint32_t opcode) {
     // Copy a register to the low word of the mult/div result
     lo = registersR[(opcode >> 21) & 0x1F];
 }
 
-void CPU::dsllv(uint32_t opcode)
-{
+void CPU::dsllv(uint32_t opcode) {
     // Shift a register left by a register and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] << (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsrlv(uint32_t opcode)
-{
+void CPU::dsrlv(uint32_t opcode) {
     // Shift a register right by a register and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsrav(uint32_t opcode)
-{
+void CPU::dsrav(uint32_t opcode) {
     // Shift a register right by a register and store the signed result
     uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> (registersR[(opcode >> 21) & 0x1F] & 0x3F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::mult(uint32_t opcode)
-{
+void CPU::mult(uint32_t opcode) {
     // Multiply two 32-bit signed registers and set the 64-bit result
     int64_t value = (int64_t)(int32_t)registersR[(opcode >> 16) & 0x1F] *
         (int32_t)registersR[(opcode >> 21) & 0x1F];
@@ -760,8 +690,7 @@ void CPU::mult(uint32_t opcode)
     lo = (int32_t)value;
 }
 
-void CPU::multu(uint32_t opcode)
-{
+void CPU::multu(uint32_t opcode) {
     // Multiply two 32-bit unsigned registers and set the 64-bit result
     uint64_t value = (uint64_t)(uint32_t)registersR[(opcode >> 16) & 0x1F] *
         (uint32_t)registersR[(opcode >> 21) & 0x1F];
@@ -769,33 +698,28 @@ void CPU::multu(uint32_t opcode)
     lo = (int32_t)value;
 }
 
-void CPU::div(uint32_t opcode)
-{
+void CPU::div(uint32_t opcode) {
     // Divide two 32-bit signed registers and set the 32-bit result and remainder
     // TODO: handle edge cases
     int32_t divisor = registersR[(opcode >> 16) & 0x1F];
     int32_t value = registersR[(opcode >> 21) & 0x1F];
-    if (divisor && !(divisor == -1 && value == (1 << 31)))
-    {
+    if (divisor && !(divisor == -1 && value == (1 << 31))) {
         hi = value % divisor;
         lo = value / divisor;
     }
 }
 
-void CPU::divu(uint32_t opcode)
-{
+void CPU::divu(uint32_t opcode) {
     // Divide two 32-bit unsigned registers and set the 32-bit result and remainder
     // TODO: handle edge cases
-    if (uint32_t divisor = registersR[(opcode >> 16) & 0x1F])
-    {
+    if (uint32_t divisor = registersR[(opcode >> 16) & 0x1F]) {
         uint32_t value = registersR[(opcode >> 21) & 0x1F];
         hi = value % divisor;
         lo = value / divisor;
     }
 }
 
-void CPU::dmult(uint32_t opcode)
-{
+void CPU::dmult(uint32_t opcode) {
     // Multiply two signed 64-bit registers and set the 128-bit result
 #ifdef _MSC_VER
     lo = _mul128((int64_t)registersR[(opcode >> 16) & 0x1F], (int64_t)registersR[(opcode >> 21) & 0x1F], (int64_t *)&hi);
@@ -807,8 +731,7 @@ void CPU::dmult(uint32_t opcode)
 #endif
 }
 
-void CPU::dmultu(uint32_t opcode)
-{
+void CPU::dmultu(uint32_t opcode) {
     // Multiply two unsigned 64-bit registers and set the 128-bit result
 #ifdef _MSC_VER
     lo = _umul128(registersR[(opcode >> 16) & 0x1F], registersR[(opcode >> 21) & 0x1F], &hi);
@@ -820,33 +743,28 @@ void CPU::dmultu(uint32_t opcode)
 #endif
 }
 
-void CPU::ddiv(uint32_t opcode)
-{
+void CPU::ddiv(uint32_t opcode) {
     // Divide two 64-bit signed registers and set the 64-bit result and remainder
     // TODO: handle edge cases
     int64_t divisor = registersR[(opcode >> 16) & 0x1F];
     int64_t value = registersR[(opcode >> 21) & 0x1F];
-    if (divisor && !(divisor == -1 && value == (1L << 63)))
-    {
+    if (divisor && !(divisor == -1 && value == (1L << 63))) {
         hi = value % divisor;
         lo = value / divisor;
     }
 }
 
-void CPU::ddivu(uint32_t opcode)
-{
+void CPU::ddivu(uint32_t opcode) {
     // Divide two 64-bit unsigned registers and set the 64-bit result and remainder
     // TODO: handle edge cases
-    if (uint64_t divisor = registersR[(opcode >> 16) & 0x1F])
-    {
+    if (uint64_t divisor = registersR[(opcode >> 16) & 0x1F]) {
         uint64_t value = registersR[(opcode >> 21) & 0x1F];
         hi = value % divisor;
         lo = value / divisor;
     }
 }
 
-void CPU::add(uint32_t opcode)
-{
+void CPU::add(uint32_t opcode) {
     // Add a register to a register and store the lower result
     // On overflow, trigger an integer overflow exception
     int32_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -857,15 +775,13 @@ void CPU::add(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::addu(uint32_t opcode)
-{
+void CPU::addu(uint32_t opcode) {
     // Add a register to a register and store the result
     int32_t value = registersR[(opcode >> 21) & 0x1F] + registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::sub(uint32_t opcode)
-{
+void CPU::sub(uint32_t opcode) {
     // Subtract a register from a register and store the lower result
     // On overflow, trigger an integer overflow exception
     int32_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -876,57 +792,49 @@ void CPU::sub(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::subu(uint32_t opcode)
-{
+void CPU::subu(uint32_t opcode) {
     // Subtract a register from a register and store the result
     int32_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::and_(uint32_t opcode)
-{
+void CPU::and_(uint32_t opcode) {
     // Bitwise and a register with a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] & registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::or_(uint32_t opcode)
-{
+void CPU::or_(uint32_t opcode) {
     // Bitwise or a register with a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] | registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::xor_(uint32_t opcode)
-{
+void CPU::xor_(uint32_t opcode) {
     // Bitwise exclusive or a register with a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] ^ registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::nor(uint32_t opcode)
-{
+void CPU::nor(uint32_t opcode) {
     // Bitwise or a register with a register and store the negated result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] | registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = ~value;
 }
 
-void CPU::slt(uint32_t opcode)
-{
+void CPU::slt(uint32_t opcode) {
     // Check if a signed register is less than another signed register, and store the result
     bool value = (int64_t)registersR[(opcode >> 21) & 0x1F] < (int64_t)registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::sltu(uint32_t opcode)
-{
+void CPU::sltu(uint32_t opcode) {
     // Check if a register is less than another register, and store the result
     bool value = registersR[(opcode >> 21) & 0x1F] < registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dadd(uint32_t opcode)
-{
+void CPU::dadd(uint32_t opcode) {
     // Add a register to a register and store the result
     // On overflow, trigger an integer overflow exception
     int64_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -937,15 +845,13 @@ void CPU::dadd(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::daddu(uint32_t opcode)
-{
+void CPU::daddu(uint32_t opcode) {
     // Add a register to a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] + registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsub(uint32_t opcode)
-{
+void CPU::dsub(uint32_t opcode) {
     // Subtract a register from a register and store the result
     // On overflow, trigger an integer overflow exception
     int64_t op1 = registersR[(opcode >> 21) & 0x1F];
@@ -956,73 +862,63 @@ void CPU::dsub(uint32_t opcode)
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsubu(uint32_t opcode)
-{
+void CPU::dsubu(uint32_t opcode) {
     // Subtract a register from a register and store the result
     uint64_t value = registersR[(opcode >> 21) & 0x1F] - registersR[(opcode >> 16) & 0x1F];
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsll(uint32_t opcode)
-{
+void CPU::dsll(uint32_t opcode) {
     // Shift a register left by a 5-bit immediate and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] << ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsrl(uint32_t opcode)
-{
+void CPU::dsrl(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsra(uint32_t opcode)
-{
+void CPU::dsra(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate and store the signed result
     uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> ((opcode >> 6) & 0x1F);
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsll32(uint32_t opcode)
-{
+void CPU::dsll32(uint32_t opcode) {
     // Shift a register left by a 5-bit immediate plus 32 and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] << (32 + ((opcode >> 6) & 0x1F));
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsrl32(uint32_t opcode)
-{
+void CPU::dsrl32(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate plus 32 and store the result
     uint64_t value = registersR[(opcode >> 16) & 0x1F] >> (32 + ((opcode >> 6) & 0x1F));
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::dsra32(uint32_t opcode)
-{
+void CPU::dsra32(uint32_t opcode) {
     // Shift a register right by a 5-bit immediate plus 32 and store the signed result
     uint64_t value = (int64_t)registersR[(opcode >> 16) & 0x1F] >> (32 + ((opcode >> 6) & 0x1F));
     *registersW[(opcode >> 11) & 0x1F] = value;
 }
 
-void CPU::bltz(uint32_t opcode)
-{
+void CPU::bltz(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less than zero
     delaySlot = programCounter;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] < 0)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bgez(uint32_t opcode)
-{
+void CPU::bgez(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     delaySlot = programCounter;
     if ((int64_t)registersR[(opcode >> 21) & 0x1F] >= 0)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bltzl(uint32_t opcode)
-{
+void CPU::bltzl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1032,8 +928,7 @@ void CPU::bltzl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bgezl(uint32_t opcode)
-{
+void CPU::bgezl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1043,8 +938,7 @@ void CPU::bgezl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bltzal(uint32_t opcode)
-{
+void CPU::bltzal(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Also, save the return address
     delaySlot = programCounter;
@@ -1053,8 +947,7 @@ void CPU::bltzal(uint32_t opcode)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bgezal(uint32_t opcode)
-{
+void CPU::bgezal(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Also, save the return address
     delaySlot = programCounter;
@@ -1063,8 +956,7 @@ void CPU::bgezal(uint32_t opcode)
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bltzall(uint32_t opcode)
-{
+void CPU::bltzall(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is less than zero
     // Also, save the return address; otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1075,8 +967,7 @@ void CPU::bltzall(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bgezall(uint32_t opcode)
-{
+void CPU::bgezall(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if a register is greater or equal to zero
     // Also, save the return address; otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1087,72 +978,61 @@ void CPU::bgezall(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::mfc0(uint32_t opcode)
-{
+void CPU::mfc0(uint32_t opcode) {
     // Copy a 32-bit CP0 register value to a CPU register
     *registersW[(opcode >> 16) & 0x1F] = CPU_CP0::read((opcode >> 11) & 0x1F);
 }
 
-void CPU::mtc0(uint32_t opcode)
-{
+void CPU::mtc0(uint32_t opcode) {
     // Copy a 32-bit CPU register value to a CP0 register
     CPU_CP0::write((opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::mfc1(uint32_t opcode)
-{
+void CPU::mfc1(uint32_t opcode) {
     // Copy a 32-bit CP1 register value to a CPU register
     *registersW[(opcode >> 16) & 0x1F] = CPU_CP1::read(CP1_32BIT, (opcode >> 11) & 0x1F);
 }
 
-void CPU::dmfc1(uint32_t opcode)
-{
+void CPU::dmfc1(uint32_t opcode) {
     // Copy a 64-bit CP1 register value to a CPU register
     *registersW[(opcode >> 16) & 0x1F] = CPU_CP1::read(CP1_64BIT, (opcode >> 11) & 0x1F);
 }
 
-void CPU::cfc1(uint32_t opcode)
-{
+void CPU::cfc1(uint32_t opcode) {
     // Copy a 32-bit CP1 control register value to a CPU register
     *registersW[(opcode >> 16) & 0x1F] = CPU_CP1::read(CP1_CTRL, (opcode >> 11) & 0x1F);
 }
 
-void CPU::mtc1(uint32_t opcode)
-{
+void CPU::mtc1(uint32_t opcode) {
     // Copy a 32-bit CPU register value to a CP1 register
     CPU_CP1::write(CP1_32BIT, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::dmtc1(uint32_t opcode)
-{
+void CPU::dmtc1(uint32_t opcode) {
     // Copy a 64-bit CPU register value to a CP1 register
     CPU_CP1::write(CP1_64BIT, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::ctc1(uint32_t opcode)
-{
+void CPU::ctc1(uint32_t opcode) {
     // Copy a 32-bit CPU register value to a CP1 control register
     CPU_CP1::write(CP1_CTRL, (opcode >> 11) & 0x1F, registersR[(opcode >> 16) & 0x1F]);
 }
 
-void CPU::bc1f(uint32_t opcode)
-{
+void CPU::bc1f(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if the CP1 condition bit is 0
     delaySlot = programCounter;
     if (!(CPU_CP1::read(CP1_CTRL, 31) & (1 << 23)))
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bc1t(uint32_t opcode)
-{
+void CPU::bc1t(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if the CP1 condition bit is 1
     delaySlot = programCounter;
     if (CPU_CP1::read(CP1_CTRL, 31) & (1 << 23))
         programCounter += ((int16_t)opcode << 2) - 4;
 }
 
-void CPU::bc1fl(uint32_t opcode)
-{
+void CPU::bc1fl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if the CP1 condition bit is 0
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1162,8 +1042,7 @@ void CPU::bc1fl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::bc1tl(uint32_t opcode)
-{
+void CPU::bc1tl(uint32_t opcode) {
     // Add a 16-bit offset to the program counter if CP1 condition bit is 1
     // Otherwise, discard the delay slot opcode
     delaySlot = programCounter;
@@ -1173,31 +1052,27 @@ void CPU::bc1tl(uint32_t opcode)
         nextOpcode = 0;
 }
 
-void CPU::cop0(uint32_t opcode)
-{
+void CPU::cop0(uint32_t opcode) {
     // Trigger a CP0 unusable exception if CP0 is disabled
     if (!CPU_CP0::cpUsable(0))
         return CPU_CP0::exception(11);
 
     // Look up a CP0 instruction
-    switch ((opcode >> 21) & 0x1F)
-    {
+    switch ((opcode >> 21) & 0x1F) {
         case 0x00: return mfc0(opcode);
         case 0x04: return mtc0(opcode);
         case 0x10: return (*CPU_CP0::cp0Instrs[opcode & 0x3F])(opcode);
-        default:   return unk(opcode);
+        default: return unk(opcode);
     }
 }
 
-void CPU::cop1(uint32_t opcode)
-{
+void CPU::cop1(uint32_t opcode) {
     // Trigger a CP1 unusable exception if CP1 is disabled
     if (!CPU_CP0::cpUsable(1))
         return CPU_CP0::exception(11);
 
     // Look up a CP1 instruction
-    switch ((opcode >> 21) & 0x1F)
-    {
+    switch ((opcode >> 21) & 0x1F) {
         case 0x00: return mfc1(opcode);
         case 0x01: return dmfc1(opcode);
         case 0x02: return cfc1(opcode);
@@ -1208,21 +1083,19 @@ void CPU::cop1(uint32_t opcode)
         case 0x11: return (*CPU_CP1::dblInstrs[opcode & 0x3F])(opcode);
         case 0x14: return (*CPU_CP1::wrdInstrs[opcode & 0x3F])(opcode);
         case 0x15: return (*CPU_CP1::lwdInstrs[opcode & 0x3F])(opcode);
-        default:   return unk(opcode);
+        default: return unk(opcode);
 
-        case 0x08:
-            switch ((opcode >> 16) & 0x3)
-            {
-                case 0x0: return bc1f(opcode);
-                case 0x1: return bc1t(opcode);
-                case 0x2: return bc1fl(opcode);
-                case 0x3: return bc1tl(opcode);
-            }
+    case 0x08:
+        switch ((opcode >> 16) & 0x3) {
+            case 0x0: return bc1f(opcode);
+            case 0x1: return bc1t(opcode);
+            case 0x2: return bc1fl(opcode);
+            case 0x3: return bc1tl(opcode);
+        }
     }
 }
 
-void CPU::unk(uint32_t opcode)
-{
+void CPU::unk(uint32_t opcode) {
     // Warn about unknown instructions
     LOG_CRIT("Unknown CPU opcode: 0x%08X @ 0x%X\n", opcode, programCounter - 4);
 }

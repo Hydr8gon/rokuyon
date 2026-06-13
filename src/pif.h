@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,14 +17,12 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef PIF_H
-#define PIF_H
+#pragma once
 
 #include <cstdint>
 #include <cstdio>
 
-namespace PIF
-{
+namespace PIF {
     extern uint8_t memory[0x800];
 
     void reset();
@@ -34,5 +32,3 @@ namespace PIF
     void releaseKey(int key);
     void setStick(int x, int y);
 }
-
-#endif // PIF_H

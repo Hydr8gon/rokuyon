@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -25,8 +25,7 @@
 #include "../core.h"
 #include "../settings.h"
 
-enum AppEvent
-{
+enum AppEvent {
     UPDATE = 1
 };
 
@@ -34,8 +33,7 @@ wxBEGIN_EVENT_TABLE(ryApp, wxApp)
 EVT_TIMER(UPDATE, ryApp::update)
 wxEND_EVENT_TABLE()
 
-int ryApp::keyBinds[] =
-{
+int ryApp::keyBinds[] = {
     'L', 'K', 'J', 'G', // A, B, Z, Start
     WXK_UP, WXK_DOWN, WXK_LEFT, WXK_RIGHT, // D-pad
     'Q', 'P', // L, R
@@ -44,11 +42,9 @@ int ryApp::keyBinds[] =
     WXK_ESCAPE // Full screen
 };
 
-bool ryApp::OnInit()
-{
+bool ryApp::OnInit() {
     // Define the input binding setting names
-    static const char *names[MAX_KEYS] =
-    {
+    static const char *names[MAX_KEYS] = {
         "keyA", "keyB", "keyZ", "keyStart",
         "keyDUp", "keyDDown", "keyDLeft", "keyDRight",
         "keyL", "keyR",
@@ -62,8 +58,7 @@ bool ryApp::OnInit()
         Settings::add(names[i], &keyBinds[i], false);
 
     // Try to load settings from the current directory first
-    if (!Settings::load())
-    {
+    if (!Settings::load()) {
         // Get the system-specific application settings directory
         std::string settingsDir;
         wxStandardPaths &paths = wxStandardPaths::Get();
@@ -76,8 +71,7 @@ bool ryApp::OnInit()
 #endif
 
         // Try to load settings from the system directory, creating it if it doesn't exist
-        if (!Settings::load(settingsDir + "/rokuyon.ini"))
-        {
+        if (!Settings::load(settingsDir + "/rokuyon.ini")) {
             wxFileName dir = wxFileName::DirName(settingsDir);
             if (!dir.DirExists()) dir.Mkdir();
             Settings::save();
@@ -96,28 +90,24 @@ bool ryApp::OnInit()
     Pa_Initialize();
     Pa_OpenDefaultStream(&stream, 0, 2, paInt16, 48000, 1024, audioCallback, nullptr);
     Pa_StartStream(stream);
-
     return true;
 }
 
-int ryApp::OnExit()
-{
+int ryApp::OnExit() {
     // Stop some things before exiting
     Pa_StopStream(stream);
     timer->Stop();
     return wxApp::OnExit();
 }
 
-void ryApp::update(wxTimerEvent &event)
-{
-    // Continuously refresh the frame
-    frame->Refresh();
-}
-
 int ryApp::audioCallback(const void *in, void *out, unsigned long count,
-    const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data)
-{
+    const PaStreamCallbackTimeInfo *info, PaStreamCallbackFlags flags, void *data) {
     // Get samples from the audio interface
     AI::fillBuffer((uint32_t*)out);
     return paContinue;
+}
+
+void ryApp::update(wxTimerEvent &event) {
+    // Continuously refresh the frame
+    frame->Refresh();
 }

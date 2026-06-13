@@ -34,7 +34,7 @@ or a built-in package manager on Linux. Run `make -j$(nproc)` in the project roo
 **Switch:** Install [devkitPro](https://devkitpro.org/wiki/Getting_Started) and its `switch-dev` package. Run
 `make switch -j$(nproc)` in the project root directory to start building.
 
-### Hardware References
+### References
 * [N64brew Wiki](https://n64brew.dev/wiki/Main_Page) - Extensive documentation of both hardware and software
 * [RSP Vector Instructions](https://emudev.org/2020/03/28/RSP.html) - Detailed information on how vector opcodes work
 * [RCP Documentation](https://dragonminded.com/n64dev/Reality%20Coprocessor.pdf) - Nice reference for a subset of RDP

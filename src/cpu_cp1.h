@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,20 +17,17 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef CPU_CP1_H
-#define CPU_CP1_H
+#pragma once
 
 #include <cstdint>
 
-enum CP1Type
-{
+enum CP1Type {
     CP1_32BIT = 0,
     CP1_64BIT,
     CP1_CTRL
 };
 
-namespace CPU_CP1
-{
+namespace CPU_CP1 {
     extern void (*sglInstrs[])(uint32_t);
     extern void (*dblInstrs[])(uint32_t);
     extern void (*wrdInstrs[])(uint32_t);
@@ -41,5 +38,3 @@ namespace CPU_CP1
     void write(CP1Type type, int index, uint64_t value);
     void setRegMode(bool full);
 }
-
-#endif // CPU_CP1_H

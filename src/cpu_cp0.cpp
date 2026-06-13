@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -25,8 +25,7 @@
 #include "memory.h"
 #include "mi.h"
 
-namespace CPU_CP0
-{
+namespace CPU_CP0 {
     uint32_t _index;
     uint32_t entryLo0;
     uint32_t entryLo1;
@@ -57,20 +56,18 @@ namespace CPU_CP0
 }
 
 // CP0 instruction lookup table, using opcode bits 0-5
-void (*CPU_CP0::cp0Instrs[0x40])(uint32_t) =
-{
-    unk,  tlbr, tlbwi, unk, unk, unk, unk, unk, // 0x00-0x07
-    tlbp, unk,  unk,   unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x10-0x17
-    eret, unk,  unk,   unk, unk, unk, unk, unk, // 0x18-0x1F
-    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x20-0x27
-    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x28-0x2F
-    unk,  unk,  unk,   unk, unk, unk, unk, unk, // 0x30-0x37
-    unk,  unk,  unk,   unk, unk, unk, unk, unk  // 0x38-0x3F
+void (*CPU_CP0::cp0Instrs[0x40])(uint32_t) = {
+    unk, tlbr, tlbwi, unk, unk, unk, unk, unk, // 0x00-0x07
+    tlbp, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    eret, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x20-0x27
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk // 0x38-0x3F
 };
 
-void CPU_CP0::reset()
-{
+void CPU_CP0::reset() {
     // Reset the CPU CP0 to its initial state
     _index = 0;
     entryLo0 = 0;
@@ -90,162 +87,156 @@ void CPU_CP0::reset()
     scheduleCount();
 }
 
-int32_t CPU_CP0::read(int index)
-{
+int32_t CPU_CP0::read(int index) {
     // Read from a CPU CP0 register if one exists at the given index
-    switch (index)
-    {
-        case 0: // Index
-            // Get the index register
-            return _index;
+    switch (index) {
+    case 0: // Index
+        // Get the index register
+        return _index;
 
-        case 2: // EntryLo0
-            // Get the low entry 0 register
-            return entryLo0;
+    case 2: // EntryLo0
+        // Get the low entry 0 register
+        return entryLo0;
 
-        case 3: // EntryLo1
-            // Get the low entry 1 register
-            return entryLo1;
+    case 3: // EntryLo1
+        // Get the low entry 1 register
+        return entryLo1;
 
-        case 4: // Context
-            // Get the context register
-            return context;
+    case 4: // Context
+        // Get the context register
+        return context;
 
-        case 5: // PageMask
-            // Get the page mask register
-            return pageMask;
+    case 5: // PageMask
+        // Get the page mask register
+        return pageMask;
 
-        case 8: // BadVAddr
-            // Get the bad virtual address register
-            return badVAddr;
+    case 8: // BadVAddr
+        // Get the bad virtual address register
+        return badVAddr;
 
-        case 9: // Count
-            // Get the count register, as it would be at the current cycle
-            return count + ((Core::globalCycles - startCycles) >> 2);
+    case 9: // Count
+        // Get the count register, as it would be at the current cycle
+        return count + ((Core::globalCycles - startCycles) >> 2);
 
-        case 10: // EntryHi
-            // Get the high entry register
-            return entryHi;
+    case 10: // EntryHi
+        // Get the high entry register
+        return entryHi;
 
-        case 11: // Compare
-            // Get the compare register
-            return compare;
+    case 11: // Compare
+        // Get the compare register
+        return compare;
 
-        case 12: // Status
-            // Get the status register
-            return status;
+    case 12: // Status
+        // Get the status register
+        return status;
 
-        case 13: // Cause
-            // Get the cause register
-            return cause;
+    case 13: // Cause
+        // Get the cause register
+        return cause;
 
-        case 14: // EPC
-            // Get the exception program counter
-            return epc;
+    case 14: // EPC
+        // Get the exception program counter
+        return epc;
 
-        case 30: // ErrorEPC
-            // Get the error exception program counter
-            return errorEpc;
+    case 30: // ErrorEPC
+        // Get the error exception program counter
+        return errorEpc;
 
-        default:
-            LOG_WARN("Read from unknown CPU CP0 register: %d\n", index);
-            return 0;
+    default:
+        LOG_WARN("Read from unknown CPU CP0 register: %d\n", index);
+        return 0;
     }
 }
 
-void CPU_CP0::write(int index, int32_t value)
-{
+void CPU_CP0::write(int index, int32_t value) {
     // Write to a CPU CP0 register if one exists at the given index
-    switch (index)
-    {
-        case 0: // Index
-            // Set the index register
-            _index = value & 0x3F;
-            return;
+    switch (index) {
+    case 0: // Index
+        // Set the index register
+        _index = value & 0x3F;
+        return;
 
-        case 2: // EntryLo0
-            // Set the low entry 0 register
-            entryLo0 = value & 0x3FFFFFF;
-            return;
+    case 2: // EntryLo0
+        // Set the low entry 0 register
+        entryLo0 = value & 0x3FFFFFF;
+        return;
 
-        case 3: // EntryLo1
-            // Set the low entry 1 register
-            entryLo1 = value & 0x3FFFFFF;
-            return;
+    case 3: // EntryLo1
+        // Set the low entry 1 register
+        entryLo1 = value & 0x3FFFFFF;
+        return;
 
-        case 4: // Context
-            // Set the context register
-            context = value & 0xFFFFFFF0;
-            return;
+    case 4: // Context
+        // Set the context register
+        context = value & 0xFFFFFFF0;
+        return;
 
-        case 5: // PageMask
-            // Set the page mask register
-            pageMask = value & 0x1FFE000;
-            return;
+    case 5: // PageMask
+        // Set the page mask register
+        pageMask = value & 0x1FFE000;
+        return;
 
-        case 9: // Count
-            // Set the count register and reschedule its next update
-            count = value;
-            scheduleCount();
-            return;
+    case 9: // Count
+        // Set the count register and reschedule its next update
+        count = value;
+        scheduleCount();
+        return;
 
-        case 10: // EntryHi
-            // Set the high entry register
-            entryHi = value & 0xFFFFE0FF;
-            return;
+    case 10: // EntryHi
+        // Set the high entry register
+        entryHi = value & 0xFFFFE0FF;
+        return;
 
-        case 11: // Compare
-            // Set the compare register and acknowledge a timer interrupt
-            compare = value;
-            cause &= ~0x8000;
-            
-            // Update the count register and reschedule its next update
-            count += ((Core::globalCycles - startCycles) >> 2);
-            scheduleCount();
-            return;
+    case 11: // Compare
+        // Set the compare register and acknowledge a timer interrupt
+        compare = value;
+        cause &= ~0x8000;
 
-        case 12: // Status
-            // Set the status register and apply the FR bit to the CP1
-            status = value & 0xFF57FFFF;
-            checkInterrupts();
-            CPU_CP1::setRegMode(status & (1 << 26));
+        // Update the count register and reschedule its next update
+        count += ((Core::globalCycles - startCycles) >> 2);
+        scheduleCount();
+        return;
 
-            // Keep track of unimplemented bits that should do something
-            if (uint32_t bits = (value & 0xB0000E0))
-                LOG_WARN("Unimplemented CPU CP0 status bits set: 0x%X\n", bits);
-            return;
+    case 12: // Status
+        // Set the status register and apply the FR bit to the CP1
+        status = value & 0xFF57FFFF;
+        checkInterrupts();
+        CPU_CP1::setRegMode(status & (1 << 26));
 
-        case 13: // Cause
-            // Set the software interrupt flags
-            cause = (cause & ~0x300) | (value & 0x300);
-            checkInterrupts();
-            return;
+        // Keep track of unimplemented bits that should do something
+        if (uint32_t bits = (value & 0xB0000E0))
+            LOG_WARN("Unimplemented CPU CP0 status bits set: 0x%X\n", bits);
+        return;
 
-        case 14: // EPC
-            // Set the exception program counter
-            epc = value;
-            return;
+    case 13: // Cause
+        // Set the software interrupt flags
+        cause = (cause & ~0x300) | (value & 0x300);
+        checkInterrupts();
+        return;
 
-        case 30: // ErrorEPC
-            // Set the error exception program counter
-            errorEpc = value;
-            return;
+    case 14: // EPC
+        // Set the exception program counter
+        epc = value;
+        return;
 
-        default:
-            LOG_WARN("Write to unknown CPU CP0 register: %d\n", index);
-            return;
+    case 30: // ErrorEPC
+        // Set the error exception program counter
+        errorEpc = value;
+        return;
+
+    default:
+        LOG_WARN("Write to unknown CPU CP0 register: %d\n", index);
+        return;
     }
 }
 
-void CPU_CP0::resetCycles()
-{
+void CPU_CP0::resetCycles() {
     // Adjust the cycle counts for a cycle reset
     startCycles -= Core::globalCycles;
     endCycles -= Core::globalCycles;
 }
 
-void CPU_CP0::scheduleCount()
-{
+void CPU_CP0::scheduleCount() {
     // Assuming count is updated, schedule its next update
     // This is done as close to match as possible, with a limit to prevent cycle overflow
     startCycles = Core::globalCycles;
@@ -254,22 +245,19 @@ void CPU_CP0::scheduleCount()
 
     // Only reschedule if the update is sooner than what's already scheduled
     // This helps prevent overloading the scheduler when registers are used excessively
-    if (endCycles > cycles)
-    {
+    if (endCycles > cycles) {
         Core::schedule(updateCount, cycles - startCycles);
         endCycles = cycles;
     }
 }
 
-void CPU_CP0::updateCount()
-{
+void CPU_CP0::updateCount() {
     // Ignore the update if it was rescheduled
     if (Core::globalCycles != endCycles)
         return;
 
     // Update count and request a timer interrupt if it matches compare
-    if ((count += ((endCycles - startCycles) >> 2)) == compare)
-    {
+    if ((count += ((endCycles - startCycles) >> 2)) == compare) {
         cause |= 0x8000;
         checkInterrupts();
     }
@@ -279,28 +267,24 @@ void CPU_CP0::updateCount()
     scheduleCount();
 }
 
-void CPU_CP0::checkInterrupts()
-{
+void CPU_CP0::checkInterrupts() {
     // Set the external interrupt bit if any MI interrupt is set
     cause = (cause & ~0x400) | ((bool)(MI::interrupt & MI::mask) << 10);
 
     // Schedule an interrupt if able and an enabled bit is set
-    if (((status & 0x3) == 0x1) && (status & cause & 0xFF00) && !irqPending)
-    {
+    if (((status & 0x3) == 0x1) && (status & cause & 0xFF00) && !irqPending) {
         Core::schedule(interrupt, 2); // 1 CPU cycle
         irqPending = true;
     }
 }
 
-void CPU_CP0::interrupt()
-{
+void CPU_CP0::interrupt() {
     // Trigger an interrupt that has been scheduled
     CPU_CP0::exception(0);
     irqPending = false;
 }
 
-void CPU_CP0::exception(uint8_t type)
-{
+void CPU_CP0::exception(uint8_t type) {
     // Update registers for an exception and jump to the handler
     // TODO: handle nested exceptions
     status |= 0x2; // EXL
@@ -314,8 +298,7 @@ void CPU_CP0::exception(uint8_t type)
         CPU::programCounter += 0x180;
 
     // Return to the preceding branch if the exception occured in a delay slot
-    if (CPU::delaySlot != -1)
-    {
+    if (CPU::delaySlot != -1) {
         epc = CPU::delaySlot - 4;
         cause |= (1 << 31); // BD
     }
@@ -324,51 +307,42 @@ void CPU_CP0::exception(uint8_t type)
     Core::cpuRunning = true;
 }
 
-void CPU_CP0::setTlbAddress(uint32_t address)
-{
+void CPU_CP0::setTlbAddress(uint32_t address) {
     // Set the address that caused a TLB exception
     badVAddr = address;
     entryHi = address & 0xFFFFE000;
     context = (context & ~0x7FFFF0) | ((address >> 9) & 0x7FFFF0);
 }
 
-bool CPU_CP0::cpUsable(uint8_t cp)
-{
+bool CPU_CP0::cpUsable(uint8_t cp) {
     // Check if a coprocessor is usable (CP0 is always usable in kernel mode)
-    if (!(status & (1 << (28 + cp))) && (cp > 0 || (!(status & 0x6) && (status & 0x18))))
-    {
+    if (!(status & (1 << (28 + cp))) && (cp > 0 || (!(status & 0x6) && (status & 0x18)))) {
         // Set the coprocessor number bits
         cause = (cause & ~(0x3 << 28)) | ((cp & 0x3) << 28);
         return false;
     }
-
     return true;
 }
 
-void CPU_CP0::tlbr(uint32_t opcode)
-{
+void CPU_CP0::tlbr(uint32_t opcode) {
     // Get the TLB entry at the current index
     Memory::getEntry(_index, entryLo0, entryLo1, entryHi, pageMask);
 }
 
-void CPU_CP0::tlbwi(uint32_t opcode)
-{
+void CPU_CP0::tlbwi(uint32_t opcode) {
     // Set the TLB entry at the current index
     Memory::setEntry(_index, entryLo0, entryLo1, entryHi, pageMask);
 }
 
-void CPU_CP0::tlbp(uint32_t opcode)
-{
+void CPU_CP0::tlbp(uint32_t opcode) {
     // Search the TLB entries for one that matches the current high register
-    for (int i = 0; i < 32; i++)
-    {
+    for (int i = 0; i < 32; i++) {
         // Get a TLB entry
         uint32_t _entryLo0, _entryLo1, _entryHi, _pageMask;
         Memory::getEntry(i, _entryLo0, _entryLo1, _entryHi, _pageMask);
 
         // Set the index to the TLB entry if it matches
-        if (entryHi == _entryHi)
-        {
+        if (entryHi == _entryHi) {
             _index = i;
             return;
         }
@@ -378,16 +352,14 @@ void CPU_CP0::tlbp(uint32_t opcode)
     _index = (1 << 31);
 }
 
-void CPU_CP0::eret(uint32_t opcode)
-{
+void CPU_CP0::eret(uint32_t opcode) {
     // Return from an error exception or exception and clear the ERL or EXL bit
     CPU::programCounter = CPU_CP0::read((status & 0x4) ? 30 : 14) - 4;
     CPU::nextOpcode = 0;
     status &= ~((status & 0x4) ? 0x4 : 0x2);
 }
 
-void CPU_CP0::unk(uint32_t opcode)
-{
+void CPU_CP0::unk(uint32_t opcode) {
     // Warn about unknown instructions
     LOG_CRIT("Unknown CP0 opcode: 0x%08X @ 0x%X\n", opcode, CPU::programCounter - 4);
 }

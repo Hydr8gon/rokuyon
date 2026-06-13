@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,13 +17,11 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
 #include <string>
 
-namespace Settings
-{
+namespace Settings {
     void add(std::string name, void *value, bool isString);
     bool load(std::string filename = "rokuyon.ini");
     bool save();
@@ -33,5 +31,3 @@ namespace Settings
     extern int threadedRdp;
     extern int texFilter;
 }
-
-#endif // SETTINGS_H

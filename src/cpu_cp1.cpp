@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -25,8 +25,7 @@
 #include "cpu.h"
 #include "log.h"
 
-namespace CPU_CP1
-{
+namespace CPU_CP1 {
     bool fullMode;
     uint64_t registers[32];
     uint32_t status;
@@ -113,255 +112,224 @@ namespace CPU_CP1
 }
 
 // Single-precision FPU instruction lookup table, using opcode bits 0-5
-void (*CPU_CP1::sglInstrs[0x40])(uint32_t) =
-{
-    addS,    subS,    mulS,   divS,    sqrtS,   absS,    movS,   negS,    // 0x00-0x07
+void (*CPU_CP1::sglInstrs[0x40])(uint32_t) = {
+    addS, subS, mulS, divS, sqrtS, absS, movS, negS, // 0x00-0x07
     roundLS, truncLS, ceilLS, floorLS, roundWS, truncWS, ceilWS, floorWS, // 0x08-0x0F
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x10-0x17
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
-    unk,     cvtDS,   unk,    unk,     cvtWS,   cvtLS,   unk,    unk,     // 0x20-0x27
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
-    cf,      cunS,    ceqS,   cueqS,   coltS,   cultS,   coleS,  culeS,   // 0x30-0x37
-    cf,      cunS,    ceqS,   cueqS,   coltS,   cultS,   coleS,  culeS    // 0x38-0x3F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+    unk, cvtDS, unk, unk, cvtWS, cvtLS, unk, unk, // 0x20-0x27
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    cf, cunS, ceqS, cueqS, coltS, cultS, coleS, culeS, // 0x30-0x37
+    cf, cunS, ceqS, cueqS, coltS, cultS, coleS, culeS // 0x38-0x3F
 };
 
 // Double-precision FPU instruction lookup table, using opcode bits 0-5
-void (*CPU_CP1::dblInstrs[0x40])(uint32_t) =
-{
-    addD,    subD,    mulD,   divD,    sqrtD,   absD,    movD,   negD,    // 0x00-0x07
+void (*CPU_CP1::dblInstrs[0x40])(uint32_t) = {
+    addD, subD, mulD, divD, sqrtD, absD, movD, negD, // 0x00-0x07
     roundLD, truncLD, ceilLD, floorLD, roundWD, truncWD, ceilWD, floorWD, // 0x08-0x0F
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x10-0x17
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x18-0x1F
-    cvtSD,   unk,     unk,    unk,     cvtWD,   cvtLD,   unk,    unk,     // 0x20-0x27
-    unk,     unk,     unk,    unk,     unk,     unk,     unk,    unk,     // 0x28-0x2F
-    cf,      cunD,    ceqD,   cueqD,   coltD,   cultD,   coleD,  culeD,   // 0x30-0x37
-    cf,      cunD,    ceqD,   cueqD,   coltD,   cultD,   coleD,  culeD    // 0x38-0x3F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+    cvtSD, unk, unk, unk, cvtWD, cvtLD, unk, unk, // 0x20-0x27
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    cf, cunD, ceqD, cueqD, coltD, cultD, coleD, culeD, // 0x30-0x37
+    cf, cunD, ceqD, cueqD, coltD, cultD, coleD, culeD // 0x38-0x3F
 };
 
 // 32-bit integer FPU instruction lookup table, using opcode bits 0-5
-void (*CPU_CP1::wrdInstrs[0x40])(uint32_t) =
-{
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x00-0x07
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x10-0x17
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+void (*CPU_CP1::wrdInstrs[0x40])(uint32_t) = {
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
     cvtSW, cvtDW, unk, unk, unk, unk, unk, unk, // 0x20-0x27
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x28-0x2F
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x30-0x37
-    unk,   unk,   unk, unk, unk, unk, unk, unk  // 0x38-0x3F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk // 0x38-0x3F
 };
 
 // 64-bit integer FPU instruction lookup table, using opcode bits 0-5
-void (*CPU_CP1::lwdInstrs[0x40])(uint32_t) =
-{
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x00-0x07
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x08-0x0F
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x10-0x17
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x18-0x1F
+void (*CPU_CP1::lwdInstrs[0x40])(uint32_t) = {
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x00-0x07
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x08-0x0F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x10-0x17
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x18-0x1F
     cvtSL, cvtDL, unk, unk, unk, unk, unk, unk, // 0x20-0x27
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x28-0x2F
-    unk,   unk,   unk, unk, unk, unk, unk, unk, // 0x30-0x37
-    unk,   unk,   unk, unk, unk, unk, unk, unk  // 0x38-0x3F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x28-0x2F
+    unk, unk, unk, unk, unk, unk, unk, unk, // 0x30-0x37
+    unk, unk, unk, unk, unk, unk, unk, unk // 0x38-0x3F
 };
 
-void CPU_CP1::reset()
-{
+void CPU_CP1::reset() {
     // Reset the CPU CP1 to its initial state
     fullMode = false;
     memset(registers, 0, sizeof(registers));
     status = 0;
 }
 
-uint64_t CPU_CP1::read(CP1Type type, int index)
-{
-    switch (type)
-    {
-        case CP1_32BIT:
-            // Read a 32-bit register value, mapped based on the current mode
-            // TODO: make this endian-safe
-            return fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1));
+uint64_t CPU_CP1::read(CP1Type type, int index) {
+    switch (type) {
+    case CP1_32BIT:
+        // Read a 32-bit register value, mapped based on the current mode
+        // TODO: make this endian-safe
+        return fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1));
 
-        case CP1_64BIT:
-            // Read a 64-bit register value
-            return registers[index];
+    case CP1_64BIT:
+        // Read a 64-bit register value
+        return registers[index];
+
+    default:
+        // Read from a CPU CP1 control register if one exists at the given index
+        switch (index) {
+        case 31: // Status
+            // Get the status register
+            return status;
 
         default:
-            // Read from a CPU CP1 control register if one exists at the given index
-            switch (index)
-            {
-                case 31: // Status
-                    // Get the status register
-                    return status;
-
-                default:
-                    LOG_WARN("Read from unknown CPU CP1 control register: %d\n", index);
-                    return 0;
-            }
+            LOG_WARN("Read from unknown CPU CP1 control register: %d\n", index);
+            return 0;
+        }
     }
 }
 
-void CPU_CP1::write(CP1Type type, int index, uint64_t value)
-{
-    switch (type)
-    {
-        case CP1_32BIT:
-            // Write a 32-bit value to a register, mapped based on the current mode
-            // TODO: make this endian-safe
-            (fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1))) = value;
-            return;
+void CPU_CP1::write(CP1Type type, int index, uint64_t value) {
+    switch (type) {
+    case CP1_32BIT:
+        // Write a 32-bit value to a register, mapped based on the current mode
+        // TODO: make this endian-safe
+        (fullMode ? *(int32_t*)&registers[index] : *((int32_t*)&registers[index & ~1] + (index & 1))) = value;
+        return;
 
-        case CP1_64BIT:
-            // Write a 64-bit value to a register
-            registers[index] = value;
+    case CP1_64BIT:
+        // Write a 64-bit value to a register
+        registers[index] = value;
+        return;
+
+    default:
+        // Write to a CPU CP1 control register if one exists at the given index
+        switch (index) {
+        case 31: // Status
+            // Set the status register
+            status = value & 0x183FFFF;
+
+            // Keep track of unimplemented bits that should do something
+            if (uint32_t bits = (value & 0x1000F83))
+                LOG_WARN("Unimplemented CPU CP1 status bits set: 0x%X\n", bits);
             return;
 
         default:
-            // Write to a CPU CP1 control register if one exists at the given index
-            switch (index)
-            {
-                case 31: // Status
-                    // Set the status register
-                    status = value & 0x183FFFF;
-
-                    // Keep track of unimplemented bits that should do something
-                    if (uint32_t bits = (value & 0x1000F83))
-                        LOG_WARN("Unimplemented CPU CP1 status bits set: 0x%X\n", bits);
-                    return;
-
-                default:
-                    LOG_WARN("Write to unknown CPU CP1 control register: %d\n", index);
-                    return;
-            }
+            LOG_WARN("Write to unknown CPU CP1 control register: %d\n", index);
+            return;
+        }
     }
 }
 
-void CPU_CP1::setRegMode(bool full)
-{
+void CPU_CP1::setRegMode(bool full) {
     // Set the register mode to either full or half
     fullMode = full;
 }
 
-inline float &CPU_CP1::getFloat(int index)
-{
+inline float &CPU_CP1::getFloat(int index) {
     // Get a 32-bit register as a float, mapped based on the current mode
     // TODO: make this endian-safe
     return fullMode ? *(float*)&registers[index] :
         *((float*)&registers[index & ~1] + (index & 1));
 }
 
-inline double &CPU_CP1::getDouble(int index)
-{
+inline double &CPU_CP1::getDouble(int index) {
     // Get a 64-bit register as a double
     // This should be endian-safe as long as double and uint64_t have the same size
     return *(double*)&registers[index];
 }
 
-void CPU_CP1::addS(uint32_t opcode)
-{
+void CPU_CP1::addS(uint32_t opcode) {
     // Add a float to a float and store the result
     float value = getFloat((opcode >> 11) & 0x1F) + getFloat((opcode >> 16) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::addD(uint32_t opcode)
-{
+void CPU_CP1::addD(uint32_t opcode) {
     // Add a double to a double and store the result
     double value = getDouble((opcode >> 11) & 0x1F) + getDouble((opcode >> 16) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::subS(uint32_t opcode)
-{
+void CPU_CP1::subS(uint32_t opcode) {
     // Subtract a float from a float and store the result
     float value = getFloat((opcode >> 11) & 0x1F) - getFloat((opcode >> 16) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::subD(uint32_t opcode)
-{
+void CPU_CP1::subD(uint32_t opcode) {
     // Subtract a double from a double and store the result
     double value = getDouble((opcode >> 11) & 0x1F) - getDouble((opcode >> 16) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::mulS(uint32_t opcode)
-{
+void CPU_CP1::mulS(uint32_t opcode) {
     // Multiply a float by a float and store the result
     float value = getFloat((opcode >> 11) & 0x1F) * getFloat((opcode >> 16) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::mulD(uint32_t opcode)
-{
+void CPU_CP1::mulD(uint32_t opcode) {
     // Multiply a double by a double and store the result
     double value = getDouble((opcode >> 11) & 0x1F) * getDouble((opcode >> 16) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::divS(uint32_t opcode)
-{
+void CPU_CP1::divS(uint32_t opcode) {
     // Divide a float by a float and store the result
     float value = getFloat((opcode >> 11) & 0x1F) / getFloat((opcode >> 16) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::divD(uint32_t opcode)
-{
+void CPU_CP1::divD(uint32_t opcode) {
     // Divide a double by a double and store the result
     double value = getDouble((opcode >> 11) & 0x1F) / getDouble((opcode >> 16) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::sqrtS(uint32_t opcode)
-{
+void CPU_CP1::sqrtS(uint32_t opcode) {
     // Store the square root of a float
     getFloat((opcode >> 6) & 0x1F) = sqrt(getFloat((opcode >> 11) & 0x1F));
 }
 
-void CPU_CP1::sqrtD(uint32_t opcode)
-{
+void CPU_CP1::sqrtD(uint32_t opcode) {
     // Store the square root of a double
     getDouble((opcode >> 6) & 0x1F) = sqrt(getDouble((opcode >> 11) & 0x1F));
 }
 
-void CPU_CP1::absS(uint32_t opcode)
-{
+void CPU_CP1::absS(uint32_t opcode) {
     // Store the absolute value of a float
     getFloat((opcode >> 6) & 0x1F) = fabs(getFloat((opcode >> 11) & 0x1F));
 }
 
-void CPU_CP1::absD(uint32_t opcode)
-{
+void CPU_CP1::absD(uint32_t opcode) {
     // Store the absolute value of a double
     getDouble((opcode >> 6) & 0x1F) = fabs(getDouble((opcode >> 11) & 0x1F));
 }
 
-void CPU_CP1::movS(uint32_t opcode)
-{
+void CPU_CP1::movS(uint32_t opcode) {
     // Copy a float to another register
     getFloat((opcode >> 6) & 0x1F) = getFloat((opcode >> 11) & 0x1F);
 }
 
-void CPU_CP1::movD(uint32_t opcode)
-{
+void CPU_CP1::movD(uint32_t opcode) {
     // Copy a double to another register
     getDouble((opcode >> 6) & 0x1F) = getDouble((opcode >> 11) & 0x1F);
 }
 
-void CPU_CP1::negS(uint32_t opcode)
-{
+void CPU_CP1::negS(uint32_t opcode) {
     // Store the negative value of a float
     getFloat((opcode >> 6) & 0x1F) = -getFloat((opcode >> 11) & 0x1F);
 }
 
-void CPU_CP1::negD(uint32_t opcode)
-{
+void CPU_CP1::negD(uint32_t opcode) {
     // Store the negative value of a double
     getDouble((opcode >> 6) & 0x1F) = -getDouble((opcode >> 11) & 0x1F);
 }
 
-void CPU_CP1::roundWS(uint32_t opcode)
-{
+void CPU_CP1::roundWS(uint32_t opcode) {
     // Convert a float to a 32-bit integer with forced rounding to nearest
     int backup = fegetround();
     fesetround(FE_TONEAREST);
@@ -370,8 +338,7 @@ void CPU_CP1::roundWS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::roundWD(uint32_t opcode)
-{
+void CPU_CP1::roundWD(uint32_t opcode) {
     // Convert a double to a 32-bit integer with forced rounding to nearest
     int backup = fegetround();
     fesetround(FE_TONEAREST);
@@ -380,8 +347,7 @@ void CPU_CP1::roundWD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::roundLS(uint32_t opcode)
-{
+void CPU_CP1::roundLS(uint32_t opcode) {
     // Convert a float to a 64-bit integer with forced rounding to nearest
     int backup = fegetround();
     fesetround(FE_TONEAREST);
@@ -390,8 +356,7 @@ void CPU_CP1::roundLS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::roundLD(uint32_t opcode)
-{
+void CPU_CP1::roundLD(uint32_t opcode) {
     // Convert a double to a 64-bit integer with forced rounding to nearest
     int backup = fegetround();
     fesetround(FE_TONEAREST);
@@ -400,8 +365,7 @@ void CPU_CP1::roundLD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::truncWS(uint32_t opcode)
-{
+void CPU_CP1::truncWS(uint32_t opcode) {
     // Convert a float to a 32-bit integer with forced rounding towards zero
     int backup = fegetround();
     fesetround(FE_TOWARDZERO);
@@ -410,8 +374,7 @@ void CPU_CP1::truncWS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::truncWD(uint32_t opcode)
-{
+void CPU_CP1::truncWD(uint32_t opcode) {
     // Convert a double to a 32-bit integer with forced rounding towards zero
     int backup = fegetround();
     fesetround(FE_TOWARDZERO);
@@ -420,8 +383,7 @@ void CPU_CP1::truncWD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::truncLS(uint32_t opcode)
-{
+void CPU_CP1::truncLS(uint32_t opcode) {
     // Convert a float to a 64-bit integer with forced rounding towards zero
     int backup = fegetround();
     fesetround(FE_TOWARDZERO);
@@ -430,8 +392,7 @@ void CPU_CP1::truncLS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::truncLD(uint32_t opcode)
-{
+void CPU_CP1::truncLD(uint32_t opcode) {
     // Convert a double to a 64-bit integer with forced rounding towards zero
     int backup = fegetround();
     fesetround(FE_TOWARDZERO);
@@ -440,8 +401,7 @@ void CPU_CP1::truncLD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::ceilWS(uint32_t opcode)
-{
+void CPU_CP1::ceilWS(uint32_t opcode) {
     // Convert a float to a 32-bit integer with forced rounding upwards
     int backup = fegetround();
     fesetround(FE_UPWARD);
@@ -450,8 +410,7 @@ void CPU_CP1::ceilWS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::ceilWD(uint32_t opcode)
-{
+void CPU_CP1::ceilWD(uint32_t opcode) {
     // Convert a double to a 32-bit integer with forced rounding upwards
     int backup = fegetround();
     fesetround(FE_UPWARD);
@@ -460,8 +419,7 @@ void CPU_CP1::ceilWD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::ceilLS(uint32_t opcode)
-{
+void CPU_CP1::ceilLS(uint32_t opcode) {
     // Convert a float to a 64-bit integer with forced rounding upwards
     int backup = fegetround();
     fesetround(FE_UPWARD);
@@ -470,8 +428,7 @@ void CPU_CP1::ceilLS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::ceilLD(uint32_t opcode)
-{
+void CPU_CP1::ceilLD(uint32_t opcode) {
     // Convert a double to a 64-bit integer with forced rounding upwards
     int backup = fegetround();
     fesetround(FE_UPWARD);
@@ -480,8 +437,7 @@ void CPU_CP1::ceilLD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::floorWS(uint32_t opcode)
-{
+void CPU_CP1::floorWS(uint32_t opcode) {
     // Convert a float to a 32-bit integer with forced rounding downwards
     int backup = fegetround();
     fesetround(FE_DOWNWARD);
@@ -490,8 +446,7 @@ void CPU_CP1::floorWS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::floorWD(uint32_t opcode)
-{
+void CPU_CP1::floorWD(uint32_t opcode) {
     // Convert a double to a 32-bit integer with forced rounding downwards
     int backup = fegetround();
     fesetround(FE_DOWNWARD);
@@ -500,8 +455,7 @@ void CPU_CP1::floorWD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::floorLS(uint32_t opcode)
-{
+void CPU_CP1::floorLS(uint32_t opcode) {
     // Convert a float to a 64-bit integer with forced rounding downwards
     int backup = fegetround();
     fesetround(FE_DOWNWARD);
@@ -510,8 +464,7 @@ void CPU_CP1::floorLS(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::floorLD(uint32_t opcode)
-{
+void CPU_CP1::floorLD(uint32_t opcode) {
     // Convert a double to a 64-bit integer with forced rounding downwards
     int backup = fegetround();
     fesetround(FE_DOWNWARD);
@@ -520,113 +473,97 @@ void CPU_CP1::floorLD(uint32_t opcode)
     fesetround(backup);
 }
 
-void CPU_CP1::cvtSD(uint32_t opcode)
-{
+void CPU_CP1::cvtSD(uint32_t opcode) {
     // Convert a double to a float and store the result
     float value = getDouble((opcode >> 11) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtSW(uint32_t opcode)
-{
+void CPU_CP1::cvtSW(uint32_t opcode) {
     // Convert a 32-bit integer to a float and store the result
     float value = (int32_t)read(CP1_32BIT, (opcode >> 11) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtSL(uint32_t opcode)
-{
+void CPU_CP1::cvtSL(uint32_t opcode) {
     // Convert a 64-bit integer to a float and store the result
     float value = (int64_t)read(CP1_64BIT, (opcode >> 11) & 0x1F);
     getFloat((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtDS(uint32_t opcode)
-{
+void CPU_CP1::cvtDS(uint32_t opcode) {
     // Convert a float to a double and store the result
     double value = getFloat((opcode >> 11) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtDW(uint32_t opcode)
-{
+void CPU_CP1::cvtDW(uint32_t opcode) {
     // Convert a 32-bit integer to a double and store the result
     double value = (int32_t)read(CP1_32BIT, (opcode >> 11) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtDL(uint32_t opcode)
-{
+void CPU_CP1::cvtDL(uint32_t opcode) {
     // Convert a 64-bit integer to a double and store the result
     double value = (int64_t)read(CP1_64BIT, (opcode >> 11) & 0x1F);
     getDouble((opcode >> 6) & 0x1F) = value;
 }
 
-void CPU_CP1::cvtWS(uint32_t opcode)
-{
+void CPU_CP1::cvtWS(uint32_t opcode) {
     // Convert a float to a 32-bit integer and store the result
     int32_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
     write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
 }
 
-void CPU_CP1::cvtWD(uint32_t opcode)
-{
+void CPU_CP1::cvtWD(uint32_t opcode) {
     // Convert a double to a 32-bit integer and store the result
     int32_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
     write(CP1_32BIT, (opcode >> 6) & 0x1F, value);
 }
 
-void CPU_CP1::cvtLS(uint32_t opcode)
-{
+void CPU_CP1::cvtLS(uint32_t opcode) {
     // Convert a float to a 64-bit integer and store the result
     int64_t value = nearbyint(getFloat((opcode >> 11) & 0x1F));
     write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
 }
 
-void CPU_CP1::cvtLD(uint32_t opcode)
-{
+void CPU_CP1::cvtLD(uint32_t opcode) {
     // Convert a double to a 64-bit integer and store the result
     int64_t value = nearbyint(getDouble((opcode >> 11) & 0x1F));
     write(CP1_64BIT, (opcode >> 6) & 0x1F, value);
 }
 
-void CPU_CP1::cf(uint32_t opcode)
-{
+void CPU_CP1::cf(uint32_t opcode) {
     // Set the CP1 condition bit to false
     bool cond = false;
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cunS(uint32_t opcode)
-{
+void CPU_CP1::cunS(uint32_t opcode) {
     // Set the CP1 condition bit if one of two floats is NaN
     bool cond = (std::isnan(getFloat((opcode >> 11) & 0x1F)) || std::isnan(getFloat((opcode >> 16) & 0x1F)));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cunD(uint32_t opcode)
-{
+void CPU_CP1::cunD(uint32_t opcode) {
     // Set the CP1 condition bit if one of two doubles is NaN
     bool cond = (std::isnan(getDouble((opcode >> 11) & 0x1F)) || std::isnan(getDouble((opcode >> 16) & 0x1F)));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::ceqS(uint32_t opcode)
-{
+void CPU_CP1::ceqS(uint32_t opcode) {
     // Set the CP1 condition bit if two floats are equal
     bool cond = (getFloat((opcode >> 11) & 0x1F) == getFloat((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::ceqD(uint32_t opcode)
-{
+void CPU_CP1::ceqD(uint32_t opcode) {
     // Set the CP1 condition bit if two doubles are equal
     bool cond = (getDouble((opcode >> 11) & 0x1F) == getDouble((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cueqS(uint32_t opcode)
-{
+void CPU_CP1::cueqS(uint32_t opcode) {
     // Set the CP1 condition bit if two floats are equal or one of them is NaN
     float &a = getFloat((opcode >> 11) & 0x1F);
     float &b = getFloat((opcode >> 16) & 0x1F);
@@ -634,8 +571,7 @@ void CPU_CP1::cueqS(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cueqD(uint32_t opcode)
-{
+void CPU_CP1::cueqD(uint32_t opcode) {
     // Set the CP1 condition bit if two floats are equal or one of them is NaN
     double &a = getDouble((opcode >> 11) & 0x1F);
     double &b = getDouble((opcode >> 16) & 0x1F);
@@ -643,22 +579,19 @@ void CPU_CP1::cueqD(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::coltS(uint32_t opcode)
-{
+void CPU_CP1::coltS(uint32_t opcode) {
     // Set the CP1 condition bit if one float is less than another
     bool cond = (getFloat((opcode >> 11) & 0x1F) < getFloat((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::coltD(uint32_t opcode)
-{
+void CPU_CP1::coltD(uint32_t opcode) {
     // Set the CP1 condition bit if one double is less than another
     bool cond = (getDouble((opcode >> 11) & 0x1F) < getDouble((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cultS(uint32_t opcode)
-{
+void CPU_CP1::cultS(uint32_t opcode) {
     // Set the CP1 condition bit if one float is less than another or one of them is NaN
     float &a = getFloat((opcode >> 11) & 0x1F);
     float &b = getFloat((opcode >> 16) & 0x1F);
@@ -666,8 +599,7 @@ void CPU_CP1::cultS(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::cultD(uint32_t opcode)
-{
+void CPU_CP1::cultD(uint32_t opcode) {
     // Set the CP1 condition bit if one double is less than another or one of them is NaN
     double &a = getDouble((opcode >> 11) & 0x1F);
     double &b = getDouble((opcode >> 16) & 0x1F);
@@ -675,22 +607,19 @@ void CPU_CP1::cultD(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::coleS(uint32_t opcode)
-{
+void CPU_CP1::coleS(uint32_t opcode) {
     // Set the CP1 condition bit if one float is less or equal to another
     bool cond = (getFloat((opcode >> 11) & 0x1F) <= getFloat((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::coleD(uint32_t opcode)
-{
+void CPU_CP1::coleD(uint32_t opcode) {
     // Set the CP1 condition bit if one double is less or equal to another
     bool cond = (getDouble((opcode >> 11) & 0x1F) <= getDouble((opcode >> 16) & 0x1F));
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::culeS(uint32_t opcode)
-{
+void CPU_CP1::culeS(uint32_t opcode) {
     // Set the CP1 condition bit if one float is less or equal to another or one of them is NaN
     float &a = getFloat((opcode >> 11) & 0x1F);
     float &b = getFloat((opcode >> 16) & 0x1F);
@@ -698,8 +627,7 @@ void CPU_CP1::culeS(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::culeD(uint32_t opcode)
-{
+void CPU_CP1::culeD(uint32_t opcode) {
     // Set the CP1 condition bit if one double is less or equal to another or one of them is NaN
     double &a = getDouble((opcode >> 11) & 0x1F);
     double &b = getDouble((opcode >> 16) & 0x1F);
@@ -707,8 +635,7 @@ void CPU_CP1::culeD(uint32_t opcode)
     status = (status & ~(1 << 23)) | (cond << 23);
 }
 
-void CPU_CP1::unk(uint32_t opcode)
-{
+void CPU_CP1::unk(uint32_t opcode) {
     // Warn about unknown instructions
     LOG_CRIT("Unknown FPU opcode: 0x%08X @ 0x%X\n", opcode, CPU::programCounter - 4);
 }

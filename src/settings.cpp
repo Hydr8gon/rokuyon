@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -18,11 +18,9 @@
 */
 
 #include <vector>
-
 #include "settings.h"
 
-struct Setting
-{
+struct Setting {
     Setting(std::string name, void *value, bool isString):
         name(name), value(value), isString(isString) {}
 
@@ -31,16 +29,14 @@ struct Setting
     bool isString;
 };
 
-namespace Settings
-{
+namespace Settings {
     std::string filename;
     int fpsLimiter = 1;
     int expansionPak = 1;
     int threadedRdp = 0;
     int texFilter = 1;
 
-    std::vector<Setting> settings =
-    {
+    std::vector<Setting> settings = {
         Setting("fpsLimiter", &fpsLimiter, false),
         Setting("expansionPak", &expansionPak, false),
         Setting("threadedRdp", &threadedRdp, false),
@@ -48,32 +44,26 @@ namespace Settings
     };
 }
 
-void Settings::add(std::string name, void *value, bool isString)
-{
+void Settings::add(std::string name, void *value, bool isString) {
     // Add an additional platform setting to be loaded from the settings file
     settings.push_back(Setting(name, value, isString));
 }
 
-bool Settings::load(std::string filename)
-{
+bool Settings::load(std::string filename) {
     // Attempt to open the settings file; otherwise default values will be used
     Settings::filename = filename;
     FILE *file = fopen(filename.c_str(), "r");
     if (!file) return false;
 
-    char data[1024];
-
     // Read each line in the settings file and load values from them
-    while (fgets(data, 1024, file) != nullptr)
-    {
+    char data[1024];
+    while (fgets(data, 1024, file) != nullptr) {
         std::string line = data;
         int split = line.find("=");
         std::string name = line.substr(0, split);
 
-        for (size_t i = 0; i < settings.size(); i++)
-        {
-            if (name == settings[i].name)
-            {
+        for (size_t i = 0; i < settings.size(); i++) {
+            if (name == settings[i].name) {
                 std::string value = line.substr(split + 1, line.size() - split - 2);
                 if (settings[i].isString)
                     *(std::string*)settings[i].value = value;
@@ -88,15 +78,13 @@ bool Settings::load(std::string filename)
     return true;
 }
 
-bool Settings::save()
-{
+bool Settings::save() {
     // Attempt to open the settings file
     FILE *file = fopen(filename.c_str(), "w");
     if (!file) return false;
 
     // Write each value to a line in the settings file
-    for (size_t i = 0; i < settings.size(); i++)
-    {
+    for (size_t i = 0; i < settings.size(); i++) {
         std::string value = settings[i].isString ?
             *(std::string*)settings[i].value : std::to_string(*(int*)settings[i].value);
         fprintf(file, "%s=%s\n", settings[i].name.c_str(), value.c_str());

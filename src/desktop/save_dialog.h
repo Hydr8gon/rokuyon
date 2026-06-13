@@ -1,5 +1,5 @@
 /*
-    Copyright 2022-2024 Hydr8gon
+    Copyright 2022-2026 Hydr8gon
 
     This file is part of rokuyon.
 
@@ -17,32 +17,27 @@
     along with rokuyon. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef SAVE_DIALOG_H
-#define SAVE_DIALOG_H
+#pragma once
 
 #include <cstdint>
 #include <wx/wx.h>
 
-class SaveDialog: public wxDialog
-{
-    public:
-        SaveDialog(std::string &lastPath);
+class SaveDialog: public wxDialog {
+public:
+    SaveDialog(std::string &lastPath);
 
-    private:
-        std::string &lastPath;
-        uint32_t selection = 0;
+private:
+    std::string &lastPath;
+    uint32_t selection = 0;
 
-        uint32_t selectToSize(uint32_t select);
-        uint32_t sizeToSelect(uint32_t size);
+    uint32_t selectToSize(uint32_t select);
+    uint32_t sizeToSelect(uint32_t size);
 
-        void select0(wxCommandEvent &event);
-        void select1(wxCommandEvent &event);
-        void select2(wxCommandEvent &event);
-        void select3(wxCommandEvent &event);
-        void select4(wxCommandEvent &event);
-        void confirm(wxCommandEvent &event);
-
-        wxDECLARE_EVENT_TABLE();
+    void select0(wxCommandEvent &event);
+    void select1(wxCommandEvent &event);
+    void select2(wxCommandEvent &event);
+    void select3(wxCommandEvent &event);
+    void select4(wxCommandEvent &event);
+    void confirm(wxCommandEvent &event);
+    wxDECLARE_EVENT_TABLE();
 };
-
-#endif // SAVE_DIALOG_H
