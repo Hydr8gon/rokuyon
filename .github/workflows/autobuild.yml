@@ -8,14 +8,13 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-
     steps:
     - name: Install Flatpak and SDK
       run: |
         sudo apt update
         sudo apt install flatpak flatpak-builder -y
         sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-        sudo flatpak install flathub org.freedesktop.Platform//21.08 org.freedesktop.Sdk//21.08 -y
+        sudo flatpak install flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 -y
     - name: Checkout
       uses: actions/checkout@v4
     - name: Compile
@@ -30,16 +29,25 @@ jobs:
 
   build-mac:
     runs-on: macos-latest
-
     steps:
-    - name: Install wxWidgets and PortAudio
-      run: brew install wxmac portaudio
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
+      with:
+        nix_path: nixpkgs=channel:nixpkgs-25.05-darwin
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Compile
+    - name: Build wxWidgets
       run: |
+        git clone --recursive https://github.com/wxWidgets/wxWidgets.git --branch v3.3.2
+        cd wxWidgets
+        ./configure --disable-sys-libs --disable-shared --disable-tests --without-libcurl
         make -j$(sysctl -n hw.logicalcpu)
-        ./mac-bundle.sh --dmg
+        sudo make install
+    - name: Compile
+      shell: 'nix-shell -p portaudio libGL pkg-config --run "bash {0}"'
+      run: make -j$(sysctl -n hw.logicalcpu)
+    - name: Bundle
+      run: ./mac-bundle.sh --dmg
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
@@ -48,18 +56,17 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
     - name: Install MSYS2
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW64
+        msystem: UCRT64
         update: true
-    - name: Install build tools, wxWidgets, and PortAudio
-      run: pacman -S mingw-w64-x86_64-{gcc,pkg-config,wxWidgets,portaudio,jbigkit} make --noconfirm
+    - name: Install tools and dependencies
+      run: pacman -S mingw-w64-ucrt-x86_64-{gcc,pkg-config,wxwidgets3.3-msw,portaudio,jbigkit} make --noconfirm
       shell: msys2 {0}
+    - name: Checkout
+      uses: actions/checkout@v4
     - name: Compile
       run: |
         make -j$(nproc)
@@ -75,7 +82,6 @@ jobs:
   build-switch:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:latest
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -90,7 +96,6 @@ jobs:
   update-release:
     runs-on: ubuntu-latest
     needs: [build-linux, build-mac, build-windows, build-switch]
-
     steps:
     - name: Delete old release
       uses: dev-drprasad/delete-tag-and-release@v0.2.1
@@ -109,5 +114,6 @@ jobs:
         name: Rolling Release
         body: These are automatically updated builds of the latest commit.
         artifacts: "*.zip"
+        makeLatest: true
         tag: release
         token: ${{ secrets.GITHUB_TOKEN }}
