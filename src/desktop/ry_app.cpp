@@ -33,6 +33,7 @@ wxBEGIN_EVENT_TABLE(ryApp, wxApp)
 EVT_TIMER(UPDATE, ryApp::update)
 wxEND_EVENT_TABLE()
 
+int ryApp::limitStick = 1;
 int ryApp::keyBinds[] = {
     'L', 'K', 'J', 'G', // A, B, Z, Start
     WXK_UP, WXK_DOWN, WXK_LEFT, WXK_RIGHT, // D-pad
@@ -56,6 +57,7 @@ bool ryApp::OnInit() {
     // Register the input binding settings
     for (int i = 0; i < MAX_KEYS; i++)
         Settings::add(names[i], &keyBinds[i], false);
+    Settings::add("limitStick", &limitStick, false);
 
     // Try to load settings from the current directory first
     if (!Settings::load()) {

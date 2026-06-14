@@ -214,10 +214,11 @@ void ryFrame::releaseKey(int key) {
 void ryFrame::updateKeyStick() {
     // Apply the base stick movement from pressed keys
     int stickX = 0, stickY = 0;
-    if (stickPressed[0]) stickY += 85;
-    if (stickPressed[1]) stickY -= 85;
-    if (stickPressed[2]) stickX -= 85;
-    if (stickPressed[3]) stickX += 85;
+    int range = (ryApp::limitStick ? 85 : 127);
+    if (stickPressed[0]) stickY += range;
+    if (stickPressed[1]) stickY -= range;
+    if (stickPressed[2]) stickX -= range;
+    if (stickPressed[3]) stickX += range;
 
     // Scale diagonals to create a round boundary
     if (stickX && stickY) {
@@ -311,6 +312,7 @@ void ryFrame::toggleTexFilter(wxCommandEvent &event) {
 void ryFrame::updateJoystick(wxTimerEvent &event) {
     // Check the status of mapped joystick inputs
     int stickX = 0, stickY = 0;
+    int range = (ryApp::limitStick ? 85 : 127);
     int size = abs(joystick->GetXMax() - joystick->GetXMin()) / 2;
     for (int i = 0; i < MAX_KEYS; i++) {
         if (ryApp::keyBinds[i] >= 3000 && joystick->GetNumberAxes() > ryApp::keyBinds[i] - 3000) { // Axis -
@@ -319,25 +321,25 @@ void ryFrame::updateJoystick(wxTimerEvent &event) {
             case 14: // Stick Up
                 // Scale the axis position and apply it to the stick in the up direction
                 if (joystick->GetPosition(j) < axisBases[j])
-                    stickY -= (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickY -= (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 15: // Stick Down
                 // Scale the axis position and apply it to the stick in the down direction
                 if (joystick->GetPosition(j) < axisBases[j])
-                    stickY += (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickY += (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 16: // Stick Left
                 // Scale the axis position and apply it to the stick in the left direction
                 if (joystick->GetPosition(j) < axisBases[j])
-                    stickX += (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickX += (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 17: // Stick Right
                 // Scale the axis position and apply it to the stick in the right direction
                 if (joystick->GetPosition(j) < axisBases[j])
-                    stickX -= (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickX -= (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             default:
@@ -355,25 +357,25 @@ void ryFrame::updateJoystick(wxTimerEvent &event) {
             case 14: // Stick Up
                 // Scale the axis position and apply it to the stick in the up direction
                 if (joystick->GetPosition(j) > axisBases[j])
-                    stickY += (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickY += (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 15: // Stick Down
                 // Scale the axis position and apply it to the stick in the down direction
                 if (joystick->GetPosition(j) > axisBases[j])
-                    stickY -= (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickY -= (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 16: // Stick Left
                 // Scale the axis position and apply it to the stick in the left direction
                 if (joystick->GetPosition(j) > axisBases[j])
-                    stickX -= (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickX -= (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             case 17: // Stick Right
                 // Scale the axis position and apply it to the stick in the right direction
                 if (joystick->GetPosition(j) > axisBases[j])
-                    stickX += (joystick->GetPosition(j) - axisBases[j]) * 85 / size;
+                    stickX += (joystick->GetPosition(j) - axisBases[j]) * range / size;
                 continue;
 
             default:

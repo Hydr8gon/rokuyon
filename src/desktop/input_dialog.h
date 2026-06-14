@@ -31,7 +31,7 @@ private:
     wxTimer *timer;
     wxButton *keys[MAX_KEYS];
 
-    int keyBinds[MAX_KEYS];
+    int settings[MAX_KEYS + 1];
     std::vector<int> axisBases;
     wxButton *current = nullptr;
     int keyIndex = 0;
@@ -59,7 +59,7 @@ private:
     void remapSRight(wxCommandEvent &event);
     void remapSMod(wxCommandEvent &event);
     void remapFullScreen(wxCommandEvent &event);
-
+    void checkLimitStick(wxCommandEvent &event);
     void clearMap(wxCommandEvent &event);
     void updateJoystick(wxTimerEvent &event);
     void confirm(wxCommandEvent &event);

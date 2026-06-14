@@ -27,6 +27,7 @@
 class ryApp: public wxApp {
 public:
     static int keyBinds[MAX_KEYS];
+    static int limitStick;
 
 private:
     ryFrame *frame;

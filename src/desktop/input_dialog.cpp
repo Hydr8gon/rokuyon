@@ -41,6 +41,7 @@ enum InputEvent {
     REMAP_SRIGHT,
     REMAP_SMOD,
     REMAP_FULLSCREEN,
+    LIMIT_STICK,
     CLEAR_MAP,
     UPDATE_JOY
 };
@@ -66,6 +67,7 @@ EVT_BUTTON(REMAP_SLEFT, InputDialog::remapSLeft)
 EVT_BUTTON(REMAP_SRIGHT, InputDialog::remapSRight)
 EVT_BUTTON(REMAP_SMOD, InputDialog::remapSMod)
 EVT_BUTTON(REMAP_FULLSCREEN, InputDialog::remapFullScreen)
+EVT_CHECKBOX(LIMIT_STICK, InputDialog::checkLimitStick)
 EVT_BUTTON(CLEAR_MAP, InputDialog::clearMap)
 EVT_TIMER(UPDATE_JOY, InputDialog::updateJoystick)
 EVT_BUTTON(wxID_OK, InputDialog::confirm)
@@ -197,8 +199,9 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
     size_t scale = dummy->GetSize().y;
     delete dummy;
 
-    // Load the current key bindings
-    memcpy(keyBinds, ryApp::keyBinds, sizeof(keyBinds));
+    // Load the current input settings
+    memcpy(settings, ryApp::keyBinds, sizeof(settings));
+    settings[MAX_KEYS] = ryApp::limitStick;
 
     // Define labels for the bindings
     static const std::string labels[] = {
@@ -215,7 +218,7 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
     for (int i = 0; i < MAX_KEYS; i++) {
         keySizers[i] = new wxBoxSizer(wxHORIZONTAL);
         keySizers[i]->Add(new wxStaticText(this, wxID_ANY, labels[i] + ":"), 1, wxALIGN_CENTRE | wxRIGHT, scale / 16);
-        keys[i] = new wxButton(this, REMAP_A + i, keyToString(keyBinds[i]), wxDefaultPosition, wxSize(scale * 4, scale));
+        keys[i] = new wxButton(this, REMAP_A + i, keyToString(settings[i]), wxDefaultPosition, wxSize(scale * 4, scale));
         keySizers[i]->Add(keys[i], 0, wxLEFT, scale / 16);
     }
 
@@ -251,12 +254,18 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
     column4->Add(keySizers[7], 1, wxEXPAND | wxALL, scale / 8);
     column4->Add(keySizers[19], 1, wxEXPAND | wxALL, scale / 8);
 
-    // Combine the button tab contents and add a final border around it
+    // Combine all the remap buttons
     wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-    buttonSizer->Add(column1, 1, wxEXPAND | wxALL, scale / 8);
-    buttonSizer->Add(column2, 1, wxEXPAND | wxALL, scale / 8);
-    buttonSizer->Add(column3, 1, wxEXPAND | wxALL, scale / 8);
-    buttonSizer->Add(column4, 1, wxEXPAND | wxALL, scale / 8);
+    buttonSizer->Add(column1, 1, wxEXPAND);
+    buttonSizer->Add(column2, 1, wxEXPAND);
+    buttonSizer->Add(column3, 1, wxEXPAND);
+    buttonSizer->Add(column4, 1, wxEXPAND);
+
+    // Set up the stick range checkbox
+    wxBoxSizer *checkSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxCheckBox *rangeBox = new wxCheckBox(this, LIMIT_STICK, "Limit Stick Range");
+    checkSizer->Add(rangeBox, 0, wxALL, scale / 8);
+    rangeBox->SetValue(ryApp::limitStick);
 
     // Set up the navigation buttons
     wxBoxSizer *naviSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -265,15 +274,16 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
     naviSizer->Add(new wxButton(this, wxID_CANCEL, "Cancel"), 0, wxLEFT | wxRIGHT, scale / 16);
     naviSizer->Add(new wxButton(this, wxID_OK, "Confirm"), 0, wxLEFT, scale / 16);
 
-    // Populate the dialog
-    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(buttonSizer, 1, wxEXPAND);
-    sizer->Add(naviSizer, 0, wxEXPAND | wxALL, scale / 8);
-    SetSizerAndFit(sizer);
+    // Combine all the contents
+    wxBoxSizer* contents = new wxBoxSizer(wxVERTICAL);
+    contents->Add(buttonSizer, 1, wxEXPAND);
+    contents->Add(checkSizer, 0, wxEXPAND);
+    contents->Add(naviSizer, 0, wxEXPAND);
 
-    // Lock the window to the default size
-    SetMinSize(GetSize());
-    SetMaxSize(GetSize());
+    // Add a final border around everything
+    wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
+    sizer->Add(contents, 1, wxEXPAND | wxALL, scale / 4);
+    SetSizerAndFit(sizer);
 
     // Set up joystick input if a joystick is connected
     if (joystick) {
@@ -296,7 +306,7 @@ InputDialog::~InputDialog() {
 void InputDialog::resetLabels() {
     // Reset the button labels
     for (int i = 0; i < MAX_KEYS; i++)
-        keys[i]->SetLabel(keyToString(keyBinds[i]));
+        keys[i]->SetLabel(keyToString(settings[i]));
     current = nullptr;
 }
 
@@ -330,17 +340,22 @@ REMAP_FUNC(remapSRight, 17)
 REMAP_FUNC(remapSMod, 18)
 REMAP_FUNC(remapFullScreen, 19)
 
+void InputDialog::checkLimitStick(wxCommandEvent &event) {
+    // Toggle the limit stick range setting
+    settings[MAX_KEYS] = !settings[MAX_KEYS];
+}
+
 void InputDialog::clearMap(wxCommandEvent &event) {
     if (current) {
         // If a button is selected, clear only its mapping
-        keyBinds[keyIndex] = 0;
-        current->SetLabel(keyToString(keyBinds[keyIndex]));
+        settings[keyIndex] = 0;
+        current->SetLabel(keyToString(settings[keyIndex]));
         current = nullptr;
     }
     else {
         // If no button is selected, clear all mappings
         for (int i = 0; i < MAX_KEYS; i++)
-            keyBinds[i] = 0;
+            settings[i] = 0;
         resetLabels();
     }
 }
@@ -350,8 +365,8 @@ void InputDialog::updateJoystick(wxTimerEvent &event) {
     if (!current) return;
     for (int i = 0; i < joystick->GetNumberButtons(); i++) {
         if (joystick->GetButtonState(i)) {
-            keyBinds[keyIndex] = 1000 + i;
-            current->SetLabel(keyToString(keyBinds[keyIndex]));
+            settings[keyIndex] = 1000 + i;
+            current->SetLabel(keyToString(settings[keyIndex]));
             current = nullptr;
             return;
         }
@@ -361,14 +376,14 @@ void InputDialog::updateJoystick(wxTimerEvent &event) {
     int margin = abs(joystick->GetXMax() - joystick->GetXMin()) / 4;
     for (int i = 0; i < joystick->GetNumberAxes(); i++) {
         if (joystick->GetPosition(i) - axisBases[i] > margin) { // Positive axis
-            keyBinds[keyIndex] = 2000 + i;
-            current->SetLabel(keyToString(keyBinds[keyIndex]));
+            settings[keyIndex] = 2000 + i;
+            current->SetLabel(keyToString(settings[keyIndex]));
             current = nullptr;
             return;
         }
         else if (joystick->GetPosition(i) - axisBases[i] < -margin) { // Negative axis
-            keyBinds[keyIndex] = 3000 + i;
-            current->SetLabel(keyToString(keyBinds[keyIndex]));
+            settings[keyIndex] = 3000 + i;
+            current->SetLabel(keyToString(settings[keyIndex]));
             current = nullptr;
             return;
         }
@@ -376,8 +391,9 @@ void InputDialog::updateJoystick(wxTimerEvent &event) {
 }
 
 void InputDialog::confirm(wxCommandEvent &event) {
-    // Update and save the key bindings
-    memcpy(ryApp::keyBinds, keyBinds, sizeof(keyBinds));
+    // Update and save the input settings
+    memcpy(ryApp::keyBinds, settings, sizeof(settings));
+    ryApp::limitStick = settings[MAX_KEYS];
     Settings::save();
     event.Skip(true);
 }
@@ -385,8 +401,8 @@ void InputDialog::confirm(wxCommandEvent &event) {
 void InputDialog::pressKey(wxKeyEvent &event) {
     // Map the selected button to the pressed key
     if (current) {
-        keyBinds[keyIndex] = event.GetKeyCode();
-        current->SetLabel(keyToString(keyBinds[keyIndex]));
+        settings[keyIndex] = event.GetKeyCode();
+        current->SetLabel(keyToString(settings[keyIndex]));
         current = nullptr;
     }
 }
